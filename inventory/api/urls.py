@@ -1,9 +1,21 @@
-from django.urls import path
-from .views import RegisterView, UserListView, UserDeleteView, UserBlockView
+
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import (
+    VehicleViewSet, VehiclePriceViewSet, LocationViewSet, VehicleLocationViewSet,
+    ReturnLocationListView, VehicleQuoteView, AvailabilityView, ReservationViewSet
+)
+
+router = DefaultRouter()
+router.register(r"vehicles", VehicleViewSet, basename="vehicle")
+router.register(r"vehicle-prices", VehiclePriceViewSet, basename="vehicleprice")
+router.register(r"locations", LocationViewSet, basename="location")
+router.register(r"vehicle-locations", VehicleLocationViewSet, basename="vehiclelocation")
+router.register(r"reservations", ReservationViewSet, basename="reservation")
 
 urlpatterns = [
-    path('register/', RegisterView.as_view(), name='register'),
-    path('users/', UserListView.as_view(), name='user-list'),  # admin only
-    path('users/<int:pk>/delete/', UserDeleteView.as_view(), name='user-delete'),  # admin only
-    path('users/<int:pk>/block/', UserBlockView.as_view(), name='user-block'),  # admin only
+    path("", include(router.urls)),
+    path("return-locations/", ReturnLocationListView.as_view()),
+    path("vehicles/<uuid:pk>/quote/", VehicleQuoteView.as_view()),
+    path("availability/", AvailabilityView.as_view()),
 ]
