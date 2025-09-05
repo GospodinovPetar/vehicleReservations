@@ -30,10 +30,8 @@ class Vehicle(TimeStampedModel):
     type = models.CharField(max_length=12, choices=TYPE_CHOICES)
     engine_type = models.CharField(max_length=40, blank=True)  # petrol/diesel/electric
     seats = models.PositiveIntegerField(null=True, blank=True)
-    # fun easter egg
     unlimited_passengers = models.BooleanField(default=False)
 
-    # pricing (manager sets per-day only)
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     currency = models.CharField(max_length=3, default="EUR")
 
@@ -126,7 +124,6 @@ class Reservation(TimeStampedModel):
         if self.end_date and self.start_date and self.end_date <= self.start_date:
             errors["end_date"] = "End date must be after start date."
 
-        # ensure chosen locations are allowed for the vehicle
         if self.vehicle_id and self.pickup_location_id:
             ok = self.vehicle.vehicle_locations.filter(location_id=self.pickup_location_id, can_pickup=True).exists()
             if not ok:
@@ -149,7 +146,6 @@ class Reservation(TimeStampedModel):
     def available_vehicle_ids(start_date, end_date, pickup_location=None, return_location=None):
         # vehicles blocked by overlaps
         blocked = Reservation.objects.filter(status__in=ACTIVE_STATUSES)            .filter(start_date__lt=end_date, end_date__gt=start_date)            .values_list("vehicle_id", flat=True).distinct()
-        from django.db.models import Q
         vqs = Vehicle.objects.exclude(id__in=blocked)
         if pickup_location:
             vqs = vqs.filter(vehicle_locations__location=pickup_location, vehicle_locations__can_pickup=True)

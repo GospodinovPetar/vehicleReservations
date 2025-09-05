@@ -1,113 +1,220 @@
-
 from datetime import date
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods
-from django.middleware.csrf import get_token
 
 from .models import Vehicle, Location, Reservation
 from .pricing import RateTable, quote_total
 
+
 def home(request):
-    locations = Location.objects.all()
-    ctx = {"locations": locations}
-    return render(request, "home.html", ctx)
+    """
+    Render the home page with the list of locations.
+    """
+    all_locations = Location.objects.all()
+    context = {"locations": all_locations}
+    return render(request, "home.html", context)
+
 
 def search(request):
-    start = request.GET.get("start")
-    end = request.GET.get("end")
-    pickup_id = request.GET.get("pickup_location")
-    return_id = request.GET.get("return_location")
-    locations = Location.objects.all()
-    ctx = {"locations": locations, "start": start, "end": end, "pickup_location": pickup_id, "return_location": return_id}
+    """
+    Show available vehicles and quotes for the selected date range and locations.
+    """
+    start_date_param = request.GET.get("start")
+    end_date_param = request.GET.get("end")
+    pickup_location_id = request.GET.get("pickup_location")
+    return_location_id = request.GET.get("return_location")
 
-    if not start or not end:
-        return render(request, "home.html", ctx)
+    all_locations = Location.objects.all()
+    context = {
+        "locations": all_locations,
+        "start": start_date_param,
+        "end": end_date_param,
+        "pickup_location": pickup_location_id,
+        "return_location": return_location_id,
+    }
 
-    start_date = date.fromisoformat(start)
-    end_date = date.fromisoformat(end)
-    pickup = Location.objects.filter(id=pickup_id).first() if pickup_id else None
-    retloc = Location.objects.filter(id=return_id).first() if return_id else None
+    if not start_date_param or not end_date_param:
+        return render(request, "home.html", context)
 
-    # available vehicles
-    avail_ids = Reservation.available_vehicle_ids(start_date, end_date, pickup, retloc)
-    vehicles = Vehicle.objects.filter(id__in=avail_ids).prefetch_related("prices","vehicle_locations__location")
+    start_date = date.fromisoformat(start_date_param)
+    end_date = date.fromisoformat(end_date_param)
+
+    if pickup_location_id:
+        pickup_location = Location.objects.filter(id=pickup_location_id).first()
+    else:
+        pickup_location = None
+
+    if return_location_id:
+        return_location = Location.objects.filter(id=return_location_id).first()
+    else:
+        return_location = None
+
+    # Determine available vehicles for the request
+    available_vehicle_ids = Reservation.available_vehicle_ids(
+        start_date, end_date, pickup_location, return_location
+    )
+
+    vehicle_queryset = Vehicle.objects.filter(id__in=available_vehicle_ids).prefetch_related(
+        "prices", "vehicle_locations__location"
+    )
+
     results = []
-    for v in vehicles:
-        prices = {p.period_type: float(p.amount) for p in v.prices.all()}
-        rt = RateTable(day=prices.get("day"), week=prices.get("week"), month=prices.get("month"), currency=v.currency)
-        quote = quote_total(start_date, end_date, rt)
-        results.append({"vehicle": v, "quote": quote})
+    for vehicle in vehicle_queryset:
+        period_prices = {}
+        for price in vehicle.prices.all():
+            period_type = price.period_type
+            amount_value = float(price.amount)
+            period_prices[period_type] = amount_value
 
-    ctx["results"] = results
-    return render(request, "home.html", ctx)
+        rate_table = RateTable(
+            day=period_prices.get("day"),
+            week=period_prices.get("week"),
+            month=period_prices.get("month"),
+            currency=vehicle.currency,
+        )
+        quote_info = quote_total(start_date, end_date, rate_table)
+
+        result_item = {"vehicle": vehicle, "quote": quote_info}
+        results.append(result_item)
+
+    context["results"] = results
+    return render(request, "home.html", context)
+
 
 @require_http_methods(["POST"])
 def reserve(request):
-    payload = request.POST
-    v = get_object_or_404(Vehicle, id=payload.get("vehicle"))
+    """
+    Create a reservation for the selected vehicle and dates.
+    """
+    form_data = request.POST
+    vehicle_id = form_data.get("vehicle")
+    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+
     # Choose provided locations or sensible defaults from the vehicle availability
-    pickup_id = payload.get("pickup_location")
-    return_id = payload.get("return_location")
-    if pickup_id:
-        pickup = get_object_or_404(Location, id=pickup_id)
-    else:
-        pickup = v.vehicle_locations.filter(can_pickup=True).select_related("location").first().location
-    if return_id:
-        ret = get_object_or_404(Location, id=return_id)
-    else:
-        # default to a 'can_return' spot; prefer default_return locations when available
-        vl_qs = v.vehicle_locations.filter(can_return=True).select_related("location")
-        ret = (vl_qs.filter(location__is_default_return=True).first() or vl_qs.first()).location
-    start = date.fromisoformat(payload.get("start"))
-    end = date.fromisoformat(payload.get("end"))
+    pickup_location_id = form_data.get("pickup_location")
+    return_location_id = form_data.get("return_location")
 
-    r = Reservation(user=request.user, vehicle=v, pickup_location=pickup, return_location=ret, start_date=start, end_date=end, currency=v.currency)
+    if pickup_location_id:
+        pickup_location = get_object_or_404(Location, id=pickup_location_id)
+    else:
+        vehicle_location_pickup = (
+            vehicle.vehicle_locations.filter(can_pickup=True)
+            .select_related("location")
+            .first()
+        )
+        pickup_location = vehicle_location_pickup.location
+
+    if return_location_id:
+        return_location = get_object_or_404(Location, id=return_location_id)
+    else:
+        # Default to a 'can_return' spot; prefer default_return locations when available
+        vehicle_location_queryset = (
+            vehicle.vehicle_locations.filter(can_return=True)
+            .select_related("location")
+        )
+        preferred_return = vehicle_location_queryset.filter(
+            location__is_default_return=True
+        ).first()
+        if preferred_return:
+            return_location = preferred_return.location
+        else:
+            any_return = vehicle_location_queryset.first()
+            return_location = any_return.location
+
+    start_date = date.fromisoformat(form_data.get("start"))
+    end_date = date.fromisoformat(form_data.get("end"))
+
+    reservation = Reservation(
+        user=request.user,
+        vehicle=vehicle,
+        pickup_location=pickup_location,
+        return_location=return_location,
+        start_date=start_date,
+        end_date=end_date,
+        currency=vehicle.currency,
+    )
+
     try:
-        r.clean()
-    except Exception as e:
-        messages.error(request, str(e))
-        return redirect("/search/?start=%s&end=%s" % (start.isoformat(), end.isoformat()))
+        reservation.clean()
+    except Exception as error:
+        messages.error(request, str(error))
+        return redirect(f"/search/?start={start_date.isoformat()}&end={end_date.isoformat()}")
 
-    # compute price
-    prices = {p.period_type: float(p.amount) for p in v.prices.all()}
-    quote = quote_total(start, end, RateTable(day=prices.get("day"), week=prices.get("week"), month=prices.get("month"), currency=v.currency))
-    r.total_price = quote["total"]
-    r.save()
+    # Compute price
+    period_prices = {}
+    for price in vehicle.prices.all():
+        period_type = price.period_type
+        amount_value = float(price.amount)
+        period_prices[period_type] = amount_value
+
+    rate_table = RateTable(
+        day=period_prices.get("day"),
+        week=period_prices.get("week"),
+        month=period_prices.get("month"),
+        currency=vehicle.currency,
+    )
+    quote_info = quote_total(start_date, end_date, rate_table)
+
+    reservation.total_price = quote_info["total"]
+    reservation.save()
+
     messages.success(request, "Reservation created!")
     return redirect("/reservations/")
 
+
 def reservations(request):
-    res = Reservation.objects.filter(user=request.user).select_related("vehicle","pickup_location","return_location").all()
-    return render(request, "reservations.html", {"reservations": res})
+    """
+    List the user's reservations.
+    """
+    reservation_queryset = (
+        Reservation.objects.filter(user=request.user)
+        .select_related("vehicle", "pickup_location", "return_location")
+        .all()
+    )
+    context = {"reservations": reservation_queryset}
+    return render(request, "reservations.html", context)
+
 
 @require_http_methods(["POST"])
 def cancel_reservation(request, pk):
+    """
+    Cancel a reservation if it is pending or confirmed.
+    """
     from django.http import Http404
+
     try:
-        r = Reservation.objects.get(pk=pk, user=request.user)
+        reservation = Reservation.objects.get(pk=pk, user=request.user)
     except Reservation.DoesNotExist:
         raise Http404
-    if r.status not in ("PENDING","CONFIRMED"):
+
+    if reservation.status not in ("PENDING", "CONFIRMED"):
         messages.error(request, "Cannot cancel this reservation.")
     else:
-        r.status = "CANCELLED"
-        r.save(update_fields=["status"])
+        reservation.status = "CANCELLED"
+        reservation.save(update_fields=["status"])
         messages.success(request, "Reservation cancelled.")
+
     return redirect("/reservations/")
+
 
 @require_http_methods(["POST"])
 def reject_reservation(request, pk):
+    """
+    Reject a reservation if it is pending.
+    """
     from django.http import Http404
+
     try:
-        r = Reservation.objects.get(pk=pk, user=request.user)
+        reservation = Reservation.objects.get(pk=pk, user=request.user)
     except Reservation.DoesNotExist:
         raise Http404
-    if r.status != "PENDING":
+
+    if reservation.status != "PENDING":
         messages.error(request, "Only pending reservations can be rejected.")
     else:
-        r.status = "REJECTED"
-        r.save(update_fields=["status"])
+        reservation.status = "REJECTED"
+        reservation.save(update_fields=["status"])
         messages.success(request, "Reservation rejected.")
-    return redirect("/reservations/")
 
+    return redirect("/reservations/")
