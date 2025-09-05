@@ -58,4 +58,3 @@ DATABASES = {
 
 STATIC_URL = 'static/'
 
-AUTH_USER_MODEL = 'inventory.User'
