@@ -31,6 +31,15 @@
         {% endif %}
       </nav>
     </header>
+    {% if messages %}
+  <div style="margin:12px 0;">
+    {% for message in messages %}
+      <div style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </body>
 </html>
