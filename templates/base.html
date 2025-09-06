@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <title>Vehicle Rental</title>
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/modern-css-reset/dist/reset.min.css'>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 24px; }
+      header { display:flex; gap:16px; align-items:center; margin-bottom:20px; }
+      nav a { margin-right: 12px; }
+      .card { border:1px solid #ddd; padding:16px; border-radius:12px; margin-bottom:12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+      .row { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+      .btn { display:inline-block; padding:8px 12px; border-radius:8px; border:1px solid #333; text-decoration:none; }
+      .btn.primary { background:#111; color:#fff; }
+      form .row > div { display:flex; flex-direction:column; gap:6px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 8px; border-bottom: 1px solid #eee; text-align:left; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h2>Vehicle Rental</h2>
+      <nav>
+        {% if request.user.is_authenticated %}
+          <a href="/reservations/">My Reservations</a>
+          <a href="{% url 'accounts:logout' %}">Logout</a>
+        {% else %}
+          <a href="{% url 'accounts:login' %}">Login</a>
+          <a href="{% url 'accounts:register' %}">Register</a>
+        {% endif %}
+      </nav>
+    </header>
+    {% block content %}{% endblock %}
+  </body>
+</html>

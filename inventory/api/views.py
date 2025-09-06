@@ -118,7 +118,7 @@ class AvailabilityView(APIView):
 
 class ReservationViewSet(viewsets.ModelViewSet):
     serializer_class = None  # we'll build responses manually for brevity
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Reservation.objects.filter(user=self.request.user).select_related("vehicle","pickup_location","return_location")
