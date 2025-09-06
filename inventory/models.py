@@ -1,4 +1,3 @@
-
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -26,7 +25,7 @@ class Vehicle(TimeStampedModel):
     TYPE_CHOICES = [("car", "Car"), ("motorbike", "Motorbike"), ("caravan", "Caravan")]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=120)            # e.g., "VW Golf 2"
+    name = models.CharField(max_length=120)  # e.g., "VW Golf 2"
     type = models.CharField(max_length=12, choices=TYPE_CHOICES)
     engine_type = models.CharField(max_length=40, blank=True)  # petrol/diesel/electric
     seats = models.PositiveIntegerField(null=True, blank=True)
@@ -40,7 +39,7 @@ class Vehicle(TimeStampedModel):
     def clean(self):
         super().clean()
         # Easter egg: VW Golf 2 -> unlimited seats
-        if (self.name or '').strip().lower() == "vw golf 2":
+        if (self.name or "").strip().lower() == "vw golf 2":
             self.unlimited_passengers = True
             self.seats = None
 
@@ -65,8 +64,12 @@ class Vehicle(TimeStampedModel):
 
 
 class VehicleLocation(TimeStampedModel):
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="vehicle_locations")
-    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="vehicle_locations")
+    vehicle = models.ForeignKey(
+        Vehicle, on_delete=models.CASCADE, related_name="vehicle_locations"
+    )
+    location = models.ForeignKey(
+        Location, on_delete=models.CASCADE, related_name="vehicle_locations"
+    )
     can_pickup = models.BooleanField(default=True)
     can_return = models.BooleanField(default=True)
 
@@ -77,7 +80,9 @@ class VehicleLocation(TimeStampedModel):
 class VehiclePrice(TimeStampedModel):
     PERIOD_CHOICES = [("day", "Day"), ("week", "Week"), ("month", "Month")]
 
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="prices")
+    vehicle = models.ForeignKey(
+        Vehicle, on_delete=models.CASCADE, related_name="prices"
+    )
     period_type = models.CharField(max_length=5, choices=PERIOD_CHOICES)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, default="EUR")
@@ -91,6 +96,7 @@ class VehiclePrice(TimeStampedModel):
 
 ACTIVE_STATUSES = ("PENDING", "CONFIRMED")
 
+
 class Reservation(TimeStampedModel):
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
@@ -101,10 +107,18 @@ class Reservation(TimeStampedModel):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reservations")
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="reservations")
-    pickup_location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="pickup_reservations")
-    return_location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="return_reservations")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reservations"
+    )
+    vehicle = models.ForeignKey(
+        Vehicle, on_delete=models.CASCADE, related_name="reservations"
+    )
+    pickup_location = models.ForeignKey(
+        Location, on_delete=models.PROTECT, related_name="pickup_reservations"
+    )
+    return_location = models.ForeignKey(
+        Location, on_delete=models.PROTECT, related_name="return_reservations"
+    )
     start_date = models.DateField()
     end_date = models.DateField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -128,31 +142,60 @@ class Reservation(TimeStampedModel):
 
         # ensure chosen locations are allowed for the vehicle
         if self.vehicle_id and self.pickup_location_id:
-            ok = self.vehicle.vehicle_locations.filter(location_id=self.pickup_location_id, can_pickup=True).exists()
+            ok = self.vehicle.vehicle_locations.filter(
+                location_id=self.pickup_location_id, can_pickup=True
+            ).exists()
             if not ok:
-                errors["pickup_location"] = "This vehicle cannot be picked up from the selected location."
+                errors["pickup_location"] = (
+                    "This vehicle cannot be picked up from the selected location."
+                )
         if self.vehicle_id and self.return_location_id:
-            ok = self.vehicle.vehicle_locations.filter(location_id=self.return_location_id, can_return=True).exists()
+            ok = self.vehicle.vehicle_locations.filter(
+                location_id=self.return_location_id, can_return=True
+            ).exists()
             if not ok:
-                errors["return_location"] = "This vehicle cannot be returned to the selected location."
+                errors["return_location"] = (
+                    "This vehicle cannot be returned to the selected location."
+                )
 
         # overlapping reservations (PENDING/CONFIRMED) block
         if self.vehicle_id and self.start_date and self.end_date:
-            qs = Reservation.objects.filter(vehicle_id=self.vehicle_id, status__in=ACTIVE_STATUSES)                .exclude(id=self.id)                .filter(start_date__lt=self.end_date, end_date__gt=self.start_date)
+            qs = (
+                Reservation.objects.filter(
+                    vehicle_id=self.vehicle_id, status__in=ACTIVE_STATUSES
+                )
+                .exclude(id=self.id)
+                .filter(start_date__lt=self.end_date, end_date__gt=self.start_date)
+            )
             if qs.exists():
-                errors["start_date"] = "Vehicle is not available in the selected period."
+                errors["start_date"] = (
+                    "Vehicle is not available in the selected period."
+                )
 
         if errors:
             raise ValidationError(errors)
 
     @staticmethod
-    def available_vehicle_ids(start_date, end_date, pickup_location=None, return_location=None):
+    def available_vehicle_ids(
+        start_date, end_date, pickup_location=None, return_location=None
+    ):
         # vehicles blocked by overlaps
-        blocked = Reservation.objects.filter(status__in=ACTIVE_STATUSES)            .filter(start_date__lt=end_date, end_date__gt=start_date)            .values_list("vehicle_id", flat=True).distinct()
-        from django.db.models import Q
+        blocked = (
+            Reservation.objects.filter(status__in=ACTIVE_STATUSES)
+            .filter(start_date__lt=end_date, end_date__gt=start_date)
+            .values_list("vehicle_id", flat=True)
+            .distinct()
+        )
+
         vqs = Vehicle.objects.exclude(id__in=blocked)
         if pickup_location:
-            vqs = vqs.filter(vehicle_locations__location=pickup_location, vehicle_locations__can_pickup=True)
+            vqs = vqs.filter(
+                vehicle_locations__location=pickup_location,
+                vehicle_locations__can_pickup=True,
+            )
         if return_location:
-            vqs = vqs.filter(vehicle_locations__location=return_location, vehicle_locations__can_return=True)
+            vqs = vqs.filter(
+                vehicle_locations__location=return_location,
+                vehicle_locations__can_return=True,
+            )
         return vqs.distinct().values_list("id", flat=True)
