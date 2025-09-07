@@ -8,5 +8,9 @@ urlpatterns = [
     path("search/", views.search, name="search"),
     path("reserve/", views.reserve, name="reserve"),
     path("reservations/", views.reservations, name="reservations"),
-    path("reservations/<int:pk>/reject/", views.reject_reservation, name="reject_reservation"),
+    path(
+        "reservations/<int:pk>/reject/",
+        views.reject_reservation,
+        name="reject_reservation",
+    ),
 ]

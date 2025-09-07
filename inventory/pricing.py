@@ -10,9 +10,10 @@ class RateTable:
     Only 'day' is used for pricing. 'week' and 'month' are kept
     for compatibility with older code but are ignored.
     """
+
     day: Optional[float] = None
-    week: Optional[float] = None    # ignored
-    month: Optional[float] = None   # ignored
+    week: Optional[float] = None  # ignored
+    month: Optional[float] = None  # ignored
     currency: str = "EUR"
 
 
@@ -24,7 +25,9 @@ def _safe_float(value) -> float:
         return 0.0
 
 
-def quote_total(start_date: date, end_date: date, rate_table: RateTable) -> Dict[str, object]:
+def quote_total(
+    start_date: date, end_date: date, rate_table: RateTable
+) -> Dict[str, object]:
     """
     Return a quote:
       total = number_of_days * day_price

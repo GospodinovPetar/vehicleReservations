@@ -102,10 +102,8 @@ def search(request):
             start_date, end_date, pickup_location, return_location
         )
 
-        vehicles_qs = (
-            Vehicle.objects
-            .filter(id__in=available_ids_qs)
-            .prefetch_related("available_pickup_locations", "available_return_locations")
+        vehicles_qs = Vehicle.objects.filter(id__in=available_ids_qs).prefetch_related(
+            "available_pickup_locations", "available_return_locations"
         )
 
     context["results"] = results
@@ -123,7 +121,9 @@ def reserve(request):
 
     if start_date is None or end_date is None or end_date <= start_date:
         messages.error(request, "Start date must be before end date.")
-        return redirect(f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}")
+        return redirect(
+            f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}"
+        )
 
     # Try posted IDs first
     pickup_location = None
@@ -141,17 +141,29 @@ def reserve(request):
         return_location = vehicle.available_return_locations.first()
 
     if pickup_location is None or return_location is None:
-        messages.error(request, "This vehicle has no configured pickup/return locations.")
-        return redirect(f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}")
+        messages.error(
+            request, "This vehicle has no configured pickup/return locations."
+        )
+        return redirect(
+            f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}"
+        )
 
     # Enforce allow-lists
     if not vehicle.available_pickup_locations.filter(pk=pickup_location.pk).exists():
-        messages.error(request, "Selected pickup location is not available for this vehicle.")
-        return redirect(f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}")
+        messages.error(
+            request, "Selected pickup location is not available for this vehicle."
+        )
+        return redirect(
+            f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}"
+        )
 
     if not vehicle.available_return_locations.filter(pk=return_location.pk).exists():
-        messages.error(request, "Selected return location is not available for this vehicle.")
-        return redirect(f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}")
+        messages.error(
+            request, "Selected return location is not available for this vehicle."
+        )
+        return redirect(
+            f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}"
+        )
 
     reservation = Reservation(
         user=request.user,
@@ -167,7 +179,9 @@ def reserve(request):
         reservation.full_clean()
     except Exception as exc:
         messages.error(request, str(exc))
-        return redirect(f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}")
+        return redirect(
+            f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}"
+        )
 
     reservation.save()
     messages.success(request, "Reservation created.")
@@ -189,8 +203,13 @@ def reservations(request):
 @require_http_methods(["POST"])
 def reject_reservation(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk, user=request.user)
-    if reservation.status not in (ReservationStatus.RESERVED, ReservationStatus.AWAITING_PICKUP):
-        messages.error(request, "Only new or awaiting-pickup reservations can be rejected.")
+    if reservation.status not in (
+        ReservationStatus.RESERVED,
+        ReservationStatus.AWAITING_PICKUP,
+    ):
+        messages.error(
+            request, "Only new or awaiting-pickup reservations can be rejected."
+        )
         return redirect("/reservations/")
     reservation.status = ReservationStatus.REJECTED
     reservation.save(update_fields=["status"])
@@ -198,7 +217,7 @@ def reject_reservation(request, pk):
     return redirect("/reservations/")
 
 
-# -------- simple auth views --------
+# -------- auth views --------
 @require_http_methods(["GET", "POST"])
 def register(request):
     if request.method == "POST":
@@ -206,7 +225,9 @@ def register(request):
         if form.is_valid():
             new_user = form.save()
             login(request, new_user)
-            messages.success(request, "Your account was created and you are now logged in.")
+            messages.success(
+                request, "Your account was created and you are now logged in."
+            )
             return redirect("/")
         messages.error(request, "Please correct the errors below.")
     else:

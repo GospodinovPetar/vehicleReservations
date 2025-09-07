@@ -176,8 +176,13 @@ def reject_reservation(request, pk):
     """
     reservation = get_object_or_404(Reservation, pk=pk, user=request.user)
 
-    if reservation.status not in (ReservationStatus.RESERVED, ReservationStatus.AWAITING_PICKUP):
-        messages.error(request, "Only new or awaiting-pickup reservations can be rejected.")
+    if reservation.status not in (
+        ReservationStatus.RESERVED,
+        ReservationStatus.AWAITING_PICKUP,
+    ):
+        messages.error(
+            request, "Only new or awaiting-pickup reservations can be rejected."
+        )
         return redirect("/reservations/")
 
     reservation.status = ReservationStatus.REJECTED
@@ -194,7 +199,9 @@ def register(request):
         if form.is_valid():
             new_user = form.save()
             login(request, new_user)
-            messages.success(request, "Your account was created and you are now logged in.")
+            messages.success(
+                request, "Your account was created and you are now logged in."
+            )
             return redirect("/")
         messages.error(request, "Please correct the errors below.")
     else:

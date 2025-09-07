@@ -1,7 +1,7 @@
-# inventory/signals.py
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 from django.db import connection
+from .models import Location
 
 
 DEFAULT_LOCATIONS = [
@@ -21,9 +21,6 @@ def create_default_locations(sender, **kwargs):
     """
     if getattr(sender, "name", None) != "inventory":
         return
-
-    # Import here so models are loaded
-    from .models import Location
 
     # If the table doesn't exist yet, do nothing (safety for fresh DBs)
     table_names = connection.introspection.table_names()

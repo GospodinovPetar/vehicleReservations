@@ -13,6 +13,7 @@ class Location(models.Model):
     def __str__(self) -> str:
         return self.name
 
+
 # -----------------------
 # Vehicles
 # -----------------------
@@ -33,10 +34,16 @@ class EngineType(models.TextChoices):
 
 class Vehicle(models.Model):
     name = models.CharField(max_length=120)
-    car_type = models.CharField(max_length=12, choices=CarType.choices, default=CarType.CAR)
-    engine_type = models.CharField(max_length=10, choices=EngineType.choices, default=EngineType.PETROL)
+    car_type = models.CharField(
+        max_length=12, choices=CarType.choices, default=CarType.CAR
+    )
+    engine_type = models.CharField(
+        max_length=10, choices=EngineType.choices, default=EngineType.PETROL
+    )
 
-    price_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    price_per_day = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
 
     seats = models.PositiveIntegerField(null=True, blank=True)
     unlimited_seats = models.BooleanField(default=False)
@@ -60,7 +67,9 @@ class Vehicle(models.Model):
             raise ValidationError({"seats": "Seats must be a positive number."})
 
         if self.price_per_day is None or self.price_per_day < 0:
-            raise ValidationError({"price_per_day": "Price per day must be zero or positive."})
+            raise ValidationError(
+                {"price_per_day": "Price per day must be zero or positive."}
+            )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -89,16 +98,30 @@ BLOCKING_STATUSES = (
 
 
 class Reservation(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reservations")
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="reservations")
-    pickup_location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="pickup_reservations")
-    return_location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="return_reservations")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reservations"
+    )
+    vehicle = models.ForeignKey(
+        Vehicle, on_delete=models.CASCADE, related_name="reservations"
+    )
+    pickup_location = models.ForeignKey(
+        Location, on_delete=models.PROTECT, related_name="pickup_reservations"
+    )
+    return_location = models.ForeignKey(
+        Location, on_delete=models.PROTECT, related_name="return_reservations"
+    )
 
     start_date = models.DateField()
     end_date = models.DateField()
 
-    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
-    status = models.CharField(max_length=20, choices=ReservationStatus.choices, default=ReservationStatus.RESERVED)
+    total_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=ReservationStatus.choices,
+        default=ReservationStatus.RESERVED,
+    )
 
     def __str__(self) -> str:
         return f"{self.vehicle} | {self.start_date} → {self.end_date} | {self.status}"
@@ -112,25 +135,37 @@ class Reservation(models.Model):
 
         # Pickup location must be allowed for the vehicle
         if self.vehicle_id and self.pickup_location_id:
-            allowed_pickup = self.vehicle.available_pickup_locations.filter(pk=self.pickup_location_id).exists()
+            allowed_pickup = self.vehicle.available_pickup_locations.filter(
+                pk=self.pickup_location_id
+            ).exists()
             if not allowed_pickup:
-                errors["pickup_location"] = "Selected pickup location is not available for this vehicle."
+                errors["pickup_location"] = (
+                    "Selected pickup location is not available for this vehicle."
+                )
 
         # Return location must be allowed for the vehicle
         if self.vehicle_id and self.return_location_id:
-            allowed_return = self.vehicle.available_return_locations.filter(pk=self.return_location_id).exists()
+            allowed_return = self.vehicle.available_return_locations.filter(
+                pk=self.return_location_id
+            ).exists()
             if not allowed_return:
-                errors["return_location"] = "Selected return location is not available for this vehicle."
+                errors["return_location"] = (
+                    "Selected return location is not available for this vehicle."
+                )
 
         # Overlapping active reservations block availability
         if self.vehicle_id and self.start_date and self.end_date:
             overlapping_qs = (
-                Reservation.objects.filter(vehicle_id=self.vehicle_id, status__in=BLOCKING_STATUSES)
+                Reservation.objects.filter(
+                    vehicle_id=self.vehicle_id, status__in=BLOCKING_STATUSES
+                )
                 .exclude(pk=self.pk)
                 .filter(start_date__lt=self.end_date, end_date__gt=self.start_date)
             )
             if overlapping_qs.exists():
-                errors["start_date"] = "Vehicle is not available in the selected period."
+                errors["start_date"] = (
+                    "Vehicle is not available in the selected period."
+                )
 
         if errors:
             raise ValidationError(errors)
@@ -148,7 +183,9 @@ class Reservation(models.Model):
         return super().save(*args, **kwargs)
 
     @staticmethod
-    def available_vehicle_ids(start_date, end_date, pickup_location=None, return_location=None):
+    def available_vehicle_ids(
+        start_date, end_date, pickup_location=None, return_location=None
+    ):
         """
         A helper to find vehicles that are free in [start_date, end_date).
         Also respects per-vehicle allowed pickup/return locations if provided.
