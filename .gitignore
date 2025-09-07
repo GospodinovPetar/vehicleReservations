@@ -33,11 +33,6 @@ Thumbs.db
 .env
 .env.*
 
-# Migrations
-*/migrations/
-*/migrations/*.py
-*/migrations/*.pyc
-
 # Node
 node_modules/
 
@@ -56,13 +51,3 @@ htmlcov/
 # Pyre
 .pyre/
 
-
-# Docker
-Dockerfile
-docker-compose.yml
-docker-compose.*.yml
-.dockerignore
-/docker/
-/compose/
-*.log
-*.pid

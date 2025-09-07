@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: vehicledb
+      POSTGRES_USER: vehicleuser
+      POSTGRES_PASSWORD: vehiclepass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vehicleuser -d vehicledb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web:
+    build: .
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      POSTGRES_DB: vehicledb
+      POSTGRES_USER: vehicleuser
+      POSTGRES_PASSWORD: vehiclepass
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+volumes:
+  pg_data:
