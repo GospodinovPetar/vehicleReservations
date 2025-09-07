@@ -23,9 +23,7 @@
             <select name="pickup_location">
               <option value="">Any</option>
               {% for l in locations %}
-                <option value="{{ l.id }}" {% if l.id|stringformat:'s' == pickup_location %}selected{% endif %}>
-                  {{ l.name }}
-                </option>
+                <option value="{{ l.id }}">{{ l.name }}</option>
               {% endfor %}
             </select>
           </label>
@@ -36,9 +34,7 @@
             <select name="return_location">
               <option value="">Any</option>
               {% for l in locations %}
-                <option value="{{ l.id }}" {% if l.id|stringformat:'s' == return_location %}selected{% endif %}>
-                  {{ l.name }}
-                </option>
+                <option value="{{ l.id }}">{{ l.name }}</option>
               {% endfor %}
             </select>
           </label>
@@ -80,10 +76,7 @@
                     Pickup:
                     <select name="pickup_location" required>
                       {% for loc in r.vehicle.available_pickup_locations.all %}
-                        <option value="{{ loc.id }}"
-                          {% if pickup_location and loc.id|stringformat:'s' == pickup_location %}selected{% endif %}>
-                          {{ loc.name }}
-                        </option>
+                        <option value="{{ loc.id }}">{{ loc.name }}</option>
                       {% empty %}
                         <option value="">No pickup locations configured</option>
                       {% endfor %}
@@ -94,10 +87,7 @@
                     Return:
                     <select name="return_location" required>
                       {% for loc in r.vehicle.available_return_locations.all %}
-                        <option value="{{ loc.id }}"
-                          {% if return_location and loc.id|stringformat:'s' == return_location %}selected{% endif %}>
-                          {{ loc.name }}
-                        </option>
+                        <option value="{{ loc.id }}">{{ loc.name }}</option>
                       {% empty %}
                         <option value="">No return locations configured</option>
                       {% endfor %}
