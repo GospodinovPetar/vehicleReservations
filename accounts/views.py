@@ -219,7 +219,7 @@ def login_view(request):
             login(request, form.get_user())
             user = form.get_user()
 
-            # Decide redirect based on role
+            # Role-based redirect
             if user.is_superuser:
                 return redirect("accounts:admin-dashboard")
             elif user.role == "manager":
