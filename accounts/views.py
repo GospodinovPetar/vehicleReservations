@@ -217,14 +217,20 @@ def login_view(request):
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             login(request, form.get_user())
-            next_url = request.GET.get("next")
-            if not next_url:
-                next_url = "/"
-            messages.success(request, "You are now logged in.")
-            return redirect(next_url)
+            user = form.get_user()
+
+            # Decide redirect based on role
+            if user.is_superuser:
+                return redirect("accounts:admin-dashboard")
+            elif user.role == "manager":
+                return redirect("accounts:manager-dashboard")
+            else:  # normal user
+                return redirect("/reservations/")
+
         messages.error(request, "Invalid username or password.")
     else:
         form = AuthenticationForm(request)
+
     return render(request, "auth.html", {"form": form, "title": "Login"})
 
 
