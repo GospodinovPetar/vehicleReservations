@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import Location, Vehicle, Reservation
+from django.contrib.auth.admin import UserAdmin
 
 
 @admin.register(Location)
@@ -43,3 +44,13 @@ class ReservationAdmin(admin.ModelAdmin):
 
     # Easy FK pickers
     autocomplete_fields = ("user", "vehicle", "pickup_location", "return_location")
+
+
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
+    model = User
+    list_display = ["username", "email", "role", "is_staff", "is_superuser", "is_blocked"]
+    list_filter = ["role", "is_staff", "is_superuser", "is_blocked"]
+    fieldsets = UserAdmin.fieldsets + (
+        ("Role & Status", {"fields": ("role", "is_blocked")}),
+    )
