@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 
 from inventory.models import Reservation, Location, Vehicle, ReservationStatus
 from .forms import CustomUserCreationForm
+from django.contrib.auth.decorators import user_passes_test, login_required
 
 
 # -----------------------------
@@ -178,8 +179,8 @@ def reject_reservation(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk, user=request.user)
 
     if reservation.status not in (
-        ReservationStatus.RESERVED,
-        ReservationStatus.AWAITING_PICKUP,
+            ReservationStatus.RESERVED,
+            ReservationStatus.AWAITING_PICKUP,
     ):
         messages.error(
             request, "Only new or awaiting-pickup reservations can be rejected."
@@ -231,3 +232,21 @@ def logout_view(request):
     logout(request)
     messages.success(request, "You have been logged out.")
     return redirect("/")
+
+
+def superuser_required(view_func):
+    return user_passes_test(lambda u: u.is_authenticated and u.is_superuser)(view_func)
+
+
+@superuser_required
+def admin_dashboard(request):
+    return render(request, "accounts/admin_dashboard.html")
+
+
+def manager_required(view_func):
+    return user_passes_test(lambda u: u.is_authenticated and u.role == "manager")(view_func)
+
+
+@manager_required
+def manager_dashboard(request):
+    return render(request, "accounts/manager_dashboard.html")

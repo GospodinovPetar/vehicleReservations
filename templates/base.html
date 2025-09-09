@@ -22,13 +22,30 @@
     <header>
       <h2>Vehicle Rental</h2>
       <nav>
-        {% if request.user.is_authenticated %}
-          <a href="/reservations/">My Reservations</a>
-          <a href="{% url 'accounts:logout' %}">Logout</a>
-        {% else %}
-          <a href="{% url 'accounts:login' %}">Login</a>
-          <a href="{% url 'accounts:register' %}">Register</a>
-        {% endif %}
+        <ul>
+    <li><a href="/">Home</a></li>
+
+    {% if user.is_authenticated %}
+      <!-- Links for everyone logged in -->
+      <li><a href="{% url 'accounts:logout' %}">Logout</a></li>
+
+      {% if user.is_superuser %}
+        <!-- Superuser menu -->
+        <li><a href="{% url 'accounts:admin-dashboard' %}">Admin Dashboard</a></li>
+      {% elif user.role == "manager" %}
+        <!-- Manager menu -->
+        <li><a href="{% url 'accounts:manager-dashboard' %}">Manager Dashboard</a></li>
+      {% elif user.role == "user" %}
+        <!-- Normal user menu -->
+        <li><a href="/reservations/">My Reservations</a></li>
+      {% endif %}
+
+    {% else %}
+      <!-- Links for guests -->
+      <li><a href="{% url 'accounts:login' %}">Login</a></li>
+      <li><a href="{% url 'accounts:register' %}">Register</a></li>
+    {% endif %}
+  </ul>
       </nav>
     </header>
     {% if messages %}

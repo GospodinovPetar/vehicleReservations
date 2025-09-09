@@ -1,0 +1,11 @@
+{% extends "accounts/base.html" %}
+
+{% block content %}
+  <h1>Manager Dashboard</h1>
+  <p>Welcome, {{ request.user.username }}!</p>
+
+  <ul>
+    <li><a href="/vehicles/">Manage Vehicles</a></li>
+    <li><a href="/reservations/">Manage Reservations</a></li>
+  </ul>
+{% endblock %}
