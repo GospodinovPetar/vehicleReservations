@@ -9,6 +9,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods
 
 from inventory.models import Reservation, Location, Vehicle, ReservationStatus
+from .forms import CustomUserCreationForm
 
 
 # -----------------------------
@@ -195,7 +196,7 @@ def reject_reservation(request, pk):
 @require_http_methods(["GET", "POST"])
 def register(request):
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             new_user = form.save()
             login(request, new_user)
@@ -205,7 +206,7 @@ def register(request):
             return redirect("/")
         messages.error(request, "Please correct the errors below.")
     else:
-        form = UserCreationForm()
+        form = CustomUserCreationForm()
     return render(request, "auth.html", {"form": form, "title": "Register"})
 
 

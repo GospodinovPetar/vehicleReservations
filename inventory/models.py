@@ -2,6 +2,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from decimal import Decimal
+from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 
 # -----------------------
@@ -184,7 +186,7 @@ class Reservation(models.Model):
 
     @staticmethod
     def available_vehicle_ids(
-        start_date, end_date, pickup_location=None, return_location=None
+            start_date, end_date, pickup_location=None, return_location=None
     ):
         """
         A helper to find vehicles that are free in [start_date, end_date).
@@ -206,3 +208,34 @@ class Reservation(models.Model):
             vehicles_qs = vehicles_qs.filter(available_return_locations=return_location)
 
         return vehicles_qs.distinct().values_list("id", flat=True)
+
+
+# ---------------
+# Users
+# ---------------
+
+
+class User(AbstractUser):
+    ROLE_CHOICES = (
+        ('admin', 'Admin'),
+        ('manager', 'Manager'),
+        ('user', 'User'),
+    )
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
+    is_blocked = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        # Sync role with built-in flags
+        if self.role == 'admin':
+            self.is_superuser = True
+            self.is_staff = True
+        elif self.role == 'manager':
+            self.is_superuser = False
+            self.is_staff = True
+        else:
+            self.is_superuser = False
+            self.is_staff = False
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.username} ({self.role})"
