@@ -20,6 +20,8 @@ class Location(models.Model):
 # Vehicles
 # -----------------------
 class CarType(models.TextChoices):
+    # TODO: Validation for the seats based on type of vehicle
+
     CAR = "car", "Car"
     MOTORCYCLE = "motorcycle", "Motorcycle"
     CARAVAN = "caravan", "Caravan"
@@ -136,9 +138,9 @@ class Reservation(models.Model):
             errors["end_date"] = "End date must be after start date."
 
         # Pickup location must be allowed for the vehicle
-        if self.vehicle_id and self.pickup_location_id:
+        if self.vehicle and self.pickup_location:
             allowed_pickup = self.vehicle.available_pickup_locations.filter(
-                pk=self.pickup_location_id
+                pk=self.pickup_location
             ).exists()
             if not allowed_pickup:
                 errors["pickup_location"] = (
@@ -146,9 +148,9 @@ class Reservation(models.Model):
                 )
 
         # Return location must be allowed for the vehicle
-        if self.vehicle_id and self.return_location_id:
+        if self.vehicle and self.return_location:
             allowed_return = self.vehicle.available_return_locations.filter(
-                pk=self.return_location_id
+                pk=self.return_location
             ).exists()
             if not allowed_return:
                 errors["return_location"] = (
@@ -156,15 +158,15 @@ class Reservation(models.Model):
                 )
 
         # Overlapping active reservations block availability
-        if self.vehicle_id and self.start_date and self.end_date:
-            overlapping_qs = (
+        if self.vehicle and self.start_date and self.end_date:
+            overlapping = (
                 Reservation.objects.filter(
-                    vehicle_id=self.vehicle_id, status__in=BLOCKING_STATUSES
+                    vehicle_id=self.vehicle, status__in=BLOCKING_STATUSES
                 )
                 .exclude(pk=self.pk)
                 .filter(start_date__lt=self.end_date, end_date__gt=self.start_date)
             )
-            if overlapping_qs.exists():
+            if overlapping.exists():
                 errors["start_date"] = (
                     "Vehicle is not available in the selected period."
                 )
@@ -185,29 +187,29 @@ class Reservation(models.Model):
         return super().save(*args, **kwargs)
 
     @staticmethod
-    def available_vehicle_ids(
-            start_date, end_date, pickup_location=None, return_location=None
+    def available_vehicles(
+        start_date, end_date, pickup_location=None, return_location=None
     ):
         """
         A helper to find vehicles that are free in [start_date, end_date).
         Also respects per-vehicle allowed pickup/return locations if provided.
         """
-        blocked_ids_qs = (
+        blocked_ids = (
             Reservation.objects.filter(status__in=BLOCKING_STATUSES)
             .filter(start_date__lt=end_date, end_date__gt=start_date)
             .values_list("vehicle_id", flat=True)
             .distinct()
         )
 
-        vehicles_qs = Vehicle.objects.exclude(id__in=blocked_ids_qs)
+        vehicles = Vehicle.objects.exclude(id__in=blocked_ids)
 
         if pickup_location is not None:
-            vehicles_qs = vehicles_qs.filter(available_pickup_locations=pickup_location)
+            vehicles = vehicles.filter(available_pickup_locations=pickup_location)
 
         if return_location is not None:
-            vehicles_qs = vehicles_qs.filter(available_return_locations=return_location)
+            vehicles = vehicles.filter(available_return_locations=return_location)
 
-        return vehicles_qs.distinct().values_list("id", flat=True)
+        return vehicles.distinct().values_list("id", flat=True)
 
 
 # ---------------
@@ -217,19 +219,19 @@ class Reservation(models.Model):
 
 class User(AbstractUser):
     ROLE_CHOICES = (
-        ('admin', 'Admin'),
-        ('manager', 'Manager'),
-        ('user', 'User'),
+        ("admin", "Admin"),
+        ("manager", "Manager"),
+        ("user", "User"),
     )
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="user")
     is_blocked = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         # Sync role with built-in flags
-        if self.role == 'admin':
+        if self.role == "admin":
             self.is_superuser = True
             self.is_staff = True
-        elif self.role == 'manager':
+        elif self.role == "manager":
             self.is_superuser = False
             self.is_staff = True
         else:

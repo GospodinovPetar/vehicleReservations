@@ -22,7 +22,6 @@ def create_default_locations(sender, **kwargs):
     if getattr(sender, "name", None) != "inventory":
         return
 
-    # If the table doesn't exist yet, do nothing (safety for fresh DBs)
     table_names = connection.introspection.table_names()
     if Location._meta.db_table not in table_names:
         return

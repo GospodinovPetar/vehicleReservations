@@ -42,7 +42,6 @@ class ReservationAdmin(admin.ModelAdmin):
     list_filter = ("status", "vehicle", "user")
     search_fields = ("id", "vehicle__name", "user__username")
 
-    # Easy FK pickers
     autocomplete_fields = ("user", "vehicle", "pickup_location", "return_location")
 
 

@@ -42,8 +42,8 @@ def compute_total(days_count, price_per_day):
 # Views
 # -----------------------------
 def home(request):
-    locations_qs = Location.objects.all()
-    context = {"locations": locations_qs}
+    locations = Location.objects.all()
+    context = {"locations": locations}
     return render(request, "home.html", context)
 
 
@@ -53,9 +53,9 @@ def search(request):
     pickup_location_id = request.GET.get("pickup_location")
     return_location_id = request.GET.get("return_location")
 
-    locations_qs = Location.objects.all()
+    locations = Location.objects.all()
     context = {
-        "locations": locations_qs,
+        "locations": locations,
         "start": start_param,
         "end": end_param,
         "pickup_location": pickup_location_id,
@@ -83,15 +83,15 @@ def search(request):
         return_location = Location.objects.filter(id=return_location_id).first()
 
     # find available vehicles for that window (and locations if provided)
-    available_ids_qs = Reservation.available_vehicle_ids(
+    available_ids = Reservation.available_vehicles(
         start_date, end_date, pickup_location, return_location
     )
-    vehicles_qs = Vehicle.objects.filter(id__in=available_ids_qs)
+    vehicles = Vehicle.objects.filter(id__in=available_ids)
 
     # build a plain list of results (no comprehensions)
     results = []
     days_count = (end_date - start_date).days
-    for v in vehicles_qs:
+    for v in vehicles:
         total_cost = compute_total(days_count, v.price_per_day)
         row = {
             "vehicle": v,
@@ -179,8 +179,8 @@ def reject_reservation(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk, user=request.user)
 
     if reservation.status not in (
-            ReservationStatus.RESERVED,
-            ReservationStatus.AWAITING_PICKUP,
+        ReservationStatus.RESERVED,
+        ReservationStatus.AWAITING_PICKUP,
     ):
         messages.error(
             request, "Only new or awaiting-pickup reservations can be rejected."
@@ -194,6 +194,7 @@ def reject_reservation(request, pk):
 
 
 # -------- auth views --------
+
 @require_http_methods(["GET", "POST"])
 def register(request):
     if request.method == "POST":
@@ -219,13 +220,17 @@ def login_view(request):
             login(request, form.get_user())
             user = form.get_user()
 
+            #TODO (BooleanField in the database showing permissions)
+            # Otherwise getting Unresolved attribute reference 'is_superuser' for class 'AbstractBaseUser'
+            # And skips the if statements and goes directly to normal user
             # Role-based redirect
+
             if user.is_superuser:
                 return redirect("accounts:admin-dashboard")
             elif user.role == "manager":
                 return redirect("accounts:manager-dashboard")
             else:  # normal user
-                return redirect("/reservations/")
+                return redirect("/")
 
         messages.error(request, "Invalid username or password.")
     else:
