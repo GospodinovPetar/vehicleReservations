@@ -258,3 +258,108 @@ def manager_required(view_func):
 @manager_required
 def manager_dashboard(request):
     return render(request, "accounts/manager_dashboard.html")
+
+
+# --- API Views ---
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+from inventory.models import CustomUser
+from inventory.serializers import (
+    UserRegistrationSerializer,
+    UserLoginSerializer,
+    UserProfileSerializer,
+    UserListSerializer,
+    UserManagementSerializer,
+    ChangePasswordSerializer,
+)
+
+
+# --- Registration API ---
+class UserRegistrationView(generics.CreateAPIView):
+    serializer_class = UserRegistrationSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+# --- JWT Login API ---
+class CustomTokenObtainPairView(TokenObtainPairView):
+    # Uses DRF SimpleJWT defaults, works with username + password
+    pass
+
+
+# --- Logout API ---
+class UserLogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        # For JWT logout, you can blacklist refresh tokens (if using token blacklist)
+        return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+
+
+# --- Profile API ---
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+
+# --- Change Password API ---
+class ChangePasswordView(generics.UpdateAPIView):
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+
+# --- Admin: List Users ---
+class UserListView(generics.ListAPIView):
+    serializer_class = UserListSerializer
+    queryset = CustomUser.objects.all()
+    permission_classes = [permissions.IsAdminUser]
+
+
+# --- Admin: Create User ---
+class UserCreateView(generics.CreateAPIView):
+    serializer_class = UserManagementSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+
+# --- Admin: User Detail (view/update/delete) ---
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = UserManagementSerializer
+    queryset = CustomUser.objects.all()
+    permission_classes = [permissions.IsAdminUser]
+
+
+# --- Admin: Block/Unblock User ---
+class BlockUserView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, pk):
+        user = generics.get_object_or_404(CustomUser, pk=pk)
+        user.is_blocked = True
+        user.save()
+        return Response({"detail": f"User {user.username} blocked."}, status=status.HTTP_200_OK)
+
+
+# --- Admin: User Stats ---
+class UserStatsView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        total_users = CustomUser.objects.count()
+        blocked_users = CustomUser.objects.filter(is_blocked=True).count()
+        managers = CustomUser.objects.filter(role="manager").count()
+        admins = CustomUser.objects.filter(role="admin").count()
+
+        return Response({
+            "total_users": total_users,
+            "blocked_users": blocked_users,
+            "managers": managers,
+            "admins": admins,
+        })
