@@ -189,7 +189,7 @@ class Reservation(models.Model):
 
     @staticmethod
     def available_vehicles(
-        start_date, end_date, pickup_location=None, return_location=None
+            start_date, end_date, pickup_location=None, return_location=None
     ):
         """
         A helper to find vehicles that are free in [start_date, end_date).
@@ -218,7 +218,6 @@ class Reservation(models.Model):
 # ---------------
 
 
-<<<<<<< HEAD
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [
         ('user', 'User'),
@@ -231,29 +230,6 @@ class CustomUser(AbstractUser):
     is_blocked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-=======
-class User(AbstractUser):
-    ROLE_CHOICES = (
-        ("admin", "Admin"),
-        ("manager", "Manager"),
-        ("user", "User"),
-    )
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="user")
-    is_blocked = models.BooleanField(default=False)
-
-    def save(self, *args, **kwargs):
-        # Sync role with built-in flags
-        if self.role == "admin":
-            self.is_superuser = True
-            self.is_staff = True
-        elif self.role == "manager":
-            self.is_superuser = False
-            self.is_staff = True
-        else:
-            self.is_superuser = False
-            self.is_staff = False
-        super().save(*args, **kwargs)
->>>>>>> c3451f12fa8fdea7c57ff6f9f96c09327e2721ab
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
@@ -282,4 +258,3 @@ class User(AbstractUser):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-        
