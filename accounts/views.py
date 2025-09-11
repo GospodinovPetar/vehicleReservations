@@ -223,9 +223,9 @@ def login_view(request):
 
             # Role-based redirect
             if user.is_admin:
-                return redirect("accounts:admin_dashboard")
+                return redirect("accounts:admin-dashboard")
             elif user.is_manager:
-                return redirect("accounts:manager_dashboard")
+                return redirect("accounts:manager-dashboard")
             else:
                 return redirect("/")  # normal user home
 
