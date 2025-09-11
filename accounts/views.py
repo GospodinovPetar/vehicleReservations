@@ -221,17 +221,13 @@ def login_view(request):
             login(request, form.get_user())
             user = form.get_user()
 
-            # TODO (BooleanField in the database showing permissions)
-            # Otherwise getting Unresolved attribute reference 'is_superuser' for class 'AbstractBaseUser'
-            # And skips the if statements and goes directly to normal user
             # Role-based redirect
-
-            if user.is_superuser:
-                return redirect("accounts:admin-dashboard")
-            elif user.role == "manager":
-                return redirect("accounts:manager-dashboard")
-            else:  # normal user
-                return redirect("/")
+            if user.is_admin:
+                return redirect("accounts:admin_dashboard")
+            elif user.is_manager:
+                return redirect("accounts:manager_dashboard")
+            else:
+                return redirect("/")  # normal user home
 
         messages.error(request, "Invalid username or password.")
     else:

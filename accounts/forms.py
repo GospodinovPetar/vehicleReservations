@@ -1,16 +1,17 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from inventory.models import AbstractUser
+from inventory.models import CustomUser
 
 
 class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
-        model = User
+        model = CustomUser
         fields = (
             "username",
+            "email",
             "password1",
             "password2",
-        )  # no role selection for normal signup
+        )
 
     def save(self, commit=True):
         user = super().save(commit=False)
