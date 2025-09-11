@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db import models
 from django.db.models import Q
 
+
 class VehicleType(models.TextChoices):
     CAR = "car", "Car"
     MOTORCYCLE = "motorcycle", "Motorcycle"
