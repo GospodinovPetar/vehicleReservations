@@ -195,6 +195,7 @@ def reject_reservation(request, pk):
 
 # -------- auth views --------
 
+
 @require_http_methods(["GET", "POST"])
 def register(request):
     if request.method == "POST":
@@ -220,7 +221,7 @@ def login_view(request):
             login(request, form.get_user())
             user = form.get_user()
 
-            #TODO (BooleanField in the database showing permissions)
+            # TODO (BooleanField in the database showing permissions)
             # Otherwise getting Unresolved attribute reference 'is_superuser' for class 'AbstractBaseUser'
             # And skips the if statements and goes directly to normal user
             # Role-based redirect
