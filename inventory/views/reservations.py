@@ -2,27 +2,14 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib import messages
-from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods
 
-from .models import Vehicle, Location, Reservation, ReservationStatus
-from rest_framework import status, generics, permissions
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
-from drf_spectacular.utils import extend_schema, OpenApiParameter
-from drf_spectacular.openapi import OpenApiTypes
-from accounts.models import CustomUser
+from inventory.models.reservation import Location, Reservation, ReservationStatus
+from inventory.models.vehicle import Vehicle
 
 
-# -----------------------------
-# Helpers
-# -----------------------------
 def parse_iso_date(value):
     """Return a date from YYYY-MM-DD string or None on error."""
     try:
@@ -42,9 +29,6 @@ def compute_total(days_count, price_per_day):
     return total.quantize(Decimal("0.01"))
 
 
-# -----------------------------
-# Views
-# -----------------------------
 def home(request):
     locations_qs = Location.objects.all()
     context = {"locations": locations_qs}
