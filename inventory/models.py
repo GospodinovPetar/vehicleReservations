@@ -1,10 +1,9 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
 from decimal import Decimal
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-import re
+from django.db.models import Q
 
 
 # -----------------------
@@ -20,14 +19,35 @@ class Location(models.Model):
 # -----------------------
 # Vehicles
 # -----------------------
-class CarType(models.TextChoices):
-    # TODO: Validation for the seats based on type of vehicle
 
+class VehicleType(models.TextChoices):
     CAR = "car", "Car"
     MOTORCYCLE = "motorcycle", "Motorcycle"
     CARAVAN = "caravan", "Caravan"
     VAN = "van", "Van"
     TRUCK = "truck", "Truck"
+
+SEAT_BOUNDS = {
+    VehicleType.CAR: (2, 5),
+    VehicleType.MOTORCYCLE: (1, 2),
+    VehicleType.CARAVAN: (2, 7),
+    VehicleType.VAN: (2, 9),
+    VehicleType.TRUCK: (1, 3),
+}
+
+GOLF_MK2_PATTERNS = (
+    "vw golf 2",
+    "vw golf ii",
+    "vw golf mk2",
+    "volkswagen golf ii",
+    "volkswagen golf 2",
+    "volkswagen golf mk2",
+    "golf mk2",
+    "golf 2",
+    "golf ii",
+    "golf dvoika",
+    "golf dve",
+)
 
 
 class EngineType(models.TextChoices):
@@ -36,52 +56,116 @@ class EngineType(models.TextChoices):
     ELECTRIC = "electric", "Electric"
     HYBRID = "hybrid", "Hybrid"
 
+def _is_golf_mk2(name: str) -> bool:
+    n = (name or "").strip().casefold()
+    for p in GOLF_MK2_PATTERNS:
+        if p in n:
+            return True
+    return False
+
 
 class Vehicle(models.Model):
     name = models.CharField(max_length=120)
+
     car_type = models.CharField(
-        max_length=12, choices=CarType.choices, default=CarType.CAR
+        max_length=12,
+        choices=VehicleType.choices,
+        default=VehicleType.CAR,
     )
     engine_type = models.CharField(
-        max_length=10, choices=EngineType.choices, default=EngineType.PETROL
+        max_length=10,
+        choices=EngineType.choices,
+        default=EngineType.PETROL,
     )
 
     price_per_day = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal("0.00")
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
     )
 
-    seats = models.PositiveIntegerField(null=True, blank=True)
+    seats = models.PositiveSmallIntegerField(null=True, blank=True)
     unlimited_seats = models.BooleanField(default=False)
 
-    # Allowed locations
     available_pickup_locations = models.ManyToManyField(
-        Location, related_name="pickup_vehicles", blank=True
+        "Location",
+        related_name="pickup_vehicles",
+        blank=True,
     )
     available_return_locations = models.ManyToManyField(
-        Location, related_name="return_vehicles", blank=True
+        "Location",
+        related_name="return_vehicles",
+        blank=True,
     )
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                name="vehicle_seats_bounds_per_type",
+                check=(
+                    Q(unlimited_seats=True)
+                    | (Q(car_type=VehicleType.CAR) & Q(seats__gte=2) & Q(seats__lte=5))
+                    | (
+                        Q(car_type=VehicleType.MOTORCYCLE)
+                        & Q(seats__gte=1)
+                        & Q(seats__lte=2)
+                    )
+                    | (
+                        Q(car_type=VehicleType.CARAVAN)
+                        & Q(seats__gte=2)
+                        & Q(seats__lte=7)
+                    )
+                    | (Q(car_type=VehicleType.VAN) & Q(seats__gte=2) & Q(seats__lte=9))
+                    | (
+                        Q(car_type=VehicleType.TRUCK)
+                        & Q(seats__gte=1)
+                        & Q(seats__lte=3)
+                    )
+                ),
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.car_type}/{self.engine_type})"
+
     def clean(self) -> None:
-        # Auto unlimited seats if name is "VW golf 2" (case-insensitive)
-        name_value = (self.name or "").strip().lower()
-        if name_value == "vw golf 2":
+        if _is_golf_mk2(self.name):
             self.unlimited_seats = True
             self.seats = None
-
-        if not self.unlimited_seats and self.seats is not None and self.seats <= 0:
-            raise ValidationError({"seats": "Seats must be a positive number."})
 
         if self.price_per_day is None or self.price_per_day < 0:
             raise ValidationError(
                 {"price_per_day": "Price per day must be zero or positive."}
             )
 
+        super().clean()
+
+        if self.unlimited_seats:
+            if self.seats is not None:
+                raise ValidationError(
+                    {"seats": "Leave seats empty when unlimited seats is enabled."}
+                )
+            return
+
+        if self.seats is None:
+            raise ValidationError({"seats": "Seats is required."})
+
+        if self.seats <= 0:
+            raise ValidationError({"seats": "Seats must be a positive number."})
+
+        bounds = SEAT_BOUNDS.get(self.car_type)
+        if bounds:
+            low, high = bounds
+            if self.seats < low or self.seats > high:
+                raise ValidationError(
+                    {
+                        "seats": f"{self.car_type} must have between {low} and {high} seats (got {self.seats})."
+                    }
+                )
+
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
-
-    def __str__(self) -> str:
-        return f"{self.name} ({self.car_type}/{self.engine_type})"
 
 
 # -----------------------
@@ -129,7 +213,7 @@ class Reservation(models.Model):
     )
 
     def __str__(self) -> str:
-        return f"{self.vehicle} | {self.start_date} → {self.end_date} | {self.status}"
+        return f"{self.vehicle} | {self.start_date} -> {self.end_date} | {self.status}"
 
     def clean(self) -> None:
         errors = {}
@@ -189,20 +273,20 @@ class Reservation(models.Model):
 
     @staticmethod
     def available_vehicles(
-            start_date, end_date, pickup_location=None, return_location=None
+        start_date, end_date, pickup_location=None, return_location=None
     ):
         """
         A helper to find vehicles that are free in [start_date, end_date).
         Also respects per-vehicle allowed pickup/return locations if provided.
         """
-        blocked_ids = (
+        blocked = (
             Reservation.objects.filter(status__in=BLOCKING_STATUSES)
             .filter(start_date__lt=end_date, end_date__gt=start_date)
             .values_list("vehicle_id", flat=True)
             .distinct()
         )
 
-        vehicles = Vehicle.objects.exclude(id__in=blocked_ids)
+        vehicles = Vehicle.objects.exclude(id__in=blocked)
 
         if pickup_location is not None:
             vehicles = vehicles.filter(available_pickup_locations=pickup_location)
@@ -218,43 +302,27 @@ class Reservation(models.Model):
 # ---------------
 
 
-class CustomUser(AbstractUser):
-    ROLE_CHOICES = [
-        ('user', 'User'),
-        ('manager', 'Manager'),
-        ('admin', 'Admin'),
-    ]
-
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
-    phone = models.CharField(max_length=15, blank=True, null=True)
+class User(AbstractUser):
+    ROLE_CHOICES = (
+        ("admin", "Admin"),
+        ("manager", "Manager"),
+        ("user", "User"),
+    )
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="user")
     is_blocked = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.username} ({self.get_role_display()})"
-
-    @property
-    def is_admin(self):
-        return self.role == 'admin' and not self.is_blocked
-
-    @property
-    def is_manager(self):
-        return self.role in ['manager', 'admin'] and not self.is_blocked
-
-    @property
-    def can_manage_vehicles(self):
-        return self.is_manager
-
-    @property
-    def can_manage_users(self):
-        return self.is_admin
-
-    def clean(self):
-        super().clean()
-        if self.phone and not re.match(r'^\+?[\d\s\-()]{10,15}$', self.phone):
-            raise ValidationError({'phone': 'Invalid phone number format'})
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        # Sync role with built-in flags
+        if self.role == "admin":
+            self.is_superuser = True
+            self.is_staff = True
+        elif self.role == "manager":
+            self.is_superuser = False
+            self.is_staff = True
+        else:
+            self.is_superuser = False
+            self.is_staff = False
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.username} ({self.role})"
