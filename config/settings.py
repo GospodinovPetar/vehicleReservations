@@ -98,4 +98,4 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-AUTH_USER_MODEL = "inventory.CustomUser"
+AUTH_USER_MODEL = "accounts.CustomUser"
