@@ -179,8 +179,8 @@ def reject_reservation(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk, user=request.user)
 
     if reservation.status not in (
-        ReservationStatus.RESERVED,
-        ReservationStatus.AWAITING_PICKUP,
+            ReservationStatus.RESERVED,
+            ReservationStatus.AWAITING_PICKUP,
     ):
         messages.error(
             request, "Only new or awaiting-pickup reservations can be rejected."

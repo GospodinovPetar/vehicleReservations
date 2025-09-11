@@ -1,6 +1,6 @@
 from rest_framework import permissions
 from rest_framework import permissions
-from apps.authentication.models import CustomUser
+from inventory.models import CustomUser
 
 
 class IsAdminUser(permissions.BasePermission):

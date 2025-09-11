@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Location, Vehicle, Reservation, User
+from .models import Location, Vehicle, Reservation
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
 from .models import CustomUser
