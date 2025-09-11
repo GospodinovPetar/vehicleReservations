@@ -206,12 +206,10 @@ def reject_reservation(request, pk):
 
 
 # -------- auth views --------
-
-
 @require_http_methods(["GET", "POST"])
 def register(request):
     if request.method == "POST":
-        form = CustomUserCreationForm(request.POST)
+        form = UserCreationForm(request.POST)
         if form.is_valid():
             new_user = form.save()
             login(request, new_user)
@@ -221,7 +219,7 @@ def register(request):
             return redirect("/")
         messages.error(request, "Please correct the errors below.")
     else:
-        form = CustomUserCreationForm()
+        form = UserCreationForm()
     return render(request, "auth.html", {"form": form, "title": "Register"})
 
 
@@ -231,20 +229,14 @@ def login_view(request):
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             login(request, form.get_user())
-            user = form.get_user()
-
-            # Role-based redirect
-            if user.is_admin:
-                return redirect("accounts:admin-dashboard")
-            elif user.is_manager:
-                return redirect("accounts:manager-dashboard")
-            else:
-                return redirect("/")  # normal user home
-
+            next_url = request.GET.get("next")
+            if not next_url:
+                next_url = "/"
+            messages.success(request, "You are now logged in.")
+            return redirect(next_url)
         messages.error(request, "Invalid username or password.")
     else:
         form = AuthenticationForm(request)
-
     return render(request, "auth.html", {"form": form, "title": "Login"})
 
 
