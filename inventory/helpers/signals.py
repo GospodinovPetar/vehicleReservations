@@ -1,8 +1,8 @@
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 from django.db import connection
-from .models import Location
 
+from inventory.models.reservation import Location
 
 DEFAULT_LOCATIONS = [
     "Downtown Depot",
