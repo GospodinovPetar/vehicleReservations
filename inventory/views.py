@@ -92,7 +92,7 @@ def search(request):
         return_location = Location.objects.filter(id=return_location_id).first()
 
     # available vehicles for that window (and locations if provided)
-    available_ids_qs = Reservation.available_vehicle_ids(
+    available_ids_qs = Reservation.available_vehicles(
         start_date, end_date, pickup_location, return_location
     )
     vehicles_qs = Vehicle.objects.filter(id__in=available_ids_qs)
@@ -112,7 +112,7 @@ def search(request):
         }
         results.append(row)
 
-        available_ids_qs = Reservation.available_vehicle_ids(
+        available_ids_qs = Reservation.available_vehicles(
             start_date, end_date, pickup_location, return_location
         )
 
