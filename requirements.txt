@@ -1,3 +1,6 @@
+drf-spectacular
+djangorestframework-simplejwt
+djangorestframework
 asgiref==3.9.1
 Django==5.2.6
 psycopg2-binary>=2.9
