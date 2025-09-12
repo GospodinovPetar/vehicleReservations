@@ -1,12 +1,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
-from .models import CustomUser
+from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
 from django.urls import reverse
 
+CustomUser = get_user_model()
 
-@admin.register(CustomUser)
+
 class CustomUserAdmin(UserAdmin):
     list_display = [
         'username', 'email', 'first_name', 'last_name',
@@ -35,13 +36,7 @@ class CustomUserAdmin(UserAdmin):
 
     is_blocked_display.short_description = 'Status'
 
-    actions = [
-        'block_users',
-        'unblock_users',
-        'promote_to_manager',
-        'demote_to_user',
-        'block_and_redirect'  # new action
-    ]
+    actions = ['block_users', 'unblock_users', 'promote_to_manager', 'demote_to_user']
 
     def block_users(self, request, queryset):
         count = queryset.update(is_blocked=True)
@@ -67,10 +62,15 @@ class CustomUserAdmin(UserAdmin):
 
     demote_to_user.short_description = "Demote to user"
 
-    # New admin action
-    def block_and_redirect(self, request, queryset):
-        queryset.update(is_blocked=True)
-        self.message_user(request,
-                          "Selected users were blocked and will be redirected to the 'Blocked' page on next login.")
 
-    block_and_redirect.short_description = "Block users (redirect to Blocked page)"
+# Register CustomUser only for superusers
+def has_permission(request):
+    """
+    Override default admin permission check.
+    Only allow superusers to manage CustomUser.
+    """
+    return request.user.is_active and request.user.is_superuser
+
+
+admin.site.has_permission = has_permission
+admin.site.register(CustomUser, CustomUserAdmin)
