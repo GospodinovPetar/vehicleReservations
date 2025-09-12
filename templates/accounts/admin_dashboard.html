@@ -7,6 +7,6 @@
   <ul>
     <li><a href="/admin/">Go to Django Admin</a></li>
     <li><a href="/accounts/users/">Manage Users (custom)</a></li>
-    <li><a href="/reservations/">View All Reservations</a></li>
+    <li><a href="{% url 'admin:inventory_reservation_changelist' %}">View All Reservations</a></li>
   </ul>
 {% endblock %}

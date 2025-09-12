@@ -1,10 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.shortcuts import render, redirect
+from django.contrib.auth.forms import AuthenticationForm
+from django.shortcuts import redirect
 from django.views.decorators.http import require_http_methods
 
-from .forms import CustomUserCreationFormrom
+from .forms import CustomUserCreationForm
 from django.shortcuts import render
 
 

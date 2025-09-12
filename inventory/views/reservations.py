@@ -5,7 +5,7 @@ from django.views.decorators.http import require_http_methods
 
 from inventory.models.reservation import Location, Reservation, ReservationStatus
 from inventory.models.vehicle import Vehicle
-from inventory.views.helpers import parse_iso_date
+from inventory.helpers.parse_iso_date import parse_iso_date
 
 
 @login_required
@@ -33,7 +33,6 @@ def reserve(request):
     if data.get("return_location"):
         return_location = get_object_or_404(Location, pk=data.get("return_location"))
     else:
-        # fall back to first allowed return location
         return_location = vehicle.available_return_locations.first()
 
     if pickup_location is None or return_location is None:
@@ -44,7 +43,6 @@ def reserve(request):
             f"/search/?start={data.get('start') or ''}&end={data.get('end') or ''}"
         )
 
-    # Enforce allow-lists
     if not vehicle.available_pickup_locations.filter(pk=pickup_location.pk).exists():
         messages.error(
             request, "Selected pickup location is not available for this vehicle."
@@ -92,7 +90,7 @@ def reservations(request):
         .all()
     )
     context = {"reservations": user_reservations}
-    return render(request, "reservations.html", context)
+    return render(request, "my_reservations.html", context)
 
 
 @login_required
@@ -101,7 +99,8 @@ def reject_reservation(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk, user=request.user)
     if reservation.status not in (
         ReservationStatus.RESERVED,
-        ReservationStatus.AWAITING_PICKUP,
+        ReservationStatus.COMPLETED,
+        ReservationStatus.REJECTED,
     ):
         messages.error(
             request, "Only new or awaiting-pickup reservations can be rejected."

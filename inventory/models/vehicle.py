@@ -1,7 +1,22 @@
-from django.core.exceptions import ValidationError
 from decimal import Decimal
+
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+
+GOLF_MK2_PATTERNS = (
+    "vw golf 2",
+    "vw golf ii",
+    "vw golf mk2",
+    "volkswagen golf ii",
+    "volkswagen golf 2",
+    "volkswagen golf mk2",
+    "golf mk2",
+    "golf 2",
+    "golf ii",
+    "golf dvoika",
+    "golf dve",
+)
 
 
 class VehicleType(models.TextChoices):
@@ -19,20 +34,6 @@ SEAT_BOUNDS = {
     VehicleType.VAN: (2, 9),
     VehicleType.TRUCK: (1, 3),
 }
-
-GOLF_MK2_PATTERNS = (
-    "vw golf 2",
-    "vw golf ii",
-    "vw golf mk2",
-    "volkswagen golf ii",
-    "volkswagen golf 2",
-    "volkswagen golf mk2",
-    "golf mk2",
-    "golf 2",
-    "golf ii",
-    "golf dvoika",
-    "golf dve",
-)
 
 
 class EngineType(models.TextChoices):

@@ -44,6 +44,13 @@
     </form>
   </div>
 
+  {% if request.user.is_authenticated %}
+    <div class="row" style="gap:8px; margin: 12px 0;">
+      <a class="btn" href="{% url 'inventory:view_cart' %}">Cart</a>
+      <a class="btn" href="{% url 'inventory:reservations' %}">My Reservations</a>
+    </div>
+  {% endif %}
+
   {% if results %}
     <h3>Available vehicles</h3>
 
@@ -95,7 +102,7 @@
                   </label>
 
                   {% if r.vehicle.available_pickup_locations.all|length and r.vehicle.available_return_locations.all|length %}
-                    <button class="btn primary" type="submit">Reserve</button>
+                    <button class="btn primary" type="submit">Add to cart</button>
                   {% else %}
                     <span style="font-size:0.9em;">This vehicle has no configured pickup/return locations.</span>
                   {% endif %}
@@ -104,7 +111,7 @@
             {% else %}
               <a class="btn"
                  href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ start }}&end={{ end }}">
-                Login to reserve
+                Login to add to cart
               </a>
             {% endif %}
           </div>

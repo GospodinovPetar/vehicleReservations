@@ -3,7 +3,8 @@ from django.shortcuts import render
 
 from inventory.models.reservation import Location, Reservation
 from inventory.models.vehicle import Vehicle
-from inventory.views.helpers import parse_iso_date, compute_total
+from inventory.helpers.parse_iso_date import parse_iso_date
+from inventory.helpers.pricing import RateTable, quote_total
 
 
 def home(request):
@@ -27,7 +28,6 @@ def search(request):
         "return_location": return_location_id,
     }
 
-    # both dates required
     if not start_param or not end_param:
         messages.error(request, "Please select both start and end dates.")
         return render(request, "home.html", context)
@@ -38,32 +38,19 @@ def search(request):
         messages.error(request, "Start date must be before end date.")
         return render(request, "home.html", context)
 
-    pickup_location = None
-    if pickup_location_id:
-        pickup_location = Location.objects.filter(id=pickup_location_id).first()
+    pickup_location = Location.objects.filter(id=pickup_location_id).first() if pickup_location_id else None
+    return_location = Location.objects.filter(id=return_location_id).first() if return_location_id else None
 
-    return_location = None
-    if return_location_id:
-        return_location = Location.objects.filter(id=return_location_id).first()
-
-    available_ids = Reservation.available_vehicles(
-        start_date, end_date, pickup_location, return_location
-    )
+    available_ids = Reservation.available_vehicles(start_date, end_date, pickup_location, return_location)
     vehicles = Vehicle.objects.filter(id__in=available_ids)
 
     results = []
-    days_count = (end_date - start_date).days
     for v in vehicles:
-        total_cost = compute_total(days_count, v.price_per_day)
-        row = {
+        quote = quote_total(start_date, end_date, RateTable(day=float(v.price_per_day), currency="EUR"))
+        results.append({
             "vehicle": v,
-            "quote": {
-                "days": int(days_count),
-                "total": float(total_cost),
-                "currency": "EUR",
-            },
-        }
-        results.append(row)
+            "quote": {"days": quote["days"], "total": quote["total"], "currency": quote["currency"]},
+        })
 
     context["results"] = results
     return render(request, "home.html", context)

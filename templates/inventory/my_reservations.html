@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h3>My reservations</h3>
+
+  <div class="card">
+    <h4>Grouped reservations</h4>
+
+    {% if groups %}
+      {% for g in groups %}
+        <div style="margin: .5rem 0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+            <div>
+              <strong>Reference:</strong> {{ g.reference }}
+              <em>({{ g.created_at }})</em>
+            </div>
+            <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
+              {% csrf_token %}
+              <button class="btn">Cancel Group</button>
+            </form>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Vehicle</th>
+                <th>Dates</th>
+                <th>Pickup → Return</th>
+                <th>Status</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in g.reservations.all %}
+                <tr>
+                  <td>{{ r.vehicle }}</td>
+                  <td>{{ r.start_date }} -> {{ r.end_date }}</td>
+                  <td>{{ r.pickup_location }} -> {{ r.return_location }}</td>
+                  <td>{{ r.status }}</td>
+                  <td>{{ r.total_price }} EUR</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5">This group has no active reservations.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>No grouped reservations yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-top:1rem;">
+    <h4>Rejected / Canceled</h4>
+
+    {% if canceled %}
+      <table>
+        <thead>
+          <tr>
+            <th>Vehicle</th>
+            <th>Dates</th>
+            <th>Pickup → Return</th>
+            <th>Status</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in canceled %}
+            <tr>
+              <td>{{ r.vehicle }}</td>
+              <td>{{ r.start_date }} -> {{ r.end_date }}</td>
+              <td>{{ r.pickup_location }} -> {{ r.return_location }}</td>
+              <td>{{ r.status }}</td>
+              <td>{{ r.total_price }} EUR</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No rejected/canceled reservations.</p>
+    {% endif %}
+  </div>
+{% endblock %}
