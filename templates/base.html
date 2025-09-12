@@ -19,35 +19,40 @@
     </style>
   </head>
   <body>
-    <header>
-      <h2>Vehicle Rental</h2>
-      <nav>
-        <ul>
-    <li><a href="/">Home</a></li>
+<header>
+  <h2>Vehicle Rental</h2>
+  <nav>
+    <ul>
+      <li><a href="/">Home</a></li>
 
-    {% if user.is_authenticated %}
-      <!-- Links for everyone logged in -->
-      <li><a href="{% url 'accounts:logout' %}">Logout</a></li>
+      {% if user.is_authenticated %}
+        <!-- Links for everyone logged in -->
+        <li><a href="{% url 'accounts:logout' %}">Logout</a></li>
 
-      {% if user.is_superuser %}
-        <!-- Superuser menu -->
-        <li><a href="{% url 'accounts:admin-dashboard' %}">Admin Dashboard</a></li>
-      {% elif user.role == "manager" %}
-        <!-- Manager menu -->
-        <li><a href="{% url 'accounts:manager-dashboard' %}">Manager Dashboard</a></li>
-      {% elif user.role == "user" %}
-        <!-- Normal user menu -->
-        <li><a href="/reservations/">My Reservations</a></li>
+        {% if not user.is_blocked %}
+          {% if user.is_superuser %}
+            <!-- Superuser menu -->
+            <li><a href="{% url 'accounts:admin-dashboard' %}">Admin Dashboard</a></li>
+          {% elif user.role == "manager" %}
+            <!-- Manager menu -->
+            <li><a href="{% url 'accounts:manager-dashboard' %}">Manager Dashboard</a></li>
+          {% elif user.role == "user" %}
+            <!-- Normal user menu -->
+            <li><a href="/reservations/">My Reservations</a></li>
+          {% endif %}
+        {% else %}
+          <li><span style="color:red;">Account Blocked</span></li>
+        {% endif %}
+
+      {% else %}
+        <!-- Links for guests -->
+        <li><a href="{% url 'accounts:login' %}">Login</a></li>
+        <li><a href="{% url 'accounts:register' %}">Register</a></li>
       {% endif %}
+    </ul>
+  </nav>
+</header>
 
-    {% else %}
-      <!-- Links for guests -->
-      <li><a href="{% url 'accounts:login' %}">Login</a></li>
-      <li><a href="{% url 'accounts:register' %}">Register</a></li>
-    {% endif %}
-  </ul>
-      </nav>
-    </header>
     {% if messages %}
   <div style="margin:12px 0;">
     {% for message in messages %}

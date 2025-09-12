@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
 from .models import CustomUser
+from django.shortcuts import redirect
+from django.urls import reverse
 
 
 @admin.register(CustomUser)
@@ -28,16 +30,18 @@ class CustomUserAdmin(UserAdmin):
 
     def is_blocked_display(self, obj):
         if obj.is_blocked:
-            return format_html(
-                '<span style="color: red;">●</span> Blocked'
-            )
-        return format_html(
-            '<span style="color: green;">●</span> Active'
-        )
+            return format_html('<span style="color: red;">●</span> Blocked')
+        return format_html('<span style="color: green;">●</span> Active')
 
     is_blocked_display.short_description = 'Status'
 
-    actions = ['block_users', 'unblock_users', 'promote_to_manager', 'demote_to_user']
+    actions = [
+        'block_users',
+        'unblock_users',
+        'promote_to_manager',
+        'demote_to_user',
+        'block_and_redirect'  # new action
+    ]
 
     def block_users(self, request, queryset):
         count = queryset.update(is_blocked=True)
@@ -62,3 +66,11 @@ class CustomUserAdmin(UserAdmin):
         self.message_user(request, f'{count} users were demoted to user.')
 
     demote_to_user.short_description = "Demote to user"
+
+    # New admin action
+    def block_and_redirect(self, request, queryset):
+        queryset.update(is_blocked=True)
+        self.message_user(request,
+                          "Selected users were blocked and will be redirected to the 'Blocked' page on next login.")
+
+    block_and_redirect.short_description = "Block users (redirect to Blocked page)"
