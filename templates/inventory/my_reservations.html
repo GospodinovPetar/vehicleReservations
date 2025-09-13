@@ -3,7 +3,6 @@
   <h3>My reservations</h3>
 
   <div class="card">
-    <h4>Grouped reservations</h4>
 
     {% if groups %}
       {% for g in groups %}
@@ -39,14 +38,14 @@
                   <td>{{ r.total_price }} EUR</td>
                 </tr>
               {% empty %}
-                <tr><td colspan="5">This group has no active reservations.</td></tr>
+                <tr><td colspan="5">There are no active reservations.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       {% endfor %}
     {% else %}
-      <p>No grouped reservations yet.</p>
+      <p>No reservations have been made yet.</p>
     {% endif %}
   </div>
 
