@@ -1,7 +1,5 @@
-drf-spectacular
-djangorestframework-simplejwt
-djangorestframework
 asgiref==3.9.1
 Django==5.2.6
 psycopg2-binary>=2.9
 sqlparse==0.5.3
+python-dotenv>=1.0
