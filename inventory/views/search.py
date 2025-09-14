@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.shortcuts import render
 
+from inventory.models.cart import CartItem
 from inventory.models.reservation import Location, Reservation
 from inventory.models.vehicle import Vehicle
 from inventory.helpers.parse_iso_date import parse_iso_date
@@ -38,19 +39,46 @@ def search(request):
         messages.error(request, "Start date must be before end date.")
         return render(request, "home.html", context)
 
-    pickup_location = Location.objects.filter(id=pickup_location_id).first() if pickup_location_id else None
-    return_location = Location.objects.filter(id=return_location_id).first() if return_location_id else None
+    pickup_location = (
+        Location.objects.filter(id=pickup_location_id).first()
+        if pickup_location_id
+        else None
+    )
+    return_location = (
+        Location.objects.filter(id=return_location_id).first()
+        if return_location_id
+        else None
+    )
 
-    available_ids = Reservation.available_vehicles(start_date, end_date, pickup_location, return_location)
-    vehicles = Vehicle.objects.filter(id__in=available_ids)
+    my_cart_vehicle_ids = CartItem.objects.filter(
+        cart__user=request.user,
+        start_date__lt=end_date,
+        end_date__gt=start_date,
+    ).values_list("vehicle_id", flat=True)
+
+    available_ids = Reservation.available_vehicles(
+        start_date, end_date, pickup_location, return_location
+    )
+
+    vehicles = Vehicle.objects.filter(id__in=available_ids).exclude(
+        id__in=my_cart_vehicle_ids
+    )
 
     results = []
     for v in vehicles:
-        quote = quote_total(start_date, end_date, RateTable(day=float(v.price_per_day), currency="EUR"))
-        results.append({
-            "vehicle": v,
-            "quote": {"days": quote["days"], "total": quote["total"], "currency": quote["currency"]},
-        })
+        quote = quote_total(
+            start_date, end_date, RateTable(day=float(v.price_per_day), currency="EUR")
+        )
+        results.append(
+            {
+                "vehicle": v,
+                "quote": {
+                    "days": quote["days"],
+                    "total": quote["total"],
+                    "currency": quote["currency"],
+                },
+            }
+        )
 
     context["results"] = results
     return render(request, "home.html", context)

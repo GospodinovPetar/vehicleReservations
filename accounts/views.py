@@ -18,7 +18,9 @@ def register(request):
         if form.is_valid():
             new_user = form.save()
             login(request, new_user)
-            messages.success(request, "Your account was created and you are now logged in.")
+            messages.success(
+                request, "Your account was created and you are now logged in."
+            )
             return redirect("/")
         messages.error(request, "Please correct the errors below.")
     else:
@@ -35,7 +37,9 @@ def login_view(request):
 
             # Blocked users cannot log in
             if user.is_blocked:
-                messages.error(request, "Your account has been blocked. Please contact support.")
+                messages.error(
+                    request, "Your account has been blocked. Please contact support."
+                )
                 return redirect("accounts:login")
 
             login(request, user)
@@ -62,7 +66,9 @@ def logout_view(request):
 
 # ----------- Dashboards -----------
 def superuser_required(view_func):
-    return user_passes_test(lambda u: u.is_authenticated and u.is_superuser, login_url="/")(view_func)
+    return user_passes_test(
+        lambda u: u.is_authenticated and u.is_superuser, login_url="/"
+    )(view_func)
 
 
 @superuser_required
@@ -71,7 +77,9 @@ def admin_dashboard(request):
 
 
 def manager_required(view_func):
-    return user_passes_test(lambda u: u.is_authenticated and u.role == "manager", login_url="/")(view_func)
+    return user_passes_test(
+        lambda u: u.is_authenticated and u.role == "manager", login_url="/"
+    )(view_func)
 
 
 @manager_required

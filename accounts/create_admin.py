@@ -5,17 +5,17 @@ User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Create an admin user'
+    help = "Create an admin user"
 
     def add_arguments(self, parser):
-        parser.add_argument('--username', type=str, help='Admin username')
-        parser.add_argument('--email', type=str, help='Admin email')
-        parser.add_argument('--password', type=str, help='Admin password')
+        parser.add_argument("--username", type=str, help="Admin username")
+        parser.add_argument("--email", type=str, help="Admin email")
+        parser.add_argument("--password", type=str, help="Admin password")
 
     def handle(self, *args, **options):
-        username = options.get('username') or input('Username: ')
-        email = options.get('email') or input('Email: ')
-        password = options.get('password') or input('Password: ')
+        username = options.get("username") or input("Username: ")
+        email = options.get("email") or input("Email: ")
+        password = options.get("password") or input("Password: ")
 
         if User.objects.filter(username=username).exists():
             self.stdout.write(
@@ -27,9 +27,9 @@ class Command(BaseCommand):
             username=username,
             email=email,
             password=password,
-            role='admin',
+            role="admin",
             is_staff=True,
-            is_superuser=True
+            is_superuser=True,
         )
 
         self.stdout.write(

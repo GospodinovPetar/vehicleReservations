@@ -13,12 +13,12 @@ import re
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [
-        ('user', 'User'),
-        ('manager', 'Manager'),
-        ('admin', 'Admin'),
+        ("user", "User"),
+        ("manager", "Manager"),
+        ("admin", "Admin"),
     ]
 
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="user")
     phone = models.CharField(max_length=15, blank=True, null=True)
     is_blocked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -29,11 +29,11 @@ class CustomUser(AbstractUser):
 
     @property
     def is_admin(self):
-        return self.role == 'admin' and not self.is_blocked
+        return self.role == "admin" and not self.is_blocked
 
     @property
     def is_manager(self):
-        return self.role in ['manager', 'admin'] and not self.is_blocked
+        return self.role in ["manager", "admin"] and not self.is_blocked
 
     @property
     def can_manage_vehicles(self):
@@ -45,8 +45,8 @@ class CustomUser(AbstractUser):
 
     def clean(self):
         super().clean()
-        if self.phone and not re.match(r'^\+?[\d\s\-()]{10,15}$', self.phone):
-            raise ValidationError({'phone': 'Invalid phone number format'})
+        if self.phone and not re.match(r"^\+?[\d\s\-()]{10,15}$", self.phone):
+            raise ValidationError({"phone": "Invalid phone number format"})
 
     def save(self, *args, **kwargs):
         self.full_clean()
