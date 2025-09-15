@@ -5,5 +5,4 @@ urlpatterns = [
     path("", include("inventory.urls")),
     path("accounts/", include("accounts.urls")),
     path("admin/", admin.site.urls),
-    path("accounts/", include("accounts.urls")),
 ]
