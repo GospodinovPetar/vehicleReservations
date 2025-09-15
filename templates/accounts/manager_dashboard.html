@@ -1,14 +1,10 @@
 {% extends "base.html" %}
-
 {% block content %}
   <h1>Manager Dashboard</h1>
   <p>Welcome, {{ request.user.username }}!</p>
-
   <ul>
-    {% if request.user.role == "manager" or request.user.is_superuser %}
-      <!-- Managers (and admins) -->
-      <li><a href="/vehicles/">Manage Vehicles</a></li>
-      <li><a href="/reservations/">Manage Reservations</a></li>
-    {% endif %}
+    <li><a href="{% url 'manager:vehicles' %}">Manage Vehicles</a></li>
+    <li><a href="{% url 'manager:reservations' %}">Manage Reservations</a></li>
   </ul>
 {% endblock %}
+

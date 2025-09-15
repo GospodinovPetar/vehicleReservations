@@ -2,11 +2,12 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import AuthenticationForm
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render, get_object_or_404
 from django.views.decorators.http import require_http_methods
+from inventory.models.vehicle import Vehicle
+from inventory.models.reservation import Reservation, ReservationStatus, Location
 
-from .forms import CustomUserCreationForm
-from django.shortcuts import render
+from .forms import CustomUserCreationForm, VehicleForm, ReservationStatusForm
 
 
 # ----------- Auth views -----------
@@ -77,11 +78,93 @@ def admin_dashboard(request):
 
 
 def manager_required(view_func):
+    """
+    Restrict access to managers (and admins).
+    """
     return user_passes_test(
-        lambda u: u.is_authenticated and u.role == "manager", login_url="/"
+        lambda u: u.is_authenticated and u.role in ["manager", "admin"],
+        login_url="/accounts/login/"
     )(view_func)
 
 
 @manager_required
 def manager_dashboard(request):
     return render(request, "accounts/manager_dashboard.html")
+
+
+@manager_required
+def manager_vehicles(request):
+    vehicles = Vehicle.objects.all()
+    return render(request, "accounts/manager_vehicles.html", {"vehicles": vehicles})
+
+
+@manager_required
+def manager_reservations(request):
+    reservations = Reservation.objects.all()
+    return render(request, "accounts/manager_reservations.html", {"reservations": reservations})
+
+
+# -------Manager Dashboard----------
+# VEHICLES
+@manager_required
+def manager_vehicles(request):
+    vehicles = Vehicle.objects.all()
+    return render(request, "accounts/manager_vehicles.html", {"vehicles": vehicles})
+
+
+@manager_required
+def vehicle_create(request):
+    if request.method == "POST":
+        form = VehicleForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Vehicle created successfully.")
+            return redirect("manager:vehicles")
+    else:
+        form = VehicleForm()
+    return render(request, "accounts/vehicle_form.html", {"form": form, "title": "Add Vehicle"})
+
+
+@manager_required
+def vehicle_edit(request, pk):
+    vehicle = get_object_or_404(Vehicle, pk=pk)
+    if request.method == "POST":
+        form = VehicleForm(request.POST, instance=vehicle)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Vehicle updated successfully.")
+            return redirect("manager:vehicles")
+    else:
+        form = VehicleForm(instance=vehicle)
+    return render(request, "accounts/vehicle_form.html", {"form": form, "title": "Edit Vehicle"})
+
+
+@manager_required
+def vehicle_delete(request, pk):
+    vehicle = get_object_or_404(Vehicle, pk=pk)
+    if request.method == "POST":
+        vehicle.delete()
+        messages.success(request, "Vehicle deleted successfully.")
+        return redirect("manager:vehicles")
+    return render(request, "accounts/confirm_delete.html", {"object": vehicle, "type": "Vehicle"})
+
+
+# RESERVATIONS
+@manager_required
+def manager_reservations(request):
+    reservations = Reservation.objects.select_related("user", "vehicle").all()
+    return render(request, "accounts/manager_reservations.html", {"reservations": reservations})
+
+
+@manager_required
+def reservation_update(request, pk):
+    reservation = get_object_or_404(Reservation, pk=pk)
+    if request.method == "POST":
+        form = ReservationStatusForm(request.POST, instance=reservation)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Reservation status updated.")
+            return redirect("manager:reservations")
+    else:
+        form = ReservationStatusForm(instance=reservation)
+    return render(request, "accounts/reservation_form.html", {"form": form, "reservation": reservation})

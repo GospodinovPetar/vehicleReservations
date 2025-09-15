@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Manage Vehicles</h2>
+  <a class="btn primary" href="{% url 'manager:vehicle-create' %}">+ Add Vehicle</a>
+  <ul>
+    {% for v in vehicles %}
+      <li>
+        {{ v.name }} ({{ v.car_type }})
+        <a href="{% url 'manager:vehicle-edit' v.id %}">Edit</a> |
+        <form method="post" action="{% url 'manager:vehicle-delete' v.id %}" style="display:inline">
+          {% csrf_token %}
+          <button type="submit">Delete</button>
+        </form>
+      </li>
+    {% empty %}
+      <li>No vehicles found.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

@@ -1,5 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
+import getpass
 
 User = get_user_model()
 
@@ -26,8 +29,9 @@ class Command(BaseCommand):
         email = options.get("email") or input("Email: ")
 
         while True:
-            password = input("Password: ").strip()
-            password2 = input("Password (again): ").strip()
+            password = options.get('password') or getpass.getpass('Password: ')
+
+            password2 = options.get("Password (again)") or getpass.getpass('Password (again): ')
 
             if password != password2:
                 self.stdout.write(self.style.ERROR("Passwords do not match."))

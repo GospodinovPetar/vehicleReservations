@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+import getpass
 
 User = get_user_model()
 
@@ -26,8 +27,8 @@ class Command(BaseCommand):
 
         # Ask for password twice
         while True:
-            password = input("Password: ").strip()
-            password2 = input("Password (again): ").strip()
+            password = options.get('password') or getpass.getpass('Password: ')
+            password2 = options.get('Password (again)') or getpass.getpass('Password (again): ')
 
             if password != password2:
                 self.stdout.write(self.style.ERROR("Passwords do not match."))
@@ -47,7 +48,7 @@ class Command(BaseCommand):
             email=email,
             password=password,
             role="manager",
-            is_staff=True,     # can access Django admin
+            is_staff=True,  # can access Django admin
             is_superuser=False  # not a superuser
         )
 
