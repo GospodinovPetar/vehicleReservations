@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <h1>Superuser Dashboard</h1>
+  <h1>Admin Dashboard</h1>
   <p>Welcome, {{ request.user.username }}!</p>
 
   <ul>
     <li><a href="/admin/">Go to Django Admin</a></li>
-    <li><a href="/accounts/users/">Manage Users (custom)</a></li>
-    <li><a href="{% url 'admin:inventory_reservation_changelist' %}">View All Reservations</a></li>
+
+    {% if request.user.is_superuser %}
+      <!-- Only admins see this -->
+      <li><a href="/accounts/users/">Manage Users</a></li>
+    {% endif %}
+
+    <li><a href="/reservations/">View All Reservations</a></li>
   </ul>
 {% endblock %}

@@ -67,15 +67,31 @@ class CustomUserAdmin(UserAdmin):
 
     demote_to_user.short_description = "Demote to user"
 
+    # 🔒 Only superusers can access this model in admin
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
 
-# Register CustomUser only for superusers
-def has_permission(request):
-    """
-    Override default admin permission check.
-    Only allow superusers to manage CustomUser.
-    """
-    return request.user.is_active and request.user.is_superuser
+    def has_module_permission(self, request):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
 
 
-admin.site.has_permission = has_permission
+# Register CustomUser (restricted to superusers only)
 admin.site.register(CustomUser, CustomUserAdmin)
+
+
+# Keep admin site open for managers too (so they can manage vehicles/reservations)
+def custom_has_permission(request):
+    """Allow only managers & superusers into the admin site."""
+    return request.user.is_active and (request.user.is_superuser or request.user.role == "manager")
+
+
+admin.site.has_permission = custom_has_permission
