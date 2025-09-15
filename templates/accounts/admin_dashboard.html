@@ -1,17 +1,59 @@
 {% extends "base.html" %}
-
 {% block content %}
   <h1>Admin Dashboard</h1>
-  <p>Welcome, {{ request.user.username }}!</p>
 
-  <ul>
-    <li><a href="/admin/">Go to Django Admin</a></li>
+  <!-- Stats -->
+  <div class="stats">
+    <p>Total: {{ stats.total }}</p>
+    <p>Admins: {{ stats.admins }}</p>
+    <p>Managers: {{ stats.managers }}</p>
+    <p>Users: {{ stats.users }}</p>
+    <p>Blocked: {{ stats.blocked }}</p>
+  </div>
 
-    {% if request.user.is_superuser %}
-      <!-- Only admins see this -->
-      <li><a href="/accounts/users/">Manage Users</a></li>
-    {% endif %}
+  <!-- Filters/Search -->
+  <form method="get">
+    <input type="text" name="q" placeholder="Search username/email" value="{{ request.GET.q }}">
+    <select name="role">
+      <option value="">All Roles</option>
+      <option value="admin" {% if request.GET.role =="admin" %}selected{% endif %}>Admin</option>
+      <option value="manager" {% if request.GET.role =="manager" %}selected{% endif %}>Manager</option>
+      <option value="user" {% if request.GET.role =="user" %}selected{% endif %}>User</option>
+    </select>
+    <select name="status">
+      <option value="">All Status</option>
+      <option value="active" {% if request.GET.status =="active" %}selected{% endif %}>Active</option>
+      <option value="blocked" {% if request.GET.status =="blocked" %}selected{% endif %}>Blocked</option>
+    </select>
+    <button type="submit">Filter</button>
+  </form>
 
-    <li><a href="/reservations/">View All Reservations</a></li>
-  </ul>
+  <!-- User Table -->
+  <a href="{% url 'accounts:admin-create-user' %}">+ Create User</a>
+  <table>
+    <tr>
+      <th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th>
+    </tr>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.role }}</td>
+        <td>{% if u.is_blocked %}Blocked{% else %}Active{% endif %}</td>
+        <td>
+          <a href="{% url 'accounts:admin-edit-user' u.id %}">Edit</a> |
+          {% if u.is_blocked %}
+            <a href="{% url 'accounts:admin-unblock-user' u.id %}">Unblock</a>
+          {% else %}
+            <a href="{% url 'accounts:admin-block-user' u.id %}">Block</a>
+          {% endif %}
+          | <a href="{% url 'accounts:admin-promote-manager' u.id %}">Promote</a>
+          | <a href="{% url 'accounts:admin-demote-user' u.id %}">Demote</a>
+          | <a href="{% url 'accounts:admin-delete-user' u.id %}">Delete</a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5">No users found.</td></tr>
+    {% endfor %}
+  </table>
 {% endblock %}

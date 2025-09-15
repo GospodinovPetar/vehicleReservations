@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Vehicles</h2>
+<a href="{% url 'accounts:vehicle-create' %}">+ Add Vehicle</a>
+<table>
+  <tr><th>Name</th><th>Type</th><th>Seats</th><th>Price</th><th>Actions</th></tr>
+  {% for v in vehicles %}
+    <tr>
+      <td>{{ v.name }}</td>
+      <td>{{ v.car_type }}</td>
+      <td>{{ v.seats }}</td>
+      <td>{{ v.price_per_day }}</td>
+      <td>
+        <a href="{% url 'accounts:vehicle-edit' v.id %}">Edit</a> |
+        <a href="{% url 'accounts:vehicle-delete' v.id %}">Delete</a>
+      </td>
+    </tr>
+  {% endfor %}
+</table>
+{% endblock %}

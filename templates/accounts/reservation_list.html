@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Reservations</h2>
+<table>
+  <tr><th>User</th><th>Vehicle</th><th>Start</th><th>End</th><th>Status</th><th>Actions</th></tr>
+  {% for r in reservations %}
+    <tr>
+      <td>{{ r.user.username }}</td>
+      <td>{{ r.vehicle.name }}</td>
+      <td>{{ r.start_date }}</td>
+      <td>{{ r.end_date }}</td>
+      <td>{{ r.status }}</td>
+      <td>
+        {% if r.status == "reserved" %}
+          <a href="{% url 'accounts:reservation-approve' r.id %}">Approve</a> |
+          <a href="{% url 'accounts:reservation-reject' r.id %}">Reject</a>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+</table>
+{% endblock %}
