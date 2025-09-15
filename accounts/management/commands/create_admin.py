@@ -13,15 +13,33 @@ class Command(BaseCommand):
         parser.add_argument("--password", type=str, help="Admin password")
 
     def handle(self, *args, **options):
-        username = options.get("username") or input("Username: ")
-        email = options.get("email") or input("Email: ")
-        password = options.get("password") or input("Password: ")
+        while True:
+            username = input("Username: ").strip()
+            if not username:
+                self.stdout.write(self.style.ERROR("Username cannot be blank."))
+                continue
+            if User.objects.filter(username=username).exists():
+                self.stdout.write(self.style.ERROR("This username already exists."))
+                continue
+            break
 
-        if User.objects.filter(username=username).exists():
-            self.stdout.write(
-                self.style.ERROR(f'User with username "{username}" already exists')
-            )
-            return
+        email = options.get("email") or input("Email: ")
+
+        while True:
+            password = input("Password: ").strip()
+            password2 = input("Password (again): ").strip()
+
+            if password != password2:
+                self.stdout.write(self.style.ERROR("Passwords do not match."))
+                continue
+
+            try:
+                validate_password(password)
+            except ValidationError as e:
+                self.stdout.write(self.style.ERROR("; ".join(e.messages)))
+                continue
+
+            break
 
         admin_user = User.objects.create_user(
             username=username,
