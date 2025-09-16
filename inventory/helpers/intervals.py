@@ -1,35 +1,55 @@
-def _merge_intervals(intervals):
-    if not intervals:
+def merge_intervals(intervals):
+    intervals = list(intervals)
+    if len(intervals) == 0:
         return []
-    intervals = sorted(intervals, key=lambda x: x[0])
-    merged = [intervals[0]]
-    for s, e in intervals[1:]:
-        last_s, last_e = merged[-1]
-        if s <= last_e:
-            if e > last_e:
-                merged[-1] = (last_s, e)
+
+    intervals.sort(key=lambda pair: pair[0])
+
+    merged = []
+    current_start, current_end = intervals[0]
+
+    for i in range(1, len(intervals)):
+        start, end = intervals[i]
+
+        if start <= current_end:
+            if end > current_end:
+                current_end = end
         else:
-            merged.append((s, e))
+            merged.append((current_start, current_end))
+            current_start, current_end = start, end
+
+    merged.append((current_start, current_end))
     return merged
 
 
-def _free_slices(request_start, request_end, busy_intervals):
+def free_slices(request_start, request_end, busy_intervals):
     if request_end <= request_start:
         return []
-    busy = []
-    for s, e in busy_intervals:
-        s2 = max(request_start, s)
-        e2 = min(request_end, e)
-        if s2 < e2:
-            busy.append((s2, e2))
-    busy = _merge_intervals(busy)
-    slices = []
+
+    clamped_busy = []
+    for start, end in busy_intervals:
+        if end <= request_start or start >= request_end:
+            continue
+
+        s = start if start > request_start else request_start
+        e = end if end < request_end else request_end
+
+        if s < e:
+            clamped_busy.append((s, e))
+
+    merged_busy = merge_intervals(clamped_busy)
+
+    free = []
     cursor = request_start
-    for s, e in busy:
-        if cursor < s:
-            slices.append((cursor, s))
-        if e > cursor:
-            cursor = e
+
+    for start, end in merged_busy:
+        if cursor < start:
+            free.append((cursor, start))
+        if end > cursor:
+            cursor = end
+
     if cursor < request_end:
-        slices.append((cursor, request_end))
-    return slices
+        free.append((cursor, request_end))
+
+    return free
+
