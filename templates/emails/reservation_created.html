@@ -1,0 +1,10 @@
+<p>Hi {{ user.first_name|default:user.username }},</p>
+<p>We received your reservation (<strong>#{{ reservation.pk|default:reservation.id }}</strong>) for <strong>{{ reservation.vehicle.name }}</strong>.</p>
+<p>
+  <strong>Dates:</strong> {{ reservation.start_date }} -> {{ reservation.end_date }}<br>
+  <strong>Pickup:</strong> {{ reservation.pickup_location.name }} |
+  <strong>Return:</strong> {{ reservation.return_location.name }}<br>
+  <strong>Status:</strong> {{ reservation.get_status_display }}
+</p>
+<p>We’ll email you when it’s confirmed or rejected.</p>
+<p>— Vehicle Reservations</p>

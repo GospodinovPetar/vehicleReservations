@@ -47,6 +47,9 @@ class Cart(models.Model):
         apps.get_model("inventory", "CartItem").objects.filter(cart=self).delete()
 
 
+from inventory.models.reservation import Reservation
+
+
 class CartItem(models.Model):
     cart = models.ForeignKey(
         "inventory.Cart", on_delete=models.CASCADE, related_name="items"
@@ -78,34 +81,33 @@ class CartItem(models.Model):
         if self.start_date >= self.end_date:
             raise ValidationError({"end_date": "End date must be after start date"})
 
-        Reservation = apps.get_model("inventory", "Reservation")
-        available_ids = set(
-            Reservation.available_vehicles(
-                start_date=self.start_date,
-                end_date=self.end_date,
-                pickup_location=self.pickup_location,
-                return_location=self.return_location,
-            )
-        )
-        if self.vehicle.pk not in available_ids:
-            raise ValidationError(
-                {"vehicle": "This vehicle is not available for the selected period."}
-            )
-
-        overlap = CartItem.objects.filter(
+        overlap_qs = CartItem.objects.filter(
             cart=self.cart,
             vehicle=self.vehicle,
             start_date__lt=self.end_date,
             end_date__gt=self.start_date,
         )
         if self.pk:
-            overlap = overlap.exclude(pk=self.pk)
-        if overlap.exists():
+            overlap_qs = overlap_qs.exclude(pk=self.pk)
+        if overlap_qs.exists():
             raise ValidationError(
                 {
                     "vehicle": "This vehicle already exists in your cart for overlapping dates."
                 }
             )
 
-    def __str__(self):
-        return f"{self.vehicle} ({self.start_date} -> {self.end_date})"
+        is_ok = Reservation.is_vehicle_available(
+            vehicle=self.vehicle,
+            start_date=self.start_date,
+            end_date=self.end_date,
+            pickup=getattr(self, "pickup_location", None),
+            ret=getattr(self, "return_location", None),
+        )
+        if not is_ok:
+            raise ValidationError(
+                {"vehicle": "This vehicle is not available for the selected period."}
+            )
+
+
+def __str__(self):
+    return f"{self.vehicle} ({self.start_date} -> {self.end_date})"

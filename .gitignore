@@ -52,4 +52,5 @@ htmlcov/
 .pyre/
 
 # Migration sensitive (makemigrations on every startup to ensure no problems occur)
-0001_initial.py
+**/migrations/**
+!**/migrations/__init__.py

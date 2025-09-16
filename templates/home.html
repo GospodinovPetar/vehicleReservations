@@ -23,7 +23,9 @@
             <select name="pickup_location">
               <option value="">Any</option>
               {% for l in locations %}
-                <option value="{{ l.id }}">{{ l.name }}</option>
+                <option value="{{ l.id }}" {% if l.id|stringformat:"s" == pickup_location %}selected{% endif %}>
+                  {{ l.name }}
+                </option>
               {% endfor %}
             </select>
           </label>
@@ -34,7 +36,9 @@
             <select name="return_location">
               <option value="">Any</option>
               {% for l in locations %}
-                <option value="{{ l.id }}">{{ l.name }}</option>
+                <option value="{{ l.id }}" {% if l.id|stringformat:"s" == return_location %}selected{% endif %}>
+                  {{ l.name }}
+                </option>
               {% endfor %}
             </select>
           </label>
@@ -65,7 +69,7 @@
 
           <div>
             <div>
-              Total for {{ r.quote.days }} days:
+              Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
               <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
             </div>
           </div>
@@ -110,7 +114,7 @@
               </form>
             {% else %}
               <a class="btn"
-                 href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ start }}&end={{ end }}">
+                 href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ start }}&end={{ end }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}">
                 Login to add to cart
               </a>
             {% endif %}
@@ -119,6 +123,78 @@
       </div>
     {% empty %}
       <p>No vehicles available for that period.</p>
+    {% endfor %}
+  {% endif %}
+  {% if partial_results %}
+    <h3>Partially available during your dates</h3>
+
+    {% for row in partial_results %}
+      <div class="card">
+        <div class="row">
+          <div>
+            <strong>{{ row.vehicle.name }}</strong><br>
+            {{ row.vehicle.car_type|title }} • {{ row.vehicle.engine_type|title }} •
+            {% if row.vehicle.unlimited_seats %}∞ seats{% else %}{{ row.vehicle.seats }} seats{% endif %}
+          </div>
+
+          <div style="flex:1;">
+            {% for s in row.slices %}
+              <div style="margin:.25rem 0;">
+                Available: {{ s.start }} → {{ s.end }}
+                ({{ s.quote.days }} day{{ s.quote.days|pluralize }}, {{ s.quote.total }} {{ s.quote.currency }})
+              </div>
+            {% endfor %}
+          </div>
+
+          <div>
+            {% for s in row.slices %}
+              {% if request.user.is_authenticated %}
+                <form method="post" action="{% url 'inventory:reserve' %}" style="margin:.25rem 0;">
+                  {% csrf_token %}
+                  <input type="hidden" name="vehicle" value="{{ row.vehicle.id }}">
+                  <input type="hidden" name="start" value="{{ s.start|date:'Y-m-d' }}">
+                  <input type="hidden" name="end" value="{{ s.end|date:'Y-m-d' }}">
+
+                  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <label>
+                      Pickup:
+                      <select name="pickup_location" required>
+                        {% for loc in row.vehicle.available_pickup_locations.all %}
+                          <option value="{{ loc.id }}">{{ loc.name }}</option>
+                        {% empty %}
+                          <option value="">No pickup locations configured</option>
+                        {% endfor %}
+                      </select>
+                    </label>
+
+                    <label>
+                      Return:
+                      <select name="return_location" required>
+                        {% for loc in row.vehicle.available_return_locations.all %}
+                          <option value="{{ loc.id }}">{{ loc.name }}</option>
+                        {% empty %}
+                          <option value="">No return locations configured</option>
+                        {% endfor %}
+                      </select>
+                    </label>
+
+                    {% if row.vehicle.available_pickup_locations.all|length and row.vehicle.available_return_locations.all|length %}
+                      <button class="btn" type="submit">Reserve {{ s.start }} → {{ s.end }}</button>
+                    {% else %}
+                      <span style="font-size:0.9em;">This vehicle has no configured pickup/return locations.</span>
+                    {% endif %}
+                  </div>
+                </form>
+              {% else %}
+                <a class="btn" style="margin:.25rem 0;"
+                   href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ s.start|date:'Y-m-d' }}&end={{ s.end|date:'Y-m-d' }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}">
+                  Login to reserve {{ s.start }} → {{ s.end }}
+                </a>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
     {% endfor %}
   {% endif %}
 {% endblock %}

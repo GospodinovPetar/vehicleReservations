@@ -81,7 +81,7 @@ def reserve(request):
         return_location=return_location,
         start_date=start_date,
         end_date=end_date,
-        status=ReservationStatus.RESERVED,
+        status=ReservationStatus.PENDING,
     )
 
     try:
@@ -260,7 +260,7 @@ def cancel_group(request, group_id):
         group.delete()
 
     messages.success(
-        request, f"Canceled {updated} reservation(s) from group {reference}."
+        request, f"Canceled {updated} reservation(s)"
     )
     return redirect("inventory:reservations")
 
@@ -270,13 +270,13 @@ def cancel_group(request, group_id):
 def reject_reservation(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk, user=request.user)
 
-    if reservation.status not in (
-        ReservationStatus.RESERVED,
+    if reservation.status in (
+        ReservationStatus.CANCELED,
         ReservationStatus.COMPLETED,
         ReservationStatus.REJECTED,
     ):
         messages.error(
-            request, "Only new or awaiting-pickup reservations can be rejected."
+            request, "Only ongoing reservations can be rejected."
         )
         return redirect("inventory:reservations")
 
