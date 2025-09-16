@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
   <h1>Manager Dashboard</h1>
-  <p>Welcome, {{ request.user.username }}!</p>
-  <ul>
-    <li><a href="{% url 'manager:vehicles' %}">Manage Vehicles</a></li>
-    <li><a href="{% url 'manager:reservations' %}">Manage Reservations</a></li>
-  </ul>
+
+  <div class="actions">
+    <a href="{% url 'accounts:vehicle-list' %}" class="btn btn-primary btn-lg">Manage Vehicles</a>
+    <a href="{% url 'accounts:reservation-list' %}" class="btn btn-success btn-lg">Manage Reservations</a>
+  </div>
 {% endblock %}
 

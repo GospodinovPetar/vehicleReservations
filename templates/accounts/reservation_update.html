@@ -1,23 +1,27 @@
 {% extends "base.html" %}
+
 {% block content %}
   <h2>Update Reservation</h2>
-
   <div class="card">
-    <p><strong>Vehicle:</strong> {{ reservation.vehicle }}</p>
-    <p><strong>User:</strong> {{ reservation.user }}</p>
-    <p><strong>Dates:</strong> {{ reservation.start_date }} → {{ reservation.end_date }}</p>
-    <p><strong>Current Status:</strong> {{ reservation.status }}</p>
-
     <form method="post">
       {% csrf_token %}
-      <label for="status">Status</label>
+      <p><strong>Reservation ID:</strong> {{ reservation.id }}</p>
+      <p><strong>User:</strong> {{ reservation.user.username }}</p>
+      <p><strong>Vehicle:</strong> {{ reservation.vehicle.name }}</p>
+      <p><strong>Dates:</strong> {{ reservation.start_date }} → {{ reservation.end_date }}</p>
+
+      <label for="status">Status:</label>
       <select name="status" id="status">
-        <option value="PENDING" {% if reservation.status =="PENDING" %}selected{% endif %}>Pending</option>
-        <option value="CONFIRMED" {% if reservation.status =="CONFIRMED" %}selected{% endif %}>Confirmed</option>
-        <option value="CANCELLED" {% if reservation.status =="CANCELLED" %}selected{% endif %}>Cancelled</option>
-        <option value="REJECTED" {% if reservation.status =="REJECTED" %}selected{% endif %}>Rejected</option>
+        <option value="PENDING" {% if reservation.status == "PENDING" %}selected{% endif %}>Pending</option>
+        <option value="CONFIRMED" {% if reservation.status == "CONFIRMED" %}selected{% endif %}>Confirmed</option>
+        <option value="CANCELLED" {% if reservation.status == "CANCELLED" %}selected{% endif %}>Cancelled</option>
+        <option value="REJECTED" {% if reservation.status == "REJECTED" %}selected{% endif %}>Rejected</option>
       </select>
-      <p><button class="btn primary" type="submit">Save</button></p>
+
+      <p>
+        <button type="submit" class="btn primary">Save Changes</button>
+        <a href="{% url 'manager-reservations' %}" class="btn">Back to Reservations</a>
+      </p>
     </form>
   </div>
 {% endblock %}

@@ -11,49 +11,66 @@
     <p>Blocked: {{ stats.blocked }}</p>
   </div>
 
+
   <!-- Filters/Search -->
   <form method="get">
     <input type="text" name="q" placeholder="Search username/email" value="{{ request.GET.q }}">
     <select name="role">
       <option value="">All Roles</option>
-      <option value="admin" {% if request.GET.role =="admin" %}selected{% endif %}>Admin</option>
-      <option value="manager" {% if request.GET.role =="manager" %}selected{% endif %}>Manager</option>
-      <option value="user" {% if request.GET.role =="user" %}selected{% endif %}>User</option>
+      <option value="admin" {% if request.GET.role == "admin" %}selected{% endif %}>Admin</option>
+      <option value="manager" {% if request.GET.role == "manager" %}selected{% endif %}>Manager</option>
+      <option value="user" {% if request.GET.role == "user" %}selected{% endif %}>User</option>
     </select>
     <select name="status">
       <option value="">All Status</option>
-      <option value="active" {% if request.GET.status =="active" %}selected{% endif %}>Active</option>
-      <option value="blocked" {% if request.GET.status =="blocked" %}selected{% endif %}>Blocked</option>
+      <option value="active" {% if request.GET.status == "active" %}selected{% endif %}>Active</option>
+      <option value="blocked" {% if request.GET.status == "blocked" %}selected{% endif %}>Blocked</option>
     </select>
     <button type="submit">Filter</button>
   </form>
 
-  <!-- User Table -->
-  <a href="{% url 'accounts:admin-create-user' %}">+ Create User</a>
-  <table>
+
+<!-- User Table -->
+<a href="{% url 'accounts:admin-create-user' %}" class="btn btn-success">+ Create User</a>
+<table class="table">
+  <tr>
+    <th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th>
+  </tr>
+  {% for u in users %}
     <tr>
-      <th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th>
+      <td>{{ u.username }}</td>
+      <td>{{ u.email }}</td>
+      <td>{{ u.role }}</td>
+      <td>
+        {% if u.is_blocked %}
+          <span class="badge bg-danger">Blocked</span>
+        {% else %}
+          <span class="badge bg-success">Active</span>
+        {% endif %}
+      </td>
+      <td>
+        <a href="{% url 'accounts:admin-edit-user' u.id %}" class="btn btn-sm btn-primary">Edit</a>
+
+        {% if u.is_blocked %}
+          <a href="{% url 'accounts:admin-unblock-user' u.id %}" class="btn btn-sm btn-success">Unblock</a>
+        {% else %}
+          <a href="{% url 'accounts:admin-block-user' u.id %}" class="btn btn-sm btn-warning">Block</a>
+        {% endif %}
+
+        <a href="{% url 'accounts:admin-promote-manager' u.id %}" class="btn btn-sm btn-info">Promote</a>
+        <a href="{% url 'accounts:admin-demote-user' u.id %}" class="btn btn-sm btn-secondary">Demote</a>
+        <a href="{% url 'accounts:admin-delete-user' u.id %}" class="btn btn-sm btn-danger">Delete</a>
+      </td>
     </tr>
-    {% for u in users %}
-      <tr>
-        <td>{{ u.username }}</td>
-        <td>{{ u.email }}</td>
-        <td>{{ u.role }}</td>
-        <td>{% if u.is_blocked %}Blocked{% else %}Active{% endif %}</td>
-        <td>
-          <a href="{% url 'accounts:admin-edit-user' u.id %}">Edit</a> |
-          {% if u.is_blocked %}
-            <a href="{% url 'accounts:admin-unblock-user' u.id %}">Unblock</a>
-          {% else %}
-            <a href="{% url 'accounts:admin-block-user' u.id %}">Block</a>
-          {% endif %}
-          | <a href="{% url 'accounts:admin-promote-manager' u.id %}">Promote</a>
-          | <a href="{% url 'accounts:admin-demote-user' u.id %}">Demote</a>
-          | <a href="{% url 'accounts:admin-delete-user' u.id %}">Delete</a>
-        </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="5">No users found.</td></tr>
-    {% endfor %}
-  </table>
+  {% empty %}
+    <tr><td colspan="5">No users found.</td></tr>
+  {% endfor %}
+</table>
+
+<!-- Quick Access Buttons -->
+  <div class="mb-4">
+    <a href="{% url 'accounts:vehicle-list' %}" class="btn btn-primary btn-lg">Manage Vehicles</a>
+    <a href="{% url 'accounts:reservation-list' %}" class="btn btn-success btn-lg">Manage Reservations</a>
+  </div>
+
 {% endblock %}

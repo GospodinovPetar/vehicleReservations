@@ -40,19 +40,29 @@ def login_view(request):
             user = form.get_user()
 
             # Blocked users cannot log in
-            if user.is_blocked:
+            if user.is_blocked or not user.is_active:
                 messages.error(
-                    request, "Your account has been blocked. Please contact support."
+                    request,
+                    "Your account has been blocked or is inactive. Please contact support."
                 )
                 return redirect("accounts:login")
 
+            # Log the user in
             login(request, user)
-            next_url = request.GET.get("next") or "/"
             messages.success(request, "You are now logged in.")
-            return redirect(next_url)
-        messages.error(request, "Invalid username or password.")
+
+            # 🔹 Redirect based on role
+            if user.is_superuser or user.role == "admin":
+                return redirect("accounts:admin-dashboard")
+            elif user.role == "manager":
+                return redirect("accounts:manager-dashboard")
+            else:
+                return redirect("/reservations/")  # normal users
+        else:
+            messages.error(request, "Invalid username or password.")
     else:
         form = AuthenticationForm(request)
+
     return render(request, "auth.html", {"form": form, "title": "Login"})
 
 
@@ -298,5 +308,6 @@ def reservation_reject(request, pk):
 @login_required
 def user_reservations(request):
     """Normal user can only see their own reservations"""
-    reservations = Reservation.objects.filter(user=request.user).select_related("vehicle", "pickup_location", "return_location")
+    reservations = Reservation.objects.filter(user=request.user).select_related("vehicle", "pickup_location",
+                                                                                "return_location")
     return render(request, "accounts/reservation_list_user.html.html", {"reservations": reservations})
