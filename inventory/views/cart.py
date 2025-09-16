@@ -16,6 +16,27 @@ from inventory.models.vehicle import Vehicle
 
 
 @login_required
+def view_cart(request):
+    cart = Cart.get_or_create_active(request.user)
+    items = list(
+        CartItem.objects.filter(cart=cart).select_related(
+            "vehicle", "pickup_location", "return_location"
+        )
+    )
+
+    rows = []
+    for it in items:
+        q = quote_total(
+            it.start_date,
+            it.end_date,
+            RateTable(day=float(it.vehicle.price_per_day), currency="EUR"),
+        )
+        rows.append({"item": it, "days": q["days"], "total": Decimal(str(q["total"]))})
+
+    return render(request, "inventory/cart.html", {"cart": cart, "rows": rows})
+
+
+@login_required
 @require_http_methods(["POST"])
 def add_to_cart(request):
     vehicle = get_object_or_404(Vehicle, pk=request.POST.get("vehicle"))
@@ -51,27 +72,6 @@ def add_to_cart(request):
 
 
 @login_required
-def view_cart(request):
-    cart = Cart.get_or_create_active(request.user)
-    items = list(
-        CartItem.objects
-        .filter(cart=cart)
-        .select_related("vehicle", "pickup_location", "return_location")
-    )
-
-    rows = []
-    for it in items:
-        q = quote_total(
-            it.start_date,
-            it.end_date,
-            RateTable(day=float(it.vehicle.price_per_day), currency="EUR"),
-        )
-        rows.append({"item": it, "days": q["days"], "total": Decimal(str(q["total"]))})
-
-    return render(request, "inventory/cart.html", {"cart": cart, "rows": rows})
-
-
-@login_required
 @require_http_methods(["POST"])
 def remove_from_cart(request, item_id):
     cart = Cart.get_or_create_active(request.user)
@@ -87,8 +87,7 @@ def checkout(request):
     cart = get_object_or_404(Cart, user=request.user, is_checked_out=False)
 
     items = list(
-        CartItem.objects
-        .filter(cart=cart)
+        CartItem.objects.filter(cart=cart)
         .select_related("vehicle", "pickup_location", "return_location")
         .order_by("start_date", "vehicle_id")
     )
@@ -96,23 +95,29 @@ def checkout(request):
         messages.info(request, "Your cart is empty.")
         return redirect("inventory:view_cart")
 
-    for it in items:
-        available_ids = set(
-            Reservation.available_vehicles(
+    with transaction.atomic():
+        vehicle_ids = sorted({it.vehicle_id for it in items})
+        list(
+            Vehicle.objects.select_for_update()
+            .filter(id__in=vehicle_ids)
+            .order_by("id")
+        )
+
+        for it in items:
+            ok = Reservation.is_vehicle_available(
+                vehicle=it.vehicle,
                 start_date=it.start_date,
                 end_date=it.end_date,
                 pickup_location=it.pickup_location,
                 return_location=it.return_location,
             )
-        )
-        if it.pk not in available_ids:
-            messages.error(
-                request,
-                f"{it.vehicle} is no longer available for {it.start_date} → {it.end_date}.",
-            )
-            return redirect("inventory:view_cart")
+            if not ok:
+                messages.error(
+                    request,
+                    f"{it.vehicle} is no longer available for {it.start_date} → {it.end_date}.",
+                )
+                return redirect("inventory:view_cart")
 
-    with transaction.atomic():
         group = ReservationGroup.objects.create(user=request.user)
         if not getattr(group, "reference", None):
             group.reference = secrets.token_hex(4).upper()
@@ -136,6 +141,3 @@ def checkout(request):
 
     messages.success(request, f"Reservation confirmed. Reference: {group.reference}.")
     return redirect("inventory:reservations")
-
-
-

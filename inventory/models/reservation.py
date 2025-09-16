@@ -62,9 +62,9 @@ class Reservation(models.Model):
         if self.start_date and self.end_date and self.start_date >= self.end_date:
             errors["end_date"] = "End date must be after start date"
 
-        if self.vehicle.pk and self.start_date and self.end_date:
+        if self.vehicle_id and self.start_date and self.end_date:
             overlapping = Reservation.objects.filter(
-                vehicle_id=self.vehicle.pk, status__in=BLOCKING_STATUSES
+                vehicle_id=self.vehicle_id, status__in=BLOCKING_STATUSES
             ).filter(start_date__lt=self.end_date, end_date__gt=self.start_date)
             if self.pk:
                 overlapping = overlapping.exclude(pk=self.pk)
@@ -77,7 +77,9 @@ class Reservation(models.Model):
             raise ValidationError(errors)
 
     @staticmethod
-    def available_vehicles(start_date, end_date, pickup_location=None, return_location=None):
+    def available_vehicles(
+        start_date, end_date, pickup_location=None, return_location=None
+    ):
         blocked = (
             Reservation.objects.filter(status__in=BLOCKING_STATUSES)
             .filter(start_date__lt=end_date, end_date__gt=start_date)
@@ -88,14 +90,49 @@ class Reservation(models.Model):
         qs = Vehicle.objects.exclude(id__in=blocked)
 
         if pickup_location is not None:
-            qs = qs.annotate(_pickup_cnt=Count("available_pickup_locations", distinct=True)) \
-                .filter(Q(_pickup_cnt=0) | Q(available_pickup_locations=pickup_location))
+            qs = qs.annotate(
+                _pickup_cnt=Count("available_pickup_locations", distinct=True)
+            ).filter(Q(_pickup_cnt=0) | Q(available_pickup_locations=pickup_location))
 
         if return_location is not None:
-            qs = qs.annotate(_return_cnt=Count("available_return_locations", distinct=True)) \
-                .filter(Q(_return_cnt=0) | Q(available_return_locations=return_location))
+            qs = qs.annotate(
+                _return_cnt=Count("available_return_locations", distinct=True)
+            ).filter(Q(_return_cnt=0) | Q(available_return_locations=return_location))
 
         return qs.distinct().values_list("id", flat=True)
+
+    @classmethod
+    def conflicts_exist(cls, *, vehicle_id, start_date, end_date) -> bool:
+        return cls.objects.filter(
+            vehicle_id=vehicle_id,
+            status__in=BLOCKING_STATUSES,
+            start_date__lt=end_date,
+            end_date__gt=start_date,
+        ).exists()
+
+    @classmethod
+    def is_vehicle_available(
+        cls,
+        *,
+        vehicle,
+        start_date,
+        end_date,
+        pickup_location=None,
+        return_location=None
+    ) -> bool:
+        if pickup_location and vehicle.available_pickup_locations.exists():
+            if not vehicle.available_pickup_locations.filter(
+                pk=pickup_location.pk
+            ).exists():
+                return False
+        if return_location and vehicle.available_return_locations.exists():
+            if not vehicle.available_return_locations.filter(
+                pk=return_location.pk
+            ).exists():
+                return False
+        return not cls.conflicts_exist(
+            vehicle_id=vehicle.id, start_date=start_date, end_date=end_date
+        )
 
     def _compute_total_price(self) -> Decimal:
         days = (self.end_date - self.start_date).days

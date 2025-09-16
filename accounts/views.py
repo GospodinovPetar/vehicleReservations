@@ -80,7 +80,9 @@ def logout_view(request):
 
 # ----------- Dashboards -----------
 def admin_required(view_func):
-    return user_passes_test(lambda u: u.is_authenticated and u.role == "admin")(view_func)
+    return user_passes_test(lambda u: u.is_authenticated and u.role == "admin")(
+        view_func
+    )
 
 
 @admin_required
@@ -92,7 +94,9 @@ def admin_dashboard(request):
     users = User.objects.all().order_by("-date_joined")
 
     if query:
-        users = users.filter(username__icontains=query) | users.filter(email__icontains=query)
+        users = users.filter(username__icontains=query) | users.filter(
+            email__icontains=query
+        )
     if role_filter:
         users = users.filter(role=role_filter)
     if status_filter == "blocked":
@@ -108,7 +112,9 @@ def admin_dashboard(request):
         "blocked": User.objects.filter(is_blocked=True).count(),
     }
 
-    return render(request, "accounts/admin_dashboard.html", {"users": users, "stats": stats})
+    return render(
+        request, "accounts/admin_dashboard.html", {"users": users, "stats": stats}
+    )
 
 
 @admin_required
@@ -157,7 +163,9 @@ def create_user(request):
             return redirect("accounts:admin-dashboard")
     else:
         form = CustomUserCreationForm()
-    return render(request, "accounts/admin_user_form.html", {"form": form, "title": "Create User"})
+    return render(
+        request, "accounts/admin_user_form.html", {"form": form, "title": "Create User"}
+    )
 
 
 @admin_required
@@ -171,7 +179,11 @@ def edit_user(request, pk):
             return redirect("accounts:admin-dashboard")
     else:
         form = CustomUserCreationForm(instance=user)
-    return render(request, "accounts/admin_user_form.html", {"form": form, "title": f"Edit {user.username}"})
+    return render(
+        request,
+        "accounts/admin_user_form.html",
+        {"form": form, "title": f"Edit {user.username}"},
+    )
 
 
 @admin_required
@@ -190,7 +202,7 @@ def manager_required(view_func):
     """
     return user_passes_test(
         lambda u: u.is_authenticated and u.role in ["manager", "admin"],
-        login_url="/accounts/login/"
+        login_url="/accounts/login/",
     )(view_func)
 
 
@@ -208,8 +220,12 @@ def manager_vehicles(request):
 @manager_required
 def manager_reservations(request):
     """Managers/Admins see all reservations"""
-    reservations = Reservation.objects.all().select_related("user", "vehicle", "pickup_location", "return_location")
-    return render(request, "accounts/reservation_list.html", {"reservations": reservations})
+    reservations = Reservation.objects.all().select_related(
+        "user", "vehicle", "pickup_location", "return_location"
+    )
+    return render(
+        request, "accounts/reservation_list.html", {"reservations": reservations}
+    )
 
 
 # --- VEHICLE VIEWS ---
@@ -267,7 +283,9 @@ def vehicle_delete(request, pk):
 @manager_required
 def reservation_list(request):
     reservations = Reservation.objects.select_related("vehicle", "user").all()
-    return render(request, "accounts/reservation_list.html", {"reservations": reservations})
+    return render(
+        request, "accounts/reservation_list.html", {"reservations": reservations}
+    )
 
 
 @manager_required
@@ -284,7 +302,9 @@ def reservation_update(request, pk):
             reservation.save()
             return redirect("reservation-list")
 
-    return render(request, "accounts/reservation_update.html", {"reservation": reservation})
+    return render(
+        request, "accounts/reservation_update.html", {"reservation": reservation}
+    )
 
 
 @manager_required
@@ -308,6 +328,17 @@ def reservation_reject(request, pk):
 @login_required
 def user_reservations(request):
     """Normal user can only see their own reservations"""
+<<<<<<< HEAD
     reservations = Reservation.objects.filter(user=request.user).select_related("vehicle", "pickup_location",
                                                                                 "return_location")
     return render(request, "accounts/reservation_list_user.html.html", {"reservations": reservations})
+=======
+    reservations = Reservation.objects.filter(user=request.user).select_related(
+        "vehicle", "pickup_location", "return_location"
+    )
+    return render(
+        request,
+        "accounts/reservation_list_user.html.html",
+        {"reservations": reservations},
+    )
+>>>>>>> 6a65d9cc3d754854629b382eeee829ae0e5abfd7

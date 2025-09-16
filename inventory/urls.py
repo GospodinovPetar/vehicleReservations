@@ -32,5 +32,7 @@ urlpatterns = [
         "reservations/group/<int:group_id>/cancel/", cancel_group, name="cancel_group"
     ),
     path("reservations/<int:pk>/edit/", edit_reservation, name="edit_reservation"),
-    path("reservations/<int:pk>/delete/", delete_reservation, name="delete_reservation"),
+    path(
+        "reservations/<int:pk>/delete/", delete_reservation, name="delete_reservation"
+    ),
 ]

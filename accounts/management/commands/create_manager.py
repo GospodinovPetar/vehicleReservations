@@ -27,8 +27,10 @@ class Command(BaseCommand):
 
         # Ask for password twice
         while True:
-            password = options.get('password') or getpass.getpass('Password: ')
-            password2 = options.get('Password (again)') or getpass.getpass('Password (again): ')
+            password = options.get("password") or getpass.getpass("Password: ")
+            password2 = options.get("Password (again)") or getpass.getpass(
+                "Password (again): "
+            )
 
             if password != password2:
                 self.stdout.write(self.style.ERROR("Passwords do not match."))
@@ -49,7 +51,7 @@ class Command(BaseCommand):
             password=password,
             role="manager",
             is_staff=True,  # can access Django admin
-            is_superuser=False  # not a superuser
+            is_superuser=False,  # not a superuser
         )
 
         self.stdout.write(

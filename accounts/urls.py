@@ -8,33 +8,48 @@ urlpatterns = [
     path("register/", views.register, name="register"),
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
-
     # Dashboards
     path("admin-dashboard/", views.admin_dashboard, name="admin-dashboard"),
     path("manager-dashboard/", views.manager_dashboard, name="manager-dashboard"),
-
     # User CRUD
     path("admin/users/create/", views.create_user, name="admin-create-user"),
     path("admin/users/<int:pk>/edit/", views.edit_user, name="admin-edit-user"),
     path("admin/users/<int:pk>/delete/", views.delete_user, name="admin-delete-user"),
-
     # Admin Actions
     path("admin/users/<int:pk>/block/", views.block_user, name="admin-block-user"),
-    path("admin/users/<int:pk>/unblock/", views.unblock_user, name="admin-unblock-user"),
-    path("admin/users/<int:pk>/promote/", views.promote_manager, name="admin-promote-manager"),
+    path(
+        "admin/users/<int:pk>/unblock/", views.unblock_user, name="admin-unblock-user"
+    ),
+    path(
+        "admin/users/<int:pk>/promote/",
+        views.promote_manager,
+        name="admin-promote-manager",
+    ),
     path("admin/users/<int:pk>/demote/", views.demote_user, name="admin-demote-user"),
-
     # Vehicle management
     path("vehicles/", views.vehicle_list, name="vehicle-list"),
     path("vehicles/create/", views.vehicle_create, name="vehicle-create"),
     path("vehicles/<int:pk>/edit/", views.vehicle_edit, name="vehicle-edit"),
     path("vehicles/<int:pk>/delete/", views.vehicle_delete, name="vehicle-delete"),
-
     # Reservation management
     path("reservations/", views.reservation_list, name="reservation-list"),
-    path("reservations/<int:pk>/approve/", views.reservation_approve, name="reservation-approve"),
-    path("reservations/<int:pk>/reject/", views.reservation_reject, name="reservation-reject"),
+    path(
+        "reservations/<int:pk>/approve/",
+        views.reservation_approve,
+        name="reservation-approve",
+    ),
+    path(
+        "reservations/<int:pk>/reject/",
+        views.reservation_reject,
+        name="reservation-reject",
+    ),
     path("reservations/", views.user_reservations, name="user-reservations"),
-    path("manager/reservations/", views.manager_reservations, name="manager-reservations"),
-    path("manager/reservations/<int:pk>/update/", views.reservation_update, name="reservation-update"),
+    path(
+        "manager/reservations/", views.manager_reservations, name="manager-reservations"
+    ),
+    path(
+        "manager/reservations/<int:pk>/update/",
+        views.reservation_update,
+        name="reservation-update",
+    ),
 ]
