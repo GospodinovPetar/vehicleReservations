@@ -1,14 +1,18 @@
 from django.urls import path
 
 from inventory.views.search import home, search
-from inventory.views.reservations import reservations, reject_reservation
+from inventory.views.reservations import (
+    reject_reservation,
+    my_reservations,
+    cancel_group,
+    edit_reservation,
+    delete_reservation,
+)
 from inventory.views.cart import (
     add_to_cart,
     view_cart,
     remove_from_cart,
     checkout,
-    my_reservations,
-    cancel_group,
 )
 
 app_name = "inventory"
@@ -27,4 +31,6 @@ urlpatterns = [
     path(
         "reservations/group/<int:group_id>/cancel/", cancel_group, name="cancel_group"
     ),
+    path("reservations/<int:pk>/edit/", edit_reservation, name="edit_reservation"),
+    path("reservations/<int:pk>/delete/", delete_reservation, name="delete_reservation"),
 ]

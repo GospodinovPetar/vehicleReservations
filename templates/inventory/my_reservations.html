@@ -1,9 +1,8 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
-  <h3>My reservations</h3>
+  <h3>My Reservations</h3>
 
   <div class="card">
-
     {% if groups %}
       {% for g in groups %}
         <div style="margin: .5rem 0;">
@@ -21,25 +20,43 @@
           <table>
             <thead>
               <tr>
+                <th>User</th>
                 <th>Vehicle</th>
                 <th>Dates</th>
                 <th>Pickup → Return</th>
                 <th>Status</th>
                 <th>Total</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {% for r in g.reservations.all %}
-                <tr>
-                  <td>{{ r.vehicle }}</td>
-                  <td>{{ r.start_date }} -> {{ r.end_date }}</td>
-                  <td>{{ r.pickup_location }} -> {{ r.return_location }}</td>
-                  <td>{{ r.status }}</td>
-                  <td>{{ r.total_price }} EUR</td>
-                </tr>
-              {% empty %}
-                <tr><td colspan="5">There are no active reservations.</td></tr>
-              {% endfor %}
+              {% with active_count=g.reservations.all|length %}
+                {% for r in g.reservations.all %}
+                  <tr>
+                    <td>{{ r.user }}</td>
+                    <td>{{ r.vehicle }}</td>
+                    <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+                    <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
+                    <td>{{ r.status }}</td>
+                    <td>{{ r.total_price|floatformat:2 }} EUR</td>
+                    <td>
+                      <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
+                      {% if active_count > 1 %}
+                        <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
+                          {% csrf_token %}
+                          <button class="btn">Delete</button>
+                        </form>
+                      {% else %}
+                        <button class="btn" disabled title="Cannot remove the only vehicle">Delete</button>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="7">This group has no active reservations.</td>
+                  </tr>
+                {% endfor %}
+              {% endwith %}
             </tbody>
           </table>
         </div>
@@ -56,6 +73,7 @@
       <table>
         <thead>
           <tr>
+            <th>User</th>
             <th>Vehicle</th>
             <th>Dates</th>
             <th>Pickup → Return</th>
@@ -66,11 +84,12 @@
         <tbody>
           {% for r in canceled %}
             <tr>
+              <td>{{ r.user }}</td>
               <td>{{ r.vehicle }}</td>
-              <td>{{ r.start_date }} -> {{ r.end_date }}</td>
-              <td>{{ r.pickup_location }} -> {{ r.return_location }}</td>
+              <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+              <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
               <td>{{ r.status }}</td>
-              <td>{{ r.total_price }} EUR</td>
+              <td>{{ r.total_price|floatformat:2 }} EUR</td>
             </tr>
           {% endfor %}
         </tbody>
