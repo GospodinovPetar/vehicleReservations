@@ -43,7 +43,7 @@ def login_view(request):
             if user.is_blocked or not user.is_active:
                 messages.error(
                     request,
-                    "Your account has been blocked or is inactive. Please contact support."
+                    "Your account has been blocked or is inactive. Please contact support.",
                 )
                 return redirect("accounts:login")
 
@@ -329,9 +329,14 @@ def reservation_reject(request, pk):
 def user_reservations(request):
     """Normal user can only see their own reservations"""
 
-    reservations = Reservation.objects.filter(user=request.user).select_related("vehicle", "pickup_location",
-                                                                                "return_location")
-    return render(request, "accounts/reservation_list_user.html.html", {"reservations": reservations})
+    reservations = Reservation.objects.filter(user=request.user).select_related(
+        "vehicle", "pickup_location", "return_location"
+    )
+    return render(
+        request,
+        "accounts/reservation_list_user.html.html",
+        {"reservations": reservations},
+    )
 
     reservations = Reservation.objects.filter(user=request.user).select_related(
         "vehicle", "pickup_location", "return_location"

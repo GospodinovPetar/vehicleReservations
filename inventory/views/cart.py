@@ -104,14 +104,13 @@ def checkout(request):
         )
 
         for it in items:
-            ok = Reservation.is_vehicle_available(
+            if not Reservation.is_vehicle_available(
                 vehicle=it.vehicle,
                 start_date=it.start_date,
                 end_date=it.end_date,
-                pickup_location=it.pickup_location,
-                return_location=it.return_location,
-            )
-            if not ok:
+                pickup=it.pickup_location,
+                ret=it.return_location,
+            ):
                 messages.error(
                     request,
                     f"{it.vehicle} is no longer available for {it.start_date} → {it.end_date}.",

@@ -3,11 +3,10 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Count, Q
+from django.db.models import Q, Count
 
 from inventory.models.vehicle import Vehicle
-
-BLOCKING_STATUSES = ("RESERVED", "CONFIRMED")
+from inventory.helpers.pricing import RateTable, quote_total
 
 
 class Location(models.Model):
@@ -23,6 +22,13 @@ class ReservationStatus(models.TextChoices):
     REJECTED = "REJECTED", "Rejected"
     COMPLETED = "COMPLETED", "Completed"
     CONFIRMED = "CONFIRMED", "Confirmed"
+
+    @classmethod
+    def blocking(cls):
+        return cls.RESERVED, cls.CONFIRMED
+
+
+BLOCKING_STATUSES = (ReservationStatus.RESERVED, ReservationStatus.CONFIRMED)
 
 
 class Reservation(models.Model):
@@ -91,13 +97,13 @@ class Reservation(models.Model):
 
         if pickup_location is not None:
             qs = qs.annotate(
-                _pickup_cnt=Count("available_pickup_locations", distinct=True)
-            ).filter(Q(_pickup_cnt=0) | Q(available_pickup_locations=pickup_location))
+                _pc=Count("available_pickup_locations", distinct=True)
+            ).filter(Q(_pc=0) | Q(available_pickup_locations=pickup_location))
 
         if return_location is not None:
             qs = qs.annotate(
-                _return_cnt=Count("available_return_locations", distinct=True)
-            ).filter(Q(_return_cnt=0) | Q(available_return_locations=return_location))
+                _rc=Count("available_return_locations", distinct=True)
+            ).filter(Q(_rc=0) | Q(available_return_locations=return_location))
 
         return qs.distinct().values_list("id", flat=True)
 
@@ -112,36 +118,31 @@ class Reservation(models.Model):
 
     @classmethod
     def is_vehicle_available(
-        cls,
-        *,
-        vehicle,
-        start_date,
-        end_date,
-        pickup_location=None,
-        return_location=None
+        cls, *, vehicle, start_date, end_date, pickup=None, ret=None
     ) -> bool:
-        if pickup_location and vehicle.available_pickup_locations.exists():
-            if not vehicle.available_pickup_locations.filter(
-                pk=pickup_location.pk
-            ).exists():
+        if pickup and vehicle.available_pickup_locations.exists():
+            if not vehicle.available_pickup_locations.filter(pk=pickup.pk).exists():
                 return False
-        if return_location and vehicle.available_return_locations.exists():
-            if not vehicle.available_return_locations.filter(
-                pk=return_location.pk
-            ).exists():
+        if ret and vehicle.available_return_locations.exists():
+            if not vehicle.available_return_locations.filter(pk=ret.pk).exists():
                 return False
         return not cls.conflicts_exist(
             vehicle_id=vehicle.id, start_date=start_date, end_date=end_date
         )
 
     def _compute_total_price(self) -> Decimal:
-        days = (self.end_date - self.start_date).days
-        daily = getattr(self.vehicle, "price_per_day", Decimal("0.00")) or Decimal(
-            "0.00"
+        if not (self.start_date and self.end_date and self.vehicle_id):
+            return Decimal("0.00")
+        day_rate = float(getattr(self.vehicle, "price_per_day", 0) or 0)
+        q = quote_total(
+            self.start_date, self.end_date, RateTable(day=day_rate, currency="EUR")
         )
-        return (Decimal(days) * Decimal(daily)).quantize(Decimal("0.01"))
+        return Decimal(str(q["total"]))
 
     def save(self, *args, **kwargs):
         self.full_clean()
         self.total_price = self._compute_total_price()
         return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.vehicle} ({self.start_date} → {self.end_date})"
