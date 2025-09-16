@@ -17,10 +17,10 @@ services:
 
   web:
     build:
-      context: ..
+      context: ..                 # project root (where manage.py lives)
       dockerfile: docker/Dockerfile
     env_file:
-        - ../.env
+      - ../.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       POSTGRES_DB: vehicledb
@@ -35,7 +35,9 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - .:/app
+      - ../:/work
+    working_dir: /work
+    command: python manage.py runserver 0.0.0.0:8000
 
 volumes:
   pg_data:

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+  <h3>Edit reservation #{{ reservation.id }}</h3>
+  <div class="card" style="max-width:720px;">
+    <form method="post">
+      {% csrf_token %}
+
+      <div>
+        {{ form.vehicle.label_tag }} {{ form.vehicle }}
+        {{ form.vehicle.errors }}
+      </div>
+
+      <div>
+        {{ form.pickup_location.label_tag }} {{ form.pickup_location }}
+        {{ form.pickup_location.errors }}
+      </div>
+
+      <div>
+        {{ form.return_location.label_tag }} {{ form.return_location }}
+        {{ form.return_location.errors }}
+      </div>
+
+      <div>
+        {{ form.start_date.label_tag }} {{ form.start_date }}
+        {{ form.start_date.errors }}
+      </div>
+
+      <div>
+        {{ form.end_date.label_tag }} {{ form.end_date }}
+        {{ form.end_date.errors }}
+      </div>
+
+      {% if form.non_field_errors %}
+        <p style="color:#c00;">{{ form.non_field_errors }}</p>
+      {% endif %}
+
+      <div style="margin-top:1rem;">
+        <button class="btn" type="submit">Save changes</button>
+        <a class="btn" href="{% url 'inventory:reservations' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

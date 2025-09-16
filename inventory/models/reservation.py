@@ -1,9 +1,11 @@
 from decimal import Decimal
 
-from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Count, Q
+
+from inventory.models.vehicle import Vehicle
 
 BLOCKING_STATUSES = ("RESERVED", "CONFIRMED")
 
@@ -75,7 +77,7 @@ class Reservation(models.Model):
             raise ValidationError(errors)
 
     @staticmethod
-    def available_vehicles(start_date, end_date, pickup_location, return_location):
+    def available_vehicles(start_date, end_date, pickup_location=None, return_location=None):
         blocked = (
             Reservation.objects.filter(status__in=BLOCKING_STATUSES)
             .filter(start_date__lt=end_date, end_date__gt=start_date)
@@ -83,13 +85,15 @@ class Reservation(models.Model):
             .distinct()
         )
 
-        Vehicle = apps.get_model("inventory", "Vehicle")
         qs = Vehicle.objects.exclude(id__in=blocked)
 
         if pickup_location is not None:
-            qs = qs.filter(available_pickup_locations=pickup_location)
+            qs = qs.annotate(_pickup_cnt=Count("available_pickup_locations", distinct=True)) \
+                .filter(Q(_pickup_cnt=0) | Q(available_pickup_locations=pickup_location))
+
         if return_location is not None:
-            qs = qs.filter(available_return_locations=return_location)
+            qs = qs.annotate(_return_cnt=Count("available_return_locations", distinct=True)) \
+                .filter(Q(_return_cnt=0) | Q(available_return_locations=return_location))
 
         return qs.distinct().values_list("id", flat=True)
 
