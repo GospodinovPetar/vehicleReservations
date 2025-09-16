@@ -42,7 +42,6 @@ class ReservationStatusForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Limit choices to manager-friendly statuses
         self.fields["status"].choices = [
             (ReservationStatus.RESERVED, "Reserved"),
             (ReservationStatus.AWAITING_PICKUP, "Awaiting Pickup"),

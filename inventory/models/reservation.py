@@ -21,14 +21,14 @@ class ReservationStatus(models.TextChoices):
     CANCELED = "CANCELED", "Canceled"
     REJECTED = "REJECTED", "Rejected"
     COMPLETED = "COMPLETED", "Completed"
-    CONFIRMED = "CONFIRMED", "Confirmed"
+    PENDING = "PENDING", "Pending"
 
     @classmethod
     def blocking(cls):
-        return cls.RESERVED, cls.CONFIRMED
+        return cls.RESERVED, cls.PENDING
 
 
-BLOCKING_STATUSES = (ReservationStatus.RESERVED, ReservationStatus.CONFIRMED)
+BLOCKING_STATUSES = (ReservationStatus.RESERVED, ReservationStatus.PENDING)
 
 
 class Reservation(models.Model):
@@ -49,7 +49,7 @@ class Reservation(models.Model):
     status = models.CharField(
         max_length=20,
         choices=ReservationStatus.choices,
-        default=ReservationStatus.RESERVED,
+        default=ReservationStatus.PENDING,
     )
     total_price = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00")

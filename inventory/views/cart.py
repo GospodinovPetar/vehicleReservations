@@ -130,7 +130,7 @@ def checkout(request):
                 return_location=it.return_location,
                 start_date=it.start_date,
                 end_date=it.end_date,
-                status=ReservationStatus.RESERVED,
+                status=ReservationStatus.PENDING,
                 group=group,
             )
 
