@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import render
 
-from inventory.helpers.intervals import _free_slices
+from inventory.helpers.intervals import free_slices
 from inventory.models.cart import CartItem
 from inventory.models.reservation import Location, Reservation, BLOCKING_STATUSES
 from inventory.models.vehicle import Vehicle
@@ -110,7 +110,7 @@ def search(request):
     partial_results = []
     for v in partial_qs.order_by("name"):
         busy_for_vehicle = busy_map.get(v.pk, [])
-        slices = _free_slices(start_date, end_date, busy_for_vehicle)
+        slices = free_slices(start_date, end_date, busy_for_vehicle)
         useful = []
         for a, b in slices:
             if a < b:
