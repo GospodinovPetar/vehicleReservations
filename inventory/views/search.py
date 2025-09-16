@@ -9,6 +9,7 @@ from inventory.models.vehicle import Vehicle
 from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.helpers.pricing import RateTable, quote_total
 
+
 def home(request):
     locations = Location.objects.all()
     context = {"locations": locations}
@@ -119,9 +120,7 @@ def search(request):
 
         priced_slices = []
         for a, b in useful:
-            q = quote_total(
-                a, b, RateTable(day=float(v.price_per_day), currency="EUR")
-            )
+            q = quote_total(a, b, RateTable(day=float(v.price_per_day), currency="EUR"))
             priced_slices.append({"start": a, "end": b, "quote": q})
 
         partial_results.append({"vehicle": v, "slices": priced_slices})
