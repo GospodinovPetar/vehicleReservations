@@ -29,9 +29,11 @@ class Command(BaseCommand):
         email = options.get("email") or input("Email: ")
 
         while True:
-            password = options.get('password') or getpass.getpass('Password: ')
+            password = options.get("password") or getpass.getpass("Password: ")
 
-            password2 = options.get("Password (again)") or getpass.getpass('Password (again): ')
+            password2 = options.get("Password (again)") or getpass.getpass(
+                "Password (again): "
+            )
 
             if password != password2:
                 self.stdout.write(self.style.ERROR("Passwords do not match."))

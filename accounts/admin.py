@@ -91,7 +91,9 @@ admin.site.register(CustomUser, CustomUserAdmin)
 # Keep admin site open for managers too (so they can manage vehicles/reservations)
 def custom_has_permission(request):
     """Allow only managers & superusers into the admin site."""
-    return request.user.is_active and (request.user.is_superuser or request.user.role == "manager")
+    return request.user.is_active and (
+        request.user.is_superuser or request.user.role == "manager"
+    )
 
 
 admin.site.has_permission = custom_has_permission

@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from inventory.helpers.parse_iso_date import parse_iso_date
+from inventory.helpers.redirect_back_to_search import _redirect_back_to_search
 from inventory.models.cart import ReservationGroup
 from inventory.models.reservation import Location, Reservation, ReservationStatus
 from inventory.models.vehicle import Vehicle
@@ -15,17 +16,17 @@ from inventory.models.vehicle import Vehicle
 class ReservationEditForm(forms.ModelForm):
     class Meta:
         model = Reservation
-        fields = ["vehicle", "pickup_location", "return_location", "start_date", "end_date"]
+        fields = [
+            "vehicle",
+            "pickup_location",
+            "return_location",
+            "start_date",
+            "end_date",
+        ]
         widgets = {
             "start_date": forms.DateInput(attrs={"type": "date"}),
             "end_date": forms.DateInput(attrs={"type": "date"}),
         }
-
-
-def _redirect_back_to_search(start_str: str | None, end_str: str | None):
-    start_q = start_str or ""
-    end_q = end_str or ""
-    return redirect(f"/search/?start={start_q}&end={end_q}")
 
 
 @login_required
@@ -42,25 +43,35 @@ def reserve(request):
         return _redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     if form_data.get("pickup_location"):
-        pickup_location = get_object_or_404(Location, pk=form_data.get("pickup_location"))
+        pickup_location = get_object_or_404(
+            Location, pk=form_data.get("pickup_location")
+        )
     else:
         pickup_location = vehicle.available_pickup_locations.first()
 
     if form_data.get("return_location"):
-        return_location = get_object_or_404(Location, pk=form_data.get("return_location"))
+        return_location = get_object_or_404(
+            Location, pk=form_data.get("return_location")
+        )
     else:
         return_location = vehicle.available_return_locations.first()
 
     if pickup_location is None or return_location is None:
-        messages.error(request, "This vehicle has no configured pickup/return locations.")
+        messages.error(
+            request, "This vehicle has no configured pickup/return locations."
+        )
         return _redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     if not vehicle.available_pickup_locations.filter(pk=pickup_location.pk).exists():
-        messages.error(request, "Selected pickup location is not available for this vehicle.")
+        messages.error(
+            request, "Selected pickup location is not available for this vehicle."
+        )
         return _redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     if not vehicle.available_return_locations.filter(pk=return_location.pk).exists():
-        messages.error(request, "Selected return location is not available for this vehicle.")
+        messages.error(
+            request, "Selected return location is not available for this vehicle."
+        )
         return _redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     reservation = Reservation(
@@ -92,37 +103,34 @@ def my_reservations(request):
     ]
 
     active_reservations_qs = (
-        Reservation.objects
-        .exclude(status__in=non_active_statuses)
+        Reservation.objects.exclude(status__in=non_active_statuses)
         .select_related("vehicle", "pickup_location", "return_location")
         .order_by("-start_date")
     )
 
     groups = (
-        ReservationGroup.objects
-        .filter(user=request.user)
+        ReservationGroup.objects.filter(user=request.user)
         .prefetch_related(Prefetch("reservations", queryset=active_reservations_qs))
         .order_by("-created_at")
     )
 
     ungroupped = (
-        Reservation.objects
-        .filter(user=request.user, group__isnull=True)
+        Reservation.objects.filter(user=request.user, group__isnull=True)
         .exclude(status__in=non_active_statuses)
         .select_related("vehicle", "pickup_location", "return_location")
         .order_by("-start_date")
     )
 
     canceled = (
-        Reservation.objects
-        .filter(user=request.user, status=getattr(ReservationStatus, "CANCELED", "CANCELED"))
+        Reservation.objects.filter(
+            user=request.user, status=getattr(ReservationStatus, "CANCELED", "CANCELED")
+        )
         .select_related("vehicle", "pickup_location", "return_location", "group")
         .order_by("-start_date")
     )
 
     rejected = (
-        Reservation.objects
-        .filter(user=request.user, status=ReservationStatus.REJECTED)
+        Reservation.objects.filter(user=request.user, status=ReservationStatus.REJECTED)
         .select_related("vehicle", "pickup_location", "return_location", "group")
         .order_by("-start_date")
     )
@@ -132,10 +140,6 @@ def my_reservations(request):
         "inventory/my_reservations.html",
         {"groups": groups, "ungroupped": ungroupped, "canceled": canceled},
     )
-
-
-# NOTE: The old `reservations()` list view duplicated my_reservations().
-# It has been removed to avoid overlapping functionality.
 
 
 @login_required
@@ -154,12 +158,22 @@ def edit_reservation(request, pk):
             selected_return = form.cleaned_data["return_location"]
 
             if selected_pickup and selected_vehicle.available_pickup_locations.exists():
-                if not selected_vehicle.available_pickup_locations.filter(pk=selected_pickup.pk).exists():
-                    form.add_error("pickup_location", "Pickup location not allowed for this vehicle.")
+                if not selected_vehicle.available_pickup_locations.filter(
+                    pk=selected_pickup.pk
+                ).exists():
+                    form.add_error(
+                        "pickup_location",
+                        "Pickup location not allowed for this vehicle.",
+                    )
 
             if selected_return and selected_vehicle.available_return_locations.exists():
-                if not selected_vehicle.available_return_locations.filter(pk=selected_return.pk).exists():
-                    form.add_error("return_location", "Return location not allowed for this vehicle.")
+                if not selected_vehicle.available_return_locations.filter(
+                    pk=selected_return.pk
+                ).exists():
+                    form.add_error(
+                        "return_location",
+                        "Return location not allowed for this vehicle.",
+                    )
 
             if form.is_valid():
                 try:
@@ -180,7 +194,12 @@ def edit_reservation(request, pk):
     return render(
         request,
         "inventory/edit_reservation.html",
-        {"form": form, "reservation": reservation, "vehicles": vehicles, "locations": locations},
+        {
+            "form": form,
+            "reservation": reservation,
+            "vehicles": vehicles,
+            "locations": locations,
+        },
     )
 
 
@@ -199,19 +218,22 @@ def delete_reservation(request, pk):
 
     group = reservation.group
     if group is None:
-        messages.error(request, "You cannot remove the only vehicle in this reservation.")
+        messages.error(
+            request, "You cannot remove the only vehicle in this reservation."
+        )
         return redirect("inventory:reservations")
 
     ReservationGroup.objects.select_for_update().filter(pk=group.pk).exists()
 
     active_in_group = (
-        Reservation.objects
-        .filter(group=group)
+        Reservation.objects.filter(group=group)
         .exclude(status__in=non_active_statuses)
         .count()
     )
     if active_in_group <= 1:
-        messages.error(request, "You cannot remove the only vehicle in this reservation.")
+        messages.error(
+            request, "You cannot remove the only vehicle in this reservation."
+        )
         return redirect("inventory:reservations")
 
     reservation.delete()
@@ -230,15 +252,16 @@ def cancel_group(request, group_id):
             cancelable &= ~Q(status=ReservationStatus.COMPLETED)
 
         updated = (
-            Reservation.objects
-            .filter(group=group)
+            Reservation.objects.filter(group=group)
             .filter(cancelable)
             .update(status=getattr(ReservationStatus, "CANCELED", "CANCELED"))
         )
 
         group.delete()
 
-    messages.success(request, f"Canceled {updated} reservation(s) from group {reference}.")
+    messages.success(
+        request, f"Canceled {updated} reservation(s) from group {reference}."
+    )
     return redirect("inventory:reservations")
 
 
@@ -252,7 +275,9 @@ def reject_reservation(request, pk):
         ReservationStatus.COMPLETED,
         ReservationStatus.REJECTED,
     ):
-        messages.error(request, "Only new or awaiting-pickup reservations can be rejected.")
+        messages.error(
+            request, "Only new or awaiting-pickup reservations can be rejected."
+        )
         return redirect("inventory:reservations")
 
     reservation.status = ReservationStatus.REJECTED

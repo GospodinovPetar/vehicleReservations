@@ -23,9 +23,16 @@ class CustomUserCreationForm(UserCreationForm):
 class VehicleForm(forms.ModelForm):
     class Meta:
         model = Vehicle
-        fields = ["name", "car_type", "engine_type", "seats",
-                  "unlimited_seats", "price_per_day",
-                  "available_pickup_locations", "available_return_locations"]
+        fields = [
+            "name",
+            "car_type",
+            "engine_type",
+            "seats",
+            "unlimited_seats",
+            "price_per_day",
+            "available_pickup_locations",
+            "available_return_locations",
+        ]
 
 
 class ReservationStatusForm(forms.ModelForm):
