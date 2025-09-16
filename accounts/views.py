@@ -328,11 +328,11 @@ def reservation_reject(request, pk):
 @login_required
 def user_reservations(request):
     """Normal user can only see their own reservations"""
-<<<<<<< HEAD
+
     reservations = Reservation.objects.filter(user=request.user).select_related("vehicle", "pickup_location",
                                                                                 "return_location")
     return render(request, "accounts/reservation_list_user.html.html", {"reservations": reservations})
-=======
+
     reservations = Reservation.objects.filter(user=request.user).select_related(
         "vehicle", "pickup_location", "return_location"
     )
@@ -341,4 +341,3 @@ def user_reservations(request):
         "accounts/reservation_list_user.html.html",
         {"reservations": reservations},
     )
->>>>>>> 6a65d9cc3d754854629b382eeee829ae0e5abfd7
