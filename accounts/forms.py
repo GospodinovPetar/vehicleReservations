@@ -37,7 +37,7 @@ class VehicleForm(forms.ModelForm):
         model = Vehicle
         fields = ["name", "car_type", "seats", "price_per_day", "pickup_location", "dropoff_location"]
 
-    car_type = forms.ChoiceField(choices=Vehicle.CarType.choices)  # uses TextChoices
+    car_type = forms.ChoiceField(choices=Vehicle.car_type.choices)  # uses TextChoices
 
     pickup_location = forms.ModelChoiceField(
         queryset=Location.objects.all(),
