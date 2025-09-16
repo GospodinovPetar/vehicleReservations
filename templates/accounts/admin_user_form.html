@@ -1,9 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
   <h2>{{ title }}</h2>
+
   <form method="post">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn primary">Save</button>
+
+    <div>
+      {{ form.as_p }}
+    </div>
+
+    <button type="submit" style="padding:8px 16px; background:#4CAF50; color:white; border:none; border-radius:4px; cursor:pointer;">
+      Save
+    </button>
+    <a href="{% url 'accounts:admin-dashboard' %}" style="margin-left:10px;">Cancel</a>
   </form>
 {% endblock %}

@@ -120,36 +120,48 @@ def admin_dashboard(request):
 @admin_required
 def block_user(request, pk):
     user = get_object_or_404(User, pk=pk)
-    user.is_blocked = True
-    user.save()
-    messages.success(request, f"{user.username} has been blocked.")
+    if user.role == "admin":  # prevents blocking admins
+        messages.error(request, "You cannot block another admin.")
+    else:
+        user.is_blocked = True
+        user.save()
+        messages.success(request, f"{user.username} has been blocked.")
     return redirect("accounts:admin-dashboard")
 
 
 @admin_required
 def unblock_user(request, pk):
     user = get_object_or_404(User, pk=pk)
-    user.is_blocked = False
-    user.save()
-    messages.success(request, f"{user.username} has been unblocked.")
+    if user.role == "admin":  # prevents modifying admins
+        messages.error(request, "You cannot unblock another admin.")
+    else:
+        user.is_blocked = False
+        user.save()
+        messages.success(request, f"{user.username} has been unblocked.")
     return redirect("accounts:admin-dashboard")
 
 
 @admin_required
 def promote_manager(request, pk):
     user = get_object_or_404(User, pk=pk)
-    user.role = "manager"
-    user.save()
-    messages.success(request, f"{user.username} is now a manager.")
+    if user.role == "admin":  # prevents touching admins
+        messages.error(request, "You cannot modify another admin.")
+    else:
+        user.role = "manager"
+        user.save()
+        messages.success(request, f"{user.username} is now a manager.")
     return redirect("accounts:admin-dashboard")
 
 
 @admin_required
 def demote_user(request, pk):
     user = get_object_or_404(User, pk=pk)
-    user.role = "user"
-    user.save()
-    messages.success(request, f"{user.username} is now a regular user.")
+    if user.role == "admin":  # prevents touching admins
+        messages.error(request, "You cannot modify another admin.")
+    else:
+        user.role = "user"
+        user.save()
+        messages.success(request, f"{user.username} is now a regular user.")
     return redirect("accounts:admin-dashboard")
 
 
@@ -171,9 +183,16 @@ def create_user(request):
 @admin_required
 def edit_user(request, pk):
     user = get_object_or_404(User, pk=pk)
+    if user.role == "admin":  # prevents editing admins
+        messages.error(request, "You cannot edit another admin.")
+        return redirect("accounts:admin-dashboard")
+
     if request.method == "POST":
         form = CustomUserCreationForm(request.POST, instance=user)
         if form.is_valid():
+            # Do NOT allow password changes here
+            form.save(commit=False)
+            form.instance.set_password(user.password)
             form.save()
             messages.success(request, "User updated successfully.")
             return redirect("accounts:admin-dashboard")
@@ -189,6 +208,10 @@ def edit_user(request, pk):
 @admin_required
 def delete_user(request, pk):
     user = get_object_or_404(User, pk=pk)
+    if user.role == "admin":  # prevents deleting admins
+        messages.error(request, "You cannot delete another admin.")
+        return redirect("accounts:admin-dashboard")
+
     if request.method == "POST":
         user.delete()
         messages.success(request, "User deleted successfully.")
@@ -238,37 +261,28 @@ def vehicle_list(request):
 @manager_required
 def vehicle_create(request):
     if request.method == "POST":
-        name = request.POST.get("name")
-        car_type = request.POST.get("car_type")
-        seats = request.POST.get("seats")
-        price_per_day = request.POST.get("price_per_day")
-
-        Vehicle.objects.create(
-            name=name,
-            car_type=car_type,
-            seats=seats,
-            price_per_day=price_per_day,
-        )
-        messages.success(request, "Vehicle created successfully.")
-        return redirect("accounts:vehicle-list")
-
-    return render(request, "accounts/vehicle_form.html")
+        form = VehicleForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Vehicle created successfully.")
+            return redirect("accounts:vehicle-list")
+    else:
+        form = VehicleForm()
+    return render(request, "accounts/vehicle_form.html", {"form": form})
 
 
 @manager_required
 def vehicle_edit(request, pk):
     vehicle = get_object_or_404(Vehicle, pk=pk)
-
     if request.method == "POST":
-        vehicle.name = request.POST.get("name")
-        vehicle.car_type = request.POST.get("car_type")
-        vehicle.seats = request.POST.get("seats")
-        vehicle.price_per_day = request.POST.get("price_per_day")
-        vehicle.save()
-        messages.success(request, "Vehicle updated successfully.")
-        return redirect("accounts:vehicle-list")
-
-    return render(request, "accounts/vehicle_form.html", {"vehicle": vehicle})
+        form = VehicleForm(request.POST, instance=vehicle)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Vehicle updated successfully.")
+            return redirect("accounts:vehicle-list")
+    else:
+        form = VehicleForm(instance=vehicle)
+    return render(request, "accounts/vehicle_form.html", {"form": form})
 
 
 @manager_required
