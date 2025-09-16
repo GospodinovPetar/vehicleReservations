@@ -1,13 +1,10 @@
-from collections import defaultdict
-from typing import Dict, List
-
 from django.contrib import messages
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.shortcuts import render
 
 from inventory.helpers.intervals import _free_slices
 from inventory.models.cart import CartItem
-from inventory.models.reservation import Location, Reservation, ReservationStatus
+from inventory.models.reservation import Location, Reservation, BLOCKING_STATUSES
 from inventory.models.vehicle import Vehicle
 from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.helpers.pricing import RateTable, quote_total
@@ -43,19 +40,29 @@ def search(request):
         messages.error(request, "Start date must be before end date.")
         return render(request, "home.html", context)
 
-    pickup_location = Location.objects.filter(pk=pickup_location_id).first() if pickup_location_id else None
-    return_location = Location.objects.filter(pk=return_location_id).first() if return_location_id else None
+    pickup_location = None
+    if pickup_location_id:
+        pickup_location = Location.objects.filter(pk=pickup_location_id).first()
+
+    return_location = None
+    if return_location_id:
+        return_location = Location.objects.filter(pk=return_location_id).first()
 
     allowed_qs = Vehicle.objects.all()
     if pickup_location is not None:
-        allowed_qs = allowed_qs.annotate(_pc=Count("available_pickup_locations", distinct=True)) \
-                               .filter(Q(_pc=0) | Q(available_pickup_locations=pickup_location))
+        allowed_qs = allowed_qs.filter(
+            Q(available_pickup_locations__isnull=True)
+            | Q(available_pickup_locations=pickup_location)
+        )
     if return_location is not None:
-        allowed_qs = allowed_qs.annotate(_rc=Count("available_return_locations", distinct=True)) \
-                               .filter(Q(_rc=0) | Q(available_return_locations=return_location))
+        allowed_qs = allowed_qs.filter(
+            Q(available_return_locations__isnull=True)
+            | Q(available_return_locations=return_location)
+        )
 
-    # Fully available
-    available_ids = Reservation.available_vehicles(start_date, end_date, pickup_location, return_location)
+    available_ids = Reservation.available_vehicles(
+        start_date, end_date, pickup_location, return_location
+    )
     fully_available_qs = allowed_qs.filter(id__in=available_ids)
 
     if request.user.is_authenticated:
@@ -70,38 +77,51 @@ def search(request):
 
     results = []
     for v in fully_available_qs.order_by("name"):
-        q = quote_total(start_date, end_date, RateTable(day=float(v.price_per_day), currency="EUR"))
-        results.append({"vehicle": v, "quote": q})
+        quote = quote_total(
+            start_date,
+            end_date,
+            RateTable(day=float(v.price_per_day), currency="EUR"),
+        )
+        results.append({"vehicle": v, "quote": quote})
 
-    # Partially available
     partial_candidates_qs = allowed_qs.exclude(id__in=available_ids)
 
-    conflicts = Reservation.objects.filter(
+    conflicts_qs = Reservation.objects.filter(
         vehicle_id__in=partial_candidates_qs.values_list("id", flat=True),
-        status__in=ReservationStatus.blocking(),
+        status__in=BLOCKING_STATUSES,
         start_date__lt=end_date,
         end_date__gt=start_date,
     ).values("vehicle_id", "start_date", "end_date")
 
-    # Group conflicts per vehicle_id
-    busy_map: Dict[int, List[tuple]] = defaultdict(list)
-    for row in conflicts:
-        busy_map[row["vehicle_id"]].append((row["start_date"], row["end_date"]))
+    busy_map = {}
+    for row in conflicts_qs:
+        vid = row["vehicle_id"]
+        s = row["start_date"]
+        e = row["end_date"]
+        if vid not in busy_map:
+            busy_map[vid] = []
+        busy_map[vid].append((s, e))
 
-    partial_results = []
     partial_qs = partial_candidates_qs
     if request.user.is_authenticated and my_cart_vehicle_ids:
         partial_qs = partial_qs.exclude(id__in=my_cart_vehicle_ids)
 
+    partial_results = []
     for v in partial_qs.order_by("name"):
-        slices = _free_slices(start_date, end_date, busy_map.get(v.id, []))
-        useful = [(a, b) for (a, b) in slices if a < b]
+        busy_for_vehicle = busy_map.get(v.pk, [])
+        slices = _free_slices(start_date, end_date, busy_for_vehicle)
+        useful = []
+        for a, b in slices:
+            if a < b:
+                useful.append((a, b))
         if not useful:
             continue
 
         priced_slices = []
         for a, b in useful:
-            q = quote_total(a, b, RateTable(day=float(v.price_per_day), currency="EUR"))
+            q = quote_total(
+                a, b, RateTable(day=float(v.price_per_day), currency="EUR")
+            )
             priced_slices.append({"start": a, "end": b, "quote": q})
 
         partial_results.append({"vehicle": v, "slices": priced_slices})
