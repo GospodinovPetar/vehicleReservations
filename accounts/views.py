@@ -197,8 +197,9 @@ def manager_vehicles(request):
 
 @manager_required
 def manager_reservations(request):
-    reservations = Reservation.objects.all()
-    return render(request, "accounts/manager_reservations.html", {"reservations": reservations})
+    """Managers/Admins see all reservations"""
+    reservations = Reservation.objects.all().select_related("user", "vehicle", "pickup_location", "return_location")
+    return render(request, "accounts/reservation_list.html", {"reservations": reservations})
 
 
 # --- VEHICLE VIEWS ---
@@ -260,6 +261,23 @@ def reservation_list(request):
 
 
 @manager_required
+def reservation_update(request, pk):
+    """
+    Allow manager (or admin) to update a reservation status.
+    """
+    reservation = get_object_or_404(Reservation, pk=pk)
+
+    if request.method == "POST":
+        status = request.POST.get("status")
+        if status and status in ["PENDING", "CONFIRMED", "CANCELLED", "REJECTED"]:
+            reservation.status = status
+            reservation.save()
+            return redirect("reservation-list")
+
+    return render(request, "accounts/reservation_update.html", {"reservation": reservation})
+
+
+@manager_required
 def reservation_approve(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk)
     reservation.status = "approved"
@@ -275,3 +293,10 @@ def reservation_reject(request, pk):
     reservation.save()
     messages.success(request, "Reservation rejected.")
     return redirect("accounts:reservation-list")
+
+
+@login_required
+def user_reservations(request):
+    """Normal user can only see their own reservations"""
+    reservations = Reservation.objects.filter(user=request.user).select_related("vehicle", "pickup_location", "return_location")
+    return render(request, "accounts/reservation_list_user.html.html", {"reservations": reservations})

@@ -34,4 +34,7 @@ urlpatterns = [
     path("reservations/", views.reservation_list, name="reservation-list"),
     path("reservations/<int:pk>/approve/", views.reservation_approve, name="reservation-approve"),
     path("reservations/<int:pk>/reject/", views.reservation_reject, name="reservation-reject"),
+    path("reservations/", views.user_reservations, name="user-reservations"),
+    path("manager/reservations/", views.manager_reservations, name="manager-reservations"),
+    path("manager/reservations/<int:pk>/update/", views.reservation_update, name="reservation-update"),
 ]

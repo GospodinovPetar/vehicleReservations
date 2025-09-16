@@ -14,5 +14,7 @@ urlpatterns = [
 
     # Reservations
     path("reservations/", views.manager_reservations, name="reservations"),
+    path("reservations/", views.reservation_list, name="reservation-list"),
     path("reservations/<int:pk>/update/", views.reservation_update, name="reservation-update"),
+
 ]

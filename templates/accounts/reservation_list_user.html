@@ -1,31 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2>All Reservations</h2>
+  <h2>My Reservations</h2>
   <div class="card">
     <table>
       <tr>
-        <th>ID</th>
-        <th>User</th>
         <th>Vehicle</th>
+        <th>Pickup → Return</th>
         <th>Dates</th>
         <th>Status</th>
-        <th>Actions</th>
       </tr>
       {% for r in reservations %}
         <tr>
-          <td>{{ r.id }}</td>
-          <td>{{ r.user.username }}</td>
           <td>{{ r.vehicle.name }}</td>
+          <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
           <td>{{ r.start_date }} → {{ r.end_date }}</td>
           <td>{{ r.status }}</td>
-          <td>
-            <!-- Edit button -->
-            <a class="btn" href="{% url 'reservation-update' r.id %}">Edit</a>
-          </td>
         </tr>
       {% empty %}
         <tr>
-          <td colspan="6">No reservations found.</td>
+          <td colspan="4">No reservations yet.</td>
         </tr>
       {% endfor %}
     </table>
