@@ -53,7 +53,7 @@ def login_view(request):
             messages.success(request, "You are now logged in.")
 
             # Redirect based on role
-            if user.is_superuser or user.role == "admin":
+            if user.role == "admin":
                 return redirect("accounts:admin-dashboard")
             elif user.role == "manager":
                 return redirect("accounts:manager-dashboard")
@@ -345,14 +345,14 @@ def user_reservations(request):
     )
 
 
-# --- LOCATION MANAGEMENT (accessible to manager + admin) ---
-@manager_required
+# --- LOCATION MANAGEMENT (accessible to admin) ---
+@admin_required
 def location_list(request):
     locations = Location.objects.all()
     return render(request, "accounts/location_list.html", {"locations": locations})
 
 
-@manager_required
+@admin_required
 def location_create(request):
     if request.method == "POST":
         name = request.POST.get("name")
@@ -364,7 +364,7 @@ def location_create(request):
     return render(request, "accounts/location_form.html", {"title": "Create location"})
 
 
-@manager_required
+@admin_required
 def location_edit(request, pk):
     loc = get_object_or_404(Location, pk=pk)
     if request.method == "POST":
@@ -378,7 +378,7 @@ def location_edit(request, pk):
     return render(request, "accounts/location_form.html", {"location": loc, "title": "Edit location"})
 
 
-@manager_required
+@admin_required
 def location_delete(request, pk):
     loc = get_object_or_404(Location, pk=pk)
     if request.method == "POST":
