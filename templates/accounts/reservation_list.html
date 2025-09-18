@@ -20,7 +20,9 @@
           <td>{{ r.status }}</td>
           <td>
             <!-- Edit button -->
-            <a class="btn" href="{% url 'reservation-update' r.id %}">Edit</a>
+            <a class="btn" href="{% url 'accounts:reservation-update' r.id %}">Edit</a>
+            <a class="btn" href="{% url 'accounts:reservation-approve' r.id %}">Approve</a>
+            <a class="btn" href="{% url 'accounts:reservation-reject' r.id %}">Reject</a>
           </td>
         </tr>
       {% empty %}

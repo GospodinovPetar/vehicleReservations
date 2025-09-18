@@ -1,11 +1,12 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import CustomUser
-from inventory.models.vehicle import Vehicle, VehicleType, EngineType, Location
-from inventory.models.reservation import Reservation, ReservationStatus, Location
 from django.contrib.auth import get_user_model
 
-User = get_user_model()
+# Imports from inventory app
+from inventory.models.vehicle import Vehicle, VehicleType, EngineType
+from inventory.models.reservation import Reservation, ReservationStatus, Location
+
+CustomUser = get_user_model()
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -26,28 +27,35 @@ class CustomUserCreationForm(UserCreationForm):
 class UserEditForm(forms.ModelForm):
     """
     Admin edit form for users (no password fields).
+    Admins cannot edit other admins (enforced in view).
     """
 
     class Meta:
-        model = User
+        model = CustomUser
+        # Do NOT include password fields here
         fields = ["username", "email", "first_name", "last_name", "role", "phone", "is_blocked"]
 
 
 class VehicleForm(forms.ModelForm):
+    """
+    Vehicle form:
+    - car_type & engine_type use TextChoices from the model
+    - available pickup/dropoff locations required (ModelMultipleChoice)
+    """
     car_type = forms.ChoiceField(choices=VehicleType.choices, label="Car Type")
     engine_type = forms.ChoiceField(choices=EngineType.choices, label="Engine Type")
 
     available_pickup_locations = forms.ModelMultipleChoiceField(
         queryset=Location.objects.all(),
         required=True,
-        widget=forms.CheckboxSelectMultiple,
-        label="Available Pick-up Locations",
+        widget=forms.SelectMultiple,
+        label="Pick-up Location"
     )
     available_return_locations = forms.ModelMultipleChoiceField(
         queryset=Location.objects.all(),
         required=True,
-        widget=forms.CheckboxSelectMultiple,
-        label="Available Drop-off Locations",
+        widget=forms.SelectMultiple,
+        label="Drop-off Location"
     )
 
     class Meta:
@@ -57,7 +65,6 @@ class VehicleForm(forms.ModelForm):
             "car_type",
             "engine_type",
             "seats",
-            "unlimited_seats",
             "price_per_day",
             "available_pickup_locations",
             "available_return_locations",
@@ -71,10 +78,10 @@ class ReservationStatusForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Provided friendly choices
         self.fields["status"].choices = [
             (ReservationStatus.RESERVED, "Reserved"),
             (ReservationStatus.AWAITING_PICKUP, "Awaiting Pickup"),
-            (ReservationStatus.CONFIRMED, "Confirmed"),
+            (ReservationStatus.AWAITING_DROP_OFF, "Awaiting Dropoff"),
             (ReservationStatus.REJECTED, "Rejected"),
-            (ReservationStatus.CANCELLED, "Cancelled"),
         ]

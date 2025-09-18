@@ -1,27 +1,12 @@
 {% extends "base.html" %}
-
 {% block content %}
-  <h2>Update Reservation</h2>
-  <div class="card">
-    <form method="post">
-      {% csrf_token %}
-      <p><strong>Reservation ID:</strong> {{ reservation.id }}</p>
-      <p><strong>User:</strong> {{ reservation.user.username }}</p>
-      <p><strong>Vehicle:</strong> {{ reservation.vehicle.name }}</p>
-      <p><strong>Dates:</strong> {{ reservation.start_date }} → {{ reservation.end_date }}</p>
+  <h2>Update Reservation #{{ reservation.id }}</h2>
 
-      <label for="status">Status:</label>
-      <select name="status" id="status">
-        <option value="PENDING" {% if reservation.status == "PENDING" %}selected{% endif %}>Pending</option>
-        <option value="CONFIRMED" {% if reservation.status == "CONFIRMED" %}selected{% endif %}>Confirmed</option>
-        <option value="CANCELLED" {% if reservation.status == "CANCELLED" %}selected{% endif %}>Cancelled</option>
-        <option value="REJECTED" {% if reservation.status == "REJECTED" %}selected{% endif %}>Rejected</option>
-      </select>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
 
-      <p>
-        <button type="submit" class="btn primary">Save Changes</button>
-        <a href="{% url 'manager-reservations' %}" class="btn">Back to Reservations</a>
-      </p>
-    </form>
-  </div>
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{% url 'accounts:reservation-list' %}">Back to Reservations</a>
+  </form>
 {% endblock %}

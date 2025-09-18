@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>{{ title }}</h2>
+  <form method="post">
+    {% csrf_token %}
+    <label>
+      Name
+      <input type="text" name="name" value="{{ location.name|default:'' }}" required>
+    </label>
+    <p>
+      <button class="btn primary" type="submit">Save</button>
+      <button class="btn primary" href="{% url 'accounts:location-list' %}">Cancel</button>
+    </p>
+  </form>
+{% endblock %}
