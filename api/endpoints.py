@@ -1,5 +1,6 @@
 from typing import List
 from ninja.errors import HttpError
+from django.utils import timezone
 
 from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.models.vehicle import Vehicle
@@ -52,15 +53,29 @@ def register_routes(api):
             )
         return out
 
-
     @api.get("/availability", response=AvailabilityOut)
-    def availability(request, start: str, end: str, pickup_location: int | None = None, return_location: int | None = None):
+    def availability(request, start: str, end: str, pickup_location: int | None = None,
+                     return_location: int | None = None):
         start_date = parse_iso_date(start)
         end_date = parse_iso_date(end)
         if start_date is None or end_date is None or end_date <= start_date:
             return api.create_response(
                 request,
                 {"detail": "Invalid dates. Use YYYY-MM-DD and ensure end > start."},
+                status=400,
+            )
+
+        today = timezone.localdate()
+        if start_date < today:
+            return api.create_response(
+                request,
+                {"detail": "Pickup date cannot be in the past."},
+                status=400,
+            )
+        if end_date < today:
+            return api.create_response(
+                request,
+                {"detail": "Return date cannot be in the past."},
                 status=400,
             )
 
@@ -75,6 +90,5 @@ def register_routes(api):
         )
 
         vehicles = Vehicle.objects.filter(pk__in=ids).order_by("name")
-
         items = [AvailabilityItem(id=v.pk, name=v.name) for v in vehicles]
         return AvailabilityOut(vehicles=items)
