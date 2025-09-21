@@ -42,6 +42,7 @@ class AvailabilityItem(Schema):
 class AvailabilityOut(Schema):
     vehicles: list[AvailabilityItem]
 
+
 class AvailabilityQuery(BaseModel):
     start_date: dt.date
     end_date: dt.date

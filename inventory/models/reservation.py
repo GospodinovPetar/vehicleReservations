@@ -77,8 +77,7 @@ class Reservation(models.Model):
             try:
                 orig = type(self).objects.only("start_date", "end_date").get(pk=self.pk)
                 enforce_past_check = (
-                        orig.start_date != self.start_date
-                        or orig.end_date != self.end_date
+                    orig.start_date != self.start_date or orig.end_date != self.end_date
                 )
             except type(self).DoesNotExist:
                 enforce_past_check = True
@@ -96,9 +95,9 @@ class Reservation(models.Model):
                     status__in=BLOCKING_STATUSES,
                     start_date__lt=self.end_date,
                     end_date__gt=self.start_date,
-                )
-                .exclude(pk=self.pk) if self.pk else
-                Reservation.objects.filter(
+                ).exclude(pk=self.pk)
+                if self.pk
+                else Reservation.objects.filter(
                     vehicle_id=self.vehicle_id,
                     status__in=BLOCKING_STATUSES,
                     start_date__lt=self.end_date,
@@ -106,7 +105,9 @@ class Reservation(models.Model):
                 )
             )
             if overlapping.exists():
-                errors["start_date"] = "Vehicle is not available in the selected period."
+                errors["start_date"] = (
+                    "Vehicle is not available in the selected period."
+                )
 
         if errors:
             raise ValidationError(errors)

@@ -54,8 +54,13 @@ def register_routes(api):
         return out
 
     @api.get("/availability", response=AvailabilityOut)
-    def availability(request, start: str, end: str, pickup_location: int | None = None,
-                     return_location: int | None = None):
+    def availability(
+        request,
+        start: str,
+        end: str,
+        pickup_location: int | None = None,
+        return_location: int | None = None,
+    ):
         start_date = parse_iso_date(start)
         end_date = parse_iso_date(end)
         if start_date is None or end_date is None or end_date <= start_date:
@@ -79,8 +84,16 @@ def register_routes(api):
                 status=400,
             )
 
-        pickup = Location.objects.filter(pk=pickup_location).first() if pickup_location else None
-        ret = Location.objects.filter(pk=return_location).first() if return_location else None
+        pickup = (
+            Location.objects.filter(pk=pickup_location).first()
+            if pickup_location
+            else None
+        )
+        ret = (
+            Location.objects.filter(pk=return_location).first()
+            if return_location
+            else None
+        )
 
         ids = Reservation.available_vehicles(
             start_date=start_date,

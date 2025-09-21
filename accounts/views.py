@@ -314,7 +314,9 @@ def reservation_update(request, pk):
     else:
         form = ReservationStatusForm(instance=reservation)
 
-    return render(request, "reservation_update.html", {"form": form, "reservation": reservation})
+    return render(
+        request, "reservation_update.html", {"form": form, "reservation": reservation}
+    )
 
 
 @manager_required
