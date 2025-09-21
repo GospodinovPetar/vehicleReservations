@@ -1,4 +1,4 @@
-<p>Hi {{ user.first_name|default:username }},</p>
+<p>Hi {{ user.get_full_name|default:user.username }},</p>
 <p><strong>Good news — your reservation #{{ reservation.pk }} has been confirmed!</strong></p>
 <ul>
   <li><strong>Vehicle:</strong> {{ reservation.vehicle }}</li>

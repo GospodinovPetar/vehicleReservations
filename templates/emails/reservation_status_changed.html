@@ -1,4 +1,4 @@
-<p>Hi {{ user.first_name|default:username }},</p>
+<p>Hi {{ user.get_full_name|default:user.username }},</p>
 <p>
   The status of your reservation <strong>#{{ reservation.pk }}</strong> has changed
   from “{{ old_status|title }}” to <strong>{{ new_status|title }}</strong>.

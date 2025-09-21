@@ -1,4 +1,4 @@
-Hi {{ user.first_name|default:username }},
+Hi {{ user.get_full_name|default:user.username }},
 
 Good news — your reservation #{{ reservation.pk }} has been confirmed!
 

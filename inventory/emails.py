@@ -28,10 +28,10 @@ def send_reservation_created_email(reservation):
 
 def send_reservation_status_changed_email(reservation, old_status, new_status):
     # Choose a template based on the new status.
-    Status = reservation.Status
+    status = reservation.status
     template_map = {
-        getattr(Status, "RESERVED", "RESERVED"): "reservation_confirmed",
-        getattr(Status, "REJECTED", "REJECTED"): "reservation_rejected",
+        getattr(status, "RESERVED", "RESERVED"): "reservation_confirmed",
+        getattr(status, "REJECTED", "REJECTED"): "reservation_rejected",
     }
     template = template_map.get(new_status, "reservation_status_changed")
 

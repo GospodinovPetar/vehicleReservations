@@ -254,8 +254,10 @@ def cancel_group(request, group_id):
         updated = (
             Reservation.objects.filter(group=group)
             .filter(cancelable)
-            .update(status=getattr(ReservationStatus, "CANCELED", "CANCELED"))
         )
+        for r in updated.only("id", "status"):
+            r.status = getattr(ReservationStatus, "CANCELED", "CANCELED")
+            r.save(update_fields=["status"])
 
         group.delete()
 

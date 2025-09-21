@@ -1,4 +1,4 @@
-Hi {{ user.first_name|default:username }},
+Hi {{ user.get_full_name|default:user.username }},
 
 The status of your reservation #{{ reservation.pk }} has changed
 from "{{ old_status|title }}" to "{{ new_status|title }}".

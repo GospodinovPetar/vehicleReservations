@@ -1,4 +1,4 @@
-<p>Hi {{ user.first_name|default:user.username }},</p>
+<p>Hi {{ user.get_full_name|default:user.username }},</p>
 <p>We received your reservation (<strong>#{{ reservation.pk|default:reservation.id }}</strong>) for <strong>{{ reservation.vehicle.name }}</strong>.</p>
 <p>
   <strong>Dates:</strong> {{ reservation.start_date }} -> {{ reservation.end_date }}<br>

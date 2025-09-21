@@ -1,4 +1,4 @@
-Hi {{ user.first_name|default:user.username }},
+Hi {{ user.get_full_name|default:user.username }},
 
 We received your reservation (#{% firstof reservation.pk reservation.id %}) for {{ reservation.vehicle.name }}.
 
