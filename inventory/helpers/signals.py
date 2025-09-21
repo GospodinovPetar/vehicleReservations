@@ -22,7 +22,9 @@ def _capture_old_status(sender, instance: Reservation, **kwargs):
 
 
 @receiver(post_save, sender=Reservation)
-def _notify_on_create_or_transition(sender, instance: Reservation, created: bool, **kwargs):
+def _notify_on_create_or_transition(
+    sender, instance: Reservation, created: bool, **kwargs
+):
     if created:
         transaction.on_commit(lambda: send_reservation_created_email(instance))
         return
@@ -32,5 +34,7 @@ def _notify_on_create_or_transition(sender, instance: Reservation, created: bool
         return
 
     transaction.on_commit(
-        lambda: send_reservation_status_changed_email(instance, old_status, instance.status)
+        lambda: send_reservation_status_changed_email(
+            instance, old_status, instance.status
+        )
     )

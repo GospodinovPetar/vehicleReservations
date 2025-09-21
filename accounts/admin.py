@@ -194,7 +194,10 @@ class AdminOnlyAdmin(admin.ModelAdmin):
 
     def has_view_permission(self, request, obj=None):
         # Managers need read-only access for autocomplete
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
     def has_add_permission(self, request):
         return request.user.is_authenticated and request.user.role == "admin"

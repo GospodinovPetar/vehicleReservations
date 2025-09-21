@@ -9,7 +9,12 @@ from django.views.decorators.http import require_http_methods
 from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.helpers.redirect_back_to_search import redirect_back_to_search
 from inventory.models.cart import ReservationGroup
-from inventory.models.reservation import Location, Reservation, ReservationStatus, BLOCKING_STATUSES
+from inventory.models.reservation import (
+    Location,
+    Reservation,
+    ReservationStatus,
+    BLOCKING_STATUSES,
+)
 from inventory.models.vehicle import Vehicle
 from django.utils import timezone
 
@@ -182,13 +187,31 @@ def edit_reservation(request, pk):
                 if new_end < today:
                     form.add_error("end_date", "Return date cannot be in the past.")
 
-            if selected_vehicle and selected_pickup and selected_vehicle.available_pickup_locations.exists():
-                if not selected_vehicle.available_pickup_locations.filter(pk=selected_pickup.pk).exists():
-                    form.add_error("pickup_location", "Pickup location not allowed for this vehicle.")
+            if (
+                selected_vehicle
+                and selected_pickup
+                and selected_vehicle.available_pickup_locations.exists()
+            ):
+                if not selected_vehicle.available_pickup_locations.filter(
+                    pk=selected_pickup.pk
+                ).exists():
+                    form.add_error(
+                        "pickup_location",
+                        "Pickup location not allowed for this vehicle.",
+                    )
 
-            if selected_vehicle and selected_return and selected_vehicle.available_return_locations.exists():
-                if not selected_vehicle.available_return_locations.filter(pk=selected_return.pk).exists():
-                    form.add_error("return_location", "Return location not allowed for this vehicle.")
+            if (
+                selected_vehicle
+                and selected_return
+                and selected_vehicle.available_return_locations.exists()
+            ):
+                if not selected_vehicle.available_return_locations.filter(
+                    pk=selected_return.pk
+                ).exists():
+                    form.add_error(
+                        "return_location",
+                        "Return location not allowed for this vehicle.",
+                    )
 
             if form.errors:
                 return render(
@@ -232,18 +255,26 @@ def edit_reservation(request, pk):
                     instance.save()
 
                     dates_changed = (
-                            ("start_date" in form.changed_data) or ("end_date" in form.changed_data)
-                            or original_start != new_start
-                            or original_end != new_end
+                        ("start_date" in form.changed_data)
+                        or ("end_date" in form.changed_data)
+                        or original_start != new_start
+                        or original_end != new_end
                     )
 
                     if dates_changed:
                         instance.status = ReservationStatus.PENDING
-                        instance.save(update_fields=["status"])  # triggers your status-change signal
+                        instance.save(
+                            update_fields=["status"]
+                        )  # triggers your status-change signal
 
                 messages.success(
                     request,
-                    "Reservation updated." + (" Status set to PENDING for re-approval." if dates_changed else "")
+                    "Reservation updated."
+                    + (
+                        " Status set to PENDING for re-approval."
+                        if dates_changed
+                        else ""
+                    ),
                 )
                 return redirect("inventory:reservations")
 
@@ -265,7 +296,6 @@ def edit_reservation(request, pk):
             "locations": locations,
         },
     )
-
 
 
 @login_required
@@ -316,10 +346,7 @@ def cancel_group(request, group_id):
         if hasattr(ReservationStatus, "COMPLETED"):
             cancelable &= ~Q(status=ReservationStatus.COMPLETED)
 
-        updated = (
-            Reservation.objects.filter(group=group)
-            .filter(cancelable)
-        )
+        updated = Reservation.objects.filter(group=group).filter(cancelable)
         for r in updated.only("id", "status"):
             r.status = getattr(ReservationStatus, "CANCELED", "CANCELED")
             r.save(update_fields=["status"])
