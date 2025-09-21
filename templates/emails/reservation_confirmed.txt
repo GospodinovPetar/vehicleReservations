@@ -1,0 +1,11 @@
+Hi {{ user.first_name|default:username }},
+
+Good news — your reservation #{{ reservation.pk }} has been confirmed!
+
+Vehicle: {{ reservation.vehicle }}
+Pickup: {{ reservation.pickup_location }} on {{ reservation.start_date }}
+Return: {{ reservation.return_location }} on {{ reservation.end_date }}
+Total price: {{ reservation.total_price }} {{ reservation.currency|default:"EUR" }}
+
+Thanks,
+The Team

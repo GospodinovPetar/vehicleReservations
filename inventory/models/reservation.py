@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from inventory.models.vehicle import Vehicle
 from inventory.helpers.pricing import RateTable, quote_total
@@ -63,24 +64,49 @@ class Reservation(models.Model):
     )
 
     def clean(self):
+        super().clean()
+
         errors = {}
 
         if self.start_date and self.end_date and self.start_date >= self.end_date:
             errors["end_date"] = "End date must be after start date"
 
-        if self.vehicle_id and self.start_date and self.end_date:
-            overlapping = Reservation.objects.filter(
-                vehicle_id=self.vehicle_id,
-                status__in=BLOCKING_STATUSES,
-                start_date__lt=self.end_date,
-                end_date__gt=self.start_date,
-            )
-            if self.pk:
-                overlapping = overlapping.exclude(pk=self.pk)
-            if overlapping.exists():
-                errors["start_date"] = (
-                    "Vehicle is not available in the selected period."
+        today = timezone.localdate()
+        enforce_past_check = True
+        if self.pk:
+            try:
+                orig = type(self).objects.only("start_date", "end_date").get(pk=self.pk)
+                enforce_past_check = (
+                        orig.start_date != self.start_date
+                        or orig.end_date != self.end_date
                 )
+            except type(self).DoesNotExist:
+                enforce_past_check = True
+
+        if enforce_past_check:
+            if self.start_date and self.start_date < today:
+                errors["start_date"] = "Pickup date cannot be in the past."
+            if self.end_date and self.end_date < today:
+                errors["end_date"] = "Return date cannot be in the past."
+
+        if self.vehicle_id and self.start_date and self.end_date:
+            overlapping = (
+                Reservation.objects.filter(
+                    vehicle_id=self.vehicle_id,
+                    status__in=BLOCKING_STATUSES,
+                    start_date__lt=self.end_date,
+                    end_date__gt=self.start_date,
+                )
+                .exclude(pk=self.pk) if self.pk else
+                Reservation.objects.filter(
+                    vehicle_id=self.vehicle_id,
+                    status__in=BLOCKING_STATUSES,
+                    start_date__lt=self.end_date,
+                    end_date__gt=self.start_date,
+                )
+            )
+            if overlapping.exists():
+                errors["start_date"] = "Vehicle is not available in the selected period."
 
         if errors:
             raise ValidationError(errors)
