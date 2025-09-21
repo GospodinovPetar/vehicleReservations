@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.http import HttpResponseForbidden
 from django.contrib.auth import login, logout, get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import AuthenticationForm
@@ -326,7 +327,8 @@ def reservation_approve(request, pk):
         return HttpResponseForbidden("Only pending reservations can be approved.")
     reservation.status = ReservationStatus.RESERVED
     reservation.save()
-    return redirect("accounts:manager-dashboard")
+    messages.success(request, f"Reservation #{reservation.id} has been approved.")
+    return redirect("accounts:reservation-list")
 
 
 @manager_required
@@ -336,7 +338,8 @@ def reservation_reject(request, pk):
         return HttpResponseForbidden("Only pending reservations can be rejected.")
     reservation.status = ReservationStatus.REJECTED
     reservation.save()
-    return redirect("accounts:manager-dashboard")
+    messages.warning(request, f"Reservation #{reservation.id} has been rejected.")
+    return redirect("accounts:reservation-list")
 
 
 # --- User reservation view (normal users only) ---

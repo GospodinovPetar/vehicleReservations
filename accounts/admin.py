@@ -81,7 +81,16 @@ class CustomUserAdmin(UserAdmin):
 
     # Only admins can manage users (but even they can't touch other admins)
     def has_view_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role == "admin"
+        # Let admins always view
+        if request.user.is_authenticated and request.user.role == "admin":
+            return True
+
+        # Managers can view (needed for autocomplete)
+        if request.user.is_authenticated and request.user.role == "manager":
+            return True
+
+        # Default deny
+        return Fals
 
     def has_change_permission(self, request, obj=None):
         if obj and obj.role == "admin":
@@ -184,7 +193,8 @@ class AdminOnlyAdmin(admin.ModelAdmin):
         return request.user.is_authenticated and request.user.role == "admin"
 
     def has_view_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role == "admin"
+        # Managers need read-only access for autocomplete
+        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
 
     def has_add_permission(self, request):
         return request.user.is_authenticated and request.user.role == "admin"
