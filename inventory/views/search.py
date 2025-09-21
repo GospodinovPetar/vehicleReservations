@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import render
+from django.utils import timezone
 
 from inventory.helpers.intervals import free_slices
 from inventory.models.cart import CartItem
@@ -39,6 +40,14 @@ def search(request):
     end_date = parse_iso_date(end_param)
     if start_date is None or end_date is None or end_date <= start_date:
         messages.error(request, "Start date must be before end date.")
+        return render(request, "home.html", context)
+
+    today = timezone.localdate()
+    if start_date < today:
+        messages.error(request, "Pickup date cannot be in the past.")
+        return render(request, "home.html", context)
+    if end_date < today:
+        messages.error(request, "Return date cannot be in the past.")
         return render(request, "home.html", context)
 
     pickup_location = None

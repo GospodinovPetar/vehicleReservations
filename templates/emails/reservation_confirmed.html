@@ -1,0 +1,9 @@
+<p>Hi {{ user.first_name|default:username }},</p>
+<p><strong>Good news — your reservation #{{ reservation.pk }} has been confirmed!</strong></p>
+<ul>
+  <li><strong>Vehicle:</strong> {{ reservation.vehicle }}</li>
+  <li><strong>Pickup:</strong> {{ reservation.pickup_location }} on {{ reservation.start_date }}</li>
+  <li><strong>Return:</strong> {{ reservation.return_location }} on {{ reservation.end_date }}</li>
+  <li><strong>Total price:</strong> {{ reservation.total_price }} {{ reservation.currency|default:"EUR" }}</li>
+</ul>
+<p>Thanks,<br>The Team</p>
