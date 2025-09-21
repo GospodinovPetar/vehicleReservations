@@ -298,38 +298,38 @@ def reservation_list(request):
 @manager_required
 def reservation_update(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk)
-    # Only allow managers/admins (decorator already ensures this)
+    if reservation.status != ReservationStatus.PENDING:
+        return HttpResponseForbidden("Only pending reservations can be edited.")
+
     if request.method == "POST":
         form = ReservationStatusForm(request.POST, instance=reservation)
         if form.is_valid():
             form.save()
-            messages.success(request, "Reservation updated.")
-            return redirect("accounts:reservation-list")
+            return redirect("accounts:manager-dashboard")
     else:
         form = ReservationStatusForm(instance=reservation)
-    return render(
-        request,
-        "accounts/reservation_update.html",
-        {"reservation": reservation, "form": form},
-    )
+
+    return render(request, "reservation_update.html", {"form": form, "reservation": reservation})
 
 
 @manager_required
 def reservation_approve(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk)
-    reservation.status = ReservationStatus.AWAITING_PICKUP
+    if reservation.status != ReservationStatus.PENDING:
+        return HttpResponseForbidden("Only pending reservations can be approved.")
+    reservation.status = ReservationStatus.RESERVED
     reservation.save()
-    messages.success(request, "Reservation approved (awaiting pickup).")
-    return redirect("accounts:reservation-list")
+    return redirect("accounts:manager-dashboard")
 
 
 @manager_required
 def reservation_reject(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk)
+    if reservation.status != ReservationStatus.PENDING:
+        return HttpResponseForbidden("Only pending reservations can be rejected.")
     reservation.status = ReservationStatus.REJECTED
     reservation.save()
-    messages.success(request, "Reservation rejected.")
-    return redirect("accounts:reservation-list")
+    return redirect("accounts:manager-dashboard")
 
 
 # --- User reservation view (normal users only) ---

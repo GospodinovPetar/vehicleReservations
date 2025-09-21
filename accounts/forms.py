@@ -80,9 +80,4 @@ class ReservationStatusForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Provided friendly choices
-        self.fields["status"].choices = [
-            (ReservationStatus.RESERVED, "Reserved"),
-            (ReservationStatus.AWAITING_PICKUP, "Awaiting Pickup"),
-            (ReservationStatus.AWAITING_DROP_OFF, "Awaiting Dropoff"),
-            (ReservationStatus.REJECTED, "Rejected"),
-        ]
+        self.fields["status"].choices = ReservationStatus.choices
