@@ -64,7 +64,7 @@ def login_view(request):
             elif user.role == "manager":
                 return redirect("accounts:manager-dashboard")
             else:
-                return redirect("accounts:user-reservations")
+                return redirect("/")
         else:
             messages.error(request, "Invalid username or password.")
     else:

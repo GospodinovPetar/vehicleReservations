@@ -48,7 +48,7 @@ urlpatterns = [
         name="reservation-update",
     ),
     # User's own reservations
-    path("my-reservations/", views.user_reservations, name="user-reservations"),
+    path("reservations/", views.user_reservations, name="user-reservations"),
     # Manager convenience routes (if you want a separate manager namespace)
     path(
         "manager/reservations/", views.manager_reservations, name="manager-reservations"
