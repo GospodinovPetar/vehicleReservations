@@ -52,4 +52,3 @@ def free_slices(request_start, request_end, busy_intervals):
         free.append((cursor, request_end))
 
     return free
-

@@ -9,7 +9,12 @@ from django.views.decorators.http import require_http_methods
 from inventory.models.vehicle import Vehicle
 from inventory.models.reservation import Reservation, ReservationStatus, Location
 
-from .forms import CustomUserCreationForm, UserEditForm, VehicleForm, ReservationStatusForm
+from .forms import (
+    CustomUserCreationForm,
+    UserEditForm,
+    VehicleForm,
+    ReservationStatusForm,
+)
 
 User = get_user_model()
 
@@ -375,7 +380,11 @@ def location_edit(request, pk):
             messages.success(request, "Location updated.")
             return redirect("accounts:location-list")
         messages.error(request, "Please provide a name.")
-    return render(request, "accounts/location_form.html", {"location": loc, "title": "Edit location"})
+    return render(
+        request,
+        "accounts/location_form.html",
+        {"location": loc, "title": "Edit location"},
+    )
 
 
 @admin_required

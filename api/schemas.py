@@ -3,6 +3,7 @@ import datetime as dt
 from pydantic import BaseModel, field_validator, model_validator
 from django.utils import timezone
 
+
 class VehicleOut(Schema):
     id: int
     name: str
@@ -11,6 +12,7 @@ class VehicleOut(Schema):
     seats: int | None = None
     unlimited_seats: bool | None = None
     price_per_day: float | None = None
+
 
 class ReservationOut(Schema):
     id: int
@@ -24,15 +26,18 @@ class ReservationOut(Schema):
     status: str
     total_price: float
 
+
 class AvailabilityParams(Schema):
     start: str
     end: str
     pickup_location: int | None = None
     return_location: int | None = None
 
+
 class AvailabilityItem(Schema):
     id: int
     name: str
+
 
 class AvailabilityOut(Schema):
     vehicles: list[AvailabilityItem]

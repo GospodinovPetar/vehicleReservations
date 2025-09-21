@@ -33,7 +33,15 @@ class UserEditForm(forms.ModelForm):
     class Meta:
         model = CustomUser
         # Do NOT include password fields here
-        fields = ["username", "email", "first_name", "last_name", "role", "phone", "is_blocked"]
+        fields = [
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "phone",
+            "is_blocked",
+        ]
 
 
 class VehicleForm(forms.ModelForm):
@@ -42,6 +50,7 @@ class VehicleForm(forms.ModelForm):
     - car_type & engine_type use TextChoices from the model
     - available pickup/dropoff locations required (ModelMultipleChoice)
     """
+
     car_type = forms.ChoiceField(choices=VehicleType.choices, label="Car Type")
     engine_type = forms.ChoiceField(choices=EngineType.choices, label="Engine Type")
 
@@ -49,13 +58,13 @@ class VehicleForm(forms.ModelForm):
         queryset=Location.objects.all(),
         required=True,
         widget=forms.SelectMultiple,
-        label="Pick-up Location"
+        label="Pick-up Location",
     )
     available_return_locations = forms.ModelMultipleChoiceField(
         queryset=Location.objects.all(),
         required=True,
         widget=forms.SelectMultiple,
-        label="Drop-off Location"
+        label="Drop-off Location",
     )
 
     class Meta:

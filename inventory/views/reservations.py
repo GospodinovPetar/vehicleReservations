@@ -259,9 +259,7 @@ def cancel_group(request, group_id):
 
         group.delete()
 
-    messages.success(
-        request, f"Canceled {updated} reservation(s)"
-    )
+    messages.success(request, f"Canceled {updated} reservation(s)")
     return redirect("inventory:reservations")
 
 
@@ -275,9 +273,7 @@ def reject_reservation(request, pk):
         ReservationStatus.COMPLETED,
         ReservationStatus.REJECTED,
     ):
-        messages.error(
-            request, "Only ongoing reservations can be rejected."
-        )
+        messages.error(request, "Only ongoing reservations can be rejected.")
         return redirect("inventory:reservations")
 
     reservation.status = ReservationStatus.REJECTED

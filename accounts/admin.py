@@ -31,15 +31,19 @@ class CustomUserAdmin(UserAdmin):
         ("Custom Fields", {"fields": ("role", "phone", "is_blocked")}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ("Custom Fields", {"fields": ("role", "phone", "email", "first_name", "last_name")}),
+        (
+            "Custom Fields",
+            {"fields": ("role", "phone", "email", "first_name", "last_name")},
+        ),
     )
 
     def is_blocked_display(self, obj):
         return format_html(
             '<span style="color:{};">●</span> {}',
             "red" if obj.is_blocked else "green",
-            "Blocked" if obj.is_blocked else "Active"
+            "Blocked" if obj.is_blocked else "Active",
         )
+
     is_blocked_display.short_description = "Status"
 
     actions = ["block_users", "unblock_users", "promote_to_manager", "demote_to_user"]
@@ -106,23 +110,39 @@ class ManagerSafeAdmin(admin.ModelAdmin):
     """Managers can view/add/change/delete, admins full control, users none."""
 
     def has_module_permission(self, request):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
     def has_view_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
     def has_add_permission(self, request):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
     def has_change_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
     def has_delete_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
 
 def wrap_with_restrictions(modeladmin_cls, safeadmin_cls):
     """Return a ModelAdmin that adapts behavior based on user role."""
+
     class WrappedAdmin(modeladmin_cls):
         # Preserve search_fields so autocomplete_fields work
         search_fields = getattr(modeladmin_cls, "search_fields", ["id"])
@@ -157,6 +177,7 @@ for model, admin_cls in [(Vehicle, VehicleAdmin), (Reservation, ReservationAdmin
 # === ADMIN-ONLY LOCATIONS ===
 class AdminOnlyAdmin(admin.ModelAdmin):
     """Only admins can manage Locations."""
+
     search_fields = ["name"]
 
     def has_module_permission(self, request):
