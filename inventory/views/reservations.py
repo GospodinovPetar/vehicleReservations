@@ -143,7 +143,7 @@ def my_reservations(request):
 
     return render(
         request,
-        "inventory/my_reservations.html",
+        "inventory/reservations.html",
         {"groups": groups, "ungroupped": ungroupped, "canceled": canceled},
     )
 

@@ -316,7 +316,7 @@ def reservation_update(request, pk):
         form = ReservationStatusForm(instance=reservation)
 
     return render(
-        request, "reservation_update.html", {"form": form, "reservation": reservation}
+        request, "accounts/reservation_update.html", {"form": form, "reservation": reservation}
     )
 
 
