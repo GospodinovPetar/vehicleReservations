@@ -365,14 +365,14 @@ def user_reservations(request):
     )
 
 
-# --- LOCATION MANAGEMENT (accessible to admin) ---
-@admin_required
+# --- LOCATION MANAGEMENT (accessible to admin + manager) ---
+@manager_required
 def location_list(request):
     locations = Location.objects.all()
     return render(request, "accounts/location_list.html", {"locations": locations})
 
 
-@admin_required
+@manager_required
 def location_create(request):
     if request.method == "POST":
         name = request.POST.get("name")
@@ -384,7 +384,7 @@ def location_create(request):
     return render(request, "accounts/location_form.html", {"title": "Create location"})
 
 
-@admin_required
+@manager_required
 def location_edit(request, pk):
     loc = get_object_or_404(Location, pk=pk)
     if request.method == "POST":
@@ -402,7 +402,7 @@ def location_edit(request, pk):
     )
 
 
-@admin_required
+@manager_required
 def location_delete(request, pk):
     loc = get_object_or_404(Location, pk=pk)
     if request.method == "POST":

@@ -9,7 +9,7 @@
     </label>
     <p>
       <button class="btn primary" type="submit">Save</button>
-      <button class="btn primary" href="{% url 'accounts:location-list' %}">Cancel</button>
+      <a href="{% url 'accounts:location-list' %}" class="btn btn-secondary">Cancel</a>
     </p>
   </form>
     {% if request.user.role == "admin" %}

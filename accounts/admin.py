@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
 from inventory.models.vehicle import Vehicle
-from inventory.models.reservation import Reservation, Location
+from inventory.models.reservation import Reservation, ReservationStatus, Location
 from inventory.admin import VehicleAdmin, ReservationAdmin
 
 CustomUser = get_user_model()
@@ -48,14 +48,15 @@ class CustomUserAdmin(UserAdmin):
 
     actions = ["block_users", "unblock_users", "promote_to_manager", "demote_to_user"]
 
-    # === Protect admins fully (even from other admins) ===
+    # === Protect admins fully (admins are visible but locked) ===
     def save_model(self, request, obj, form, change):
-        if obj.role == "admin":
+        if getattr(obj, "role", None) == "admin":
+            # Admin rows are read-only for everyone
             raise ValidationError("Admins cannot be modified.")
         super().save_model(request, obj, form, change)
 
     def delete_model(self, request, obj):
-        if obj.role == "admin":
+        if getattr(obj, "role", None) == "admin":
             raise ValidationError("Admins cannot be deleted.")
         super().delete_model(request, obj)
 
@@ -79,31 +80,23 @@ class CustomUserAdmin(UserAdmin):
         count = queryset.update(role="user")
         self.message_user(request, f"{count} users were demoted to user.")
 
-    # Only admins can manage users (but even they can't touch other admins)
+    # Only admins can manage users (but admin rows are read-only)
     def has_view_permission(self, request, obj=None):
-        # Let admins always view
-        if request.user.is_authenticated and request.user.role == "admin":
-            return True
-
-        # Managers can view (needed for autocomplete)
-        if request.user.is_authenticated and request.user.role == "manager":
-            return True
-
-        # Default deny
-        return Fals
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_change_permission(self, request, obj=None):
-        if obj and obj.role == "admin":
+        # Admin rows are not changeable
+        if obj and getattr(obj, "role", None) == "admin":
             return False
-        return request.user.role == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_delete_permission(self, request, obj=None):
-        if obj and obj.role == "admin":
+        if obj and getattr(obj, "role", None) == "admin":
             return False
-        return request.user.role == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_add_permission(self, request):
-        return request.user.role == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
 
 # unregister first, then register
@@ -116,65 +109,60 @@ admin.site.register(CustomUser, CustomUserAdmin)
 
 # === MANAGER SAFE ADMIN (for vehicles & reservations) ===
 class ManagerSafeAdmin(admin.ModelAdmin):
-    """Managers can view/add/change/delete, admins full control, users none."""
-
+    """Managers can view/add/change/delete vehicles & reservations via Django Admin if they reach it.
+    NOTE: we'll restrict admin site entry to admins only below, so typically managers won't use Django admin.
+    """
     def has_module_permission(self, request):
-        return request.user.is_authenticated and request.user.role in [
-            "admin",
-            "manager",
-        ]
+        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
 
     def has_view_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role in [
-            "admin",
-            "manager",
-        ]
+        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
 
     def has_add_permission(self, request):
-        return request.user.is_authenticated and request.user.role in [
-            "admin",
-            "manager",
-        ]
+        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
 
     def has_change_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role in [
-            "admin",
-            "manager",
-        ]
+        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
 
     def has_delete_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role in [
-            "admin",
-            "manager",
-        ]
+        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
 
 
 def wrap_with_restrictions(modeladmin_cls, safeadmin_cls):
     """Return a ModelAdmin that adapts behavior based on user role."""
-
     class WrappedAdmin(modeladmin_cls):
         # Preserve search_fields so autocomplete_fields work
         search_fields = getattr(modeladmin_cls, "search_fields", ["id"])
 
         def has_module_permission(self, request):
-            return safeadmin_cls.has_module_permission(self, request)
+            if request.user.role == "manager":
+                return safeadmin_cls.has_module_permission(self, request)
+            return modeladmin_cls.has_module_permission(self, request)
 
         def has_view_permission(self, request, obj=None):
-            return safeadmin_cls.has_view_permission(self, request, obj)
+            if request.user.role == "manager":
+                return safeadmin_cls.has_view_permission(self, request, obj)
+            return modeladmin_cls.has_view_permission(self, request, obj)
 
         def has_add_permission(self, request):
-            return safeadmin_cls.has_add_permission(self, request)
+            if request.user.role == "manager":
+                return safeadmin_cls.has_add_permission(self, request)
+            return modeladmin_cls.has_add_permission(self, request)
 
         def has_change_permission(self, request, obj=None):
-            return safeadmin_cls.has_change_permission(self, request, obj)
+            if request.user.role == "manager":
+                return safeadmin_cls.has_change_permission(self, request, obj)
+            return modeladmin_cls.has_change_permission(self, request, obj)
 
         def has_delete_permission(self, request, obj=None):
-            return safeadmin_cls.has_delete_permission(self, request, obj)
+            if request.user.role == "manager":
+                return safeadmin_cls.has_delete_permission(self, request, obj)
+            return modeladmin_cls.has_delete_permission(self, request, obj)
 
     return WrappedAdmin
 
 
-# unregister and re-register with restrictions
+# unregister and re-register with restrictions (preserve original admin classes)
 for model, admin_cls in [(Vehicle, VehicleAdmin), (Reservation, ReservationAdmin)]:
     try:
         admin.site.unregister(model)
@@ -183,21 +171,15 @@ for model, admin_cls in [(Vehicle, VehicleAdmin), (Reservation, ReservationAdmin
     admin.site.register(model, wrap_with_restrictions(admin_cls, ManagerSafeAdmin))
 
 
-# === ADMIN-ONLY LOCATIONS ===
+# === LOCATION ADMIN: admin-only full control; managers WILL use custom UI (not admin) ===
 class AdminOnlyAdmin(admin.ModelAdmin):
-    """Only admins can manage Locations."""
-
     search_fields = ["name"]
 
     def has_module_permission(self, request):
         return request.user.is_authenticated and request.user.role == "admin"
 
     def has_view_permission(self, request, obj=None):
-        # Managers need read-only access for autocomplete
-        return request.user.is_authenticated and request.user.role in [
-            "admin",
-            "manager",
-        ]
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_add_permission(self, request):
         return request.user.is_authenticated and request.user.role == "admin"
@@ -218,8 +200,8 @@ admin.site.register(Location, AdminOnlyAdmin)
 
 # === ADMIN SITE ENTRY RESTRICTION ===
 def custom_has_permission(request):
-    """Admins → full access. Managers → limited. Users → no access."""
-    return request.user.is_active and request.user.role in ["admin", "manager"]
+    """Only admins can log into /admin/"""
+    return request.user.is_active and request.user.role == "admin"
 
 
 admin.site.has_permission = custom_has_permission

@@ -8,9 +8,11 @@ urlpatterns = [
     path("register/", views.register, name="register"),
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
+
     # Dashboards
     path("admin-dashboard/", views.admin_dashboard, name="admin-dashboard"),
     path("manager-dashboard/", views.manager_dashboard, name="manager-dashboard"),
+
     # Admin user CRUD + actions
     path("admin/users/create/", views.create_user, name="admin-create-user"),
     path("admin/users/<int:pk>/edit/", views.edit_user, name="admin-edit-user"),
@@ -25,11 +27,13 @@ urlpatterns = [
         name="admin-promote-manager",
     ),
     path("admin/users/<int:pk>/demote/", views.demote_user, name="admin-demote-user"),
+
     # Vehicle management (manager + admin access)
     path("vehicles/", views.vehicle_list, name="vehicle-list"),
     path("vehicles/create/", views.vehicle_create, name="vehicle-create"),
     path("vehicles/<int:pk>/edit/", views.vehicle_edit, name="vehicle-edit"),
     path("vehicles/<int:pk>/delete/", views.vehicle_delete, name="vehicle-delete"),
+
     # Reservation management
     path("reservations/", views.reservation_list, name="reservation-list"),
     path(
@@ -47,12 +51,15 @@ urlpatterns = [
         views.reservation_update,
         name="reservation-update",
     ),
+
     # User's own reservations
     path("reservations/", views.user_reservations, name="user-reservations"),
+
     # Manager convenience routes (if you want a separate manager namespace)
     path(
         "manager/reservations/", views.manager_reservations, name="manager-reservations"
     ),
+
     # Locations management (manager + admin)
     path("locations/", views.location_list, name="location-list"),
     path("locations/create/", views.location_create, name="location-create"),
