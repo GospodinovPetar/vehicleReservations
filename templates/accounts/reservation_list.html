@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2>All Reservations</h2>
+  <h2>Ongoing Reservations</h2>
   <div class="card">
     <table>
       <tr>
@@ -11,27 +11,49 @@
         <th>Status</th>
         <th>Actions</th>
       </tr>
-      {% for r in reservations %}
+      {% for r in ongoing %}
         <tr>
           <td>{{ r.id }}</td>
           <td>{{ r.user.username }}</td>
           <td>{{ r.vehicle.name }}</td>
           <td>{{ r.start_date }} → {{ r.end_date }}</td>
-          <td>{{ r.status }}</td>
+          <td>{{ r.get_status_display }}</td>
           <td>
             {% if r.status == "PENDING" %}
-            <a class="btn" href="{% url 'accounts:reservation-update' r.id %}">Edit</a>
-            <a class="btn" href="{% url 'accounts:reservation-approve' r.id %}">Approve</a>
-            <a class="btn" href="{% url 'accounts:reservation-reject' r.id %}">Reject</a>
+              <a class="btn" href="{% url 'accounts:reservation-update' r.id %}">Edit</a>
+              <a class="btn" href="{% url 'accounts:reservation-approve' r.id %}">Approve</a>
+              <a class="btn" href="{% url 'accounts:reservation-reject' r.id %}">Reject</a>
             {% else %}
-            <span style="color:#999;">No actions</span>
+              <span style="color:#999;">No actions</span>
             {% endif %}
           </td>
         </tr>
       {% empty %}
+        <tr><td colspan="6">No ongoing reservations.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 style="margin-top:2em;">Archived Reservations</h2>
+  <div class="card">
+    <table>
+      <tr>
+        <th>ID</th>
+        <th>User</th>
+        <th>Vehicle</th>
+        <th>Dates</th>
+        <th>Status</th>
+      </tr>
+      {% for r in archived %}
         <tr>
-          <td colspan="6">No reservations found.</td>
+          <td>{{ r.id }}</td>
+          <td>{{ r.user.username }}</td>
+          <td>{{ r.vehicle.name }}</td>
+          <td>{{ r.start_date }} → {{ r.end_date }}</td>
+          <td>{{ r.get_status_display }}</td>
         </tr>
+      {% empty %}
+        <tr><td colspan="5">No archived reservations.</td></tr>
       {% endfor %}
     </table>
   </div>

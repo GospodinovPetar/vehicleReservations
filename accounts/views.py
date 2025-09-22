@@ -295,9 +295,19 @@ def vehicle_delete(request, pk):
 # --- RESERVATION VIEWS ---
 @manager_required
 def reservation_list(request):
-    reservations = Reservation.objects.select_related("vehicle", "user").all()
+    # Split reservations into two groups
+    ongoing = Reservation.objects.filter(
+        status__in=[ReservationStatus.PENDING, ReservationStatus.RESERVED]
+    ).select_related("vehicle", "user")
+
+    archived = Reservation.objects.filter(
+        status__in=[ReservationStatus.COMPLETED, ReservationStatus.REJECTED]
+    ).select_related("vehicle", "user")
+
     return render(
-        request, "accounts/reservation_list.html", {"reservations": reservations}
+        request,
+        "accounts/reservation_list.html",
+        {"ongoing": ongoing, "archived": archived},
     )
 
 
