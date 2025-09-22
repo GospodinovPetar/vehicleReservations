@@ -301,7 +301,7 @@ def reservation_list(request):
     ).select_related("vehicle", "user")
 
     archived = Reservation.objects.filter(
-        status__in=[ReservationStatus.COMPLETED, ReservationStatus.REJECTED]
+        status__in=[ReservationStatus.COMPLETED, ReservationStatus.REJECTED, ReservationStatus.CANCELED]
     ).select_related("vehicle", "user")
 
     return render(

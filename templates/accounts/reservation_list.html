@@ -57,4 +57,10 @@
       {% endfor %}
     </table>
   </div>
+    {% if request.user.role == "admin" %}
+        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+    {% else %}
+        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+    {% endif %}
+
 {% endblock %}
