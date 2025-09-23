@@ -1,4 +1,3 @@
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -7,7 +6,7 @@ from django.views.decorators.http import require_http_methods
 
 
 from inventory.models.reservation import (
-    Reservation,
+    VehicleReservation,
     ReservationStatus,
     ReservationGroup
 )
@@ -17,7 +16,7 @@ from inventory.models.reservation import (
 @transaction.atomic
 def delete_reservation(request, pk):
     reservation = get_object_or_404(
-        Reservation.objects.select_related("group"),
+        VehicleReservation.objects.select_related("group"),
         pk=pk,
         user=request.user,
     )
@@ -35,7 +34,7 @@ def delete_reservation(request, pk):
     ReservationGroup.objects.select_for_update().filter(pk=group.pk).exists()
 
     active_in_group = (
-        Reservation.objects.filter(group=group)
+        VehicleReservation.objects.filter(group=group)
         .exclude(status__in=non_active_statuses)
         .count()
     )

@@ -37,13 +37,18 @@ class ReservationGroup(models.Model):
         on_delete=models.CASCADE,
         related_name="reservation_groups",
     )
+    status = models.CharField(
+        max_length=20,
+        choices=ReservationStatus.choices,
+        default=ReservationStatus.PENDING,
+    )
     reference = models.CharField(max_length=32, unique=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.reference or self.pk}"
 
-class Reservation(models.Model):
+class VehicleReservation(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reservations"
     )
@@ -101,14 +106,14 @@ class Reservation(models.Model):
 
         if self.vehicle_id and self.start_date and self.end_date:
             overlapping = (
-                Reservation.objects.filter(
+                VehicleReservation.objects.filter(
                     vehicle_id=self.vehicle_id,
                     status__in=BLOCKING_STATUSES,
                     start_date__lt=self.end_date,
                     end_date__gt=self.start_date,
                 ).exclude(pk=self.pk)
                 if self.pk
-                else Reservation.objects.filter(
+                else VehicleReservation.objects.filter(
                     vehicle_id=self.vehicle_id,
                     status__in=BLOCKING_STATUSES,
                     start_date__lt=self.end_date,
@@ -128,8 +133,9 @@ class Reservation(models.Model):
         start_date, end_date, pickup_location=None, return_location=None
     ):
         blocked_vehicle_ids = (
-            Reservation.objects.filter(
+            VehicleReservation.objects.filter(
                 status__in=BLOCKING_STATUSES,
+                group__status__in=BLOCKING_STATUSES,
                 start_date__lt=end_date,
                 end_date__gt=start_date,
             )

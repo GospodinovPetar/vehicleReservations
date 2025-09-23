@@ -4,7 +4,7 @@ from django.utils import timezone
 
 from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.models.vehicle import Vehicle
-from inventory.models.reservation import Reservation, Location
+from inventory.models.reservation import VehicleReservation, Location
 from .schemas import VehicleOut, ReservationOut, AvailabilityItem, AvailabilityOut
 
 
@@ -33,7 +33,7 @@ def register_routes(api):
         if not request.user.is_staff:
             raise HttpError(403, "Forbidden")
         out = []
-        qs = Reservation.objects.select_related(
+        qs = VehicleReservation.objects.select_related(
             "vehicle", "pickup_location", "return_location", "user", "group"
         ).order_by("-start_date")
         for r in qs:
@@ -95,7 +95,7 @@ def register_routes(api):
             else None
         )
 
-        ids = Reservation.available_vehicles(
+        ids = VehicleReservation.available_vehicles(
             start_date=start_date,
             end_date=end_date,
             pickup_location=pickup,

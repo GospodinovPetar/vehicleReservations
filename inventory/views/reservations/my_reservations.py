@@ -3,7 +3,7 @@ from django.db.models import Prefetch
 from django.shortcuts import render
 
 from inventory.models.reservation import (
-    Reservation,
+    VehicleReservation,
     ReservationStatus,
     ReservationGroup
 )
@@ -17,7 +17,7 @@ def my_reservations(request):
     ]
 
     active_reservations_qs = (
-        Reservation.objects.exclude(status__in=non_active_statuses)
+        VehicleReservation.objects.exclude(status__in=non_active_statuses)
         .select_related("vehicle", "pickup_location", "return_location")
         .order_by("-start_date")
     )
@@ -29,14 +29,14 @@ def my_reservations(request):
     )
 
     ungroupped = (
-        Reservation.objects.filter(user=request.user, group__isnull=True)
+        VehicleReservation.objects.filter(user=request.user, group__isnull=True)
         .exclude(status__in=non_active_statuses)
         .select_related("vehicle", "pickup_location", "return_location")
         .order_by("-start_date")
     )
 
     canceled = (
-        Reservation.objects.filter(
+        VehicleReservation.objects.filter(
             user=request.user, status=getattr(ReservationStatus, "CANCELED", "CANCELED")
         )
         .select_related("vehicle", "pickup_location", "return_location", "group")
@@ -44,7 +44,7 @@ def my_reservations(request):
     )
 
     rejected = (
-        Reservation.objects.filter(user=request.user, status=ReservationStatus.REJECTED)
+        VehicleReservation.objects.filter(user=request.user, status=ReservationStatus.REJECTED)
         .select_related("vehicle", "pickup_location", "return_location", "group")
         .order_by("-start_date")
     )

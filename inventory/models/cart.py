@@ -33,7 +33,7 @@ class Cart(models.Model):
         apps.get_model("inventory", "CartItem").objects.filter(cart=self).delete()
 
 
-from inventory.models.reservation import Reservation
+from inventory.models.reservation import VehicleReservation
 
 
 class CartItem(models.Model):
@@ -82,7 +82,7 @@ class CartItem(models.Model):
                 }
             )
 
-        is_ok = Reservation.is_vehicle_available(
+        is_ok = VehicleReservation.is_vehicle_available(
             vehicle=self.vehicle,
             start_date=self.start_date,
             end_date=self.end_date,

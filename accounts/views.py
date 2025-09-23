@@ -8,7 +8,7 @@ from django.views.decorators.http import require_http_methods
 
 # Inventory models
 from inventory.models.vehicle import Vehicle
-from inventory.models.reservation import Reservation, ReservationStatus, Location
+from inventory.models.reservation import VehicleReservation, ReservationStatus, Location
 
 from .forms import (
     CustomUserCreationForm,
@@ -242,7 +242,7 @@ def manager_vehicles(request):
 @manager_required
 def manager_reservations(request):
     # managers/admins see all reservations
-    reservations = Reservation.objects.all().select_related(
+    reservations = VehicleReservation.objects.all().select_related(
         "user", "vehicle", "pickup_location", "return_location"
     )
     return render(
@@ -296,11 +296,11 @@ def vehicle_delete(request, pk):
 @manager_required
 def reservation_list(request):
     # Split reservations into two groups
-    ongoing = Reservation.objects.filter(
+    ongoing = VehicleReservation.objects.filter(
         status__in=[ReservationStatus.PENDING, ReservationStatus.RESERVED]
     ).select_related("vehicle", "user")
 
-    archived = Reservation.objects.filter(
+    archived = VehicleReservation.objects.filter(
         status__in=[ReservationStatus.COMPLETED, ReservationStatus.REJECTED, ReservationStatus.CANCELED]
     ).select_related("vehicle", "user")
 
@@ -313,7 +313,7 @@ def reservation_list(request):
 
 @manager_required
 def reservation_update(request, pk):
-    reservation = get_object_or_404(Reservation, pk=pk)
+    reservation = get_object_or_404(VehicleReservation, pk=pk)
     if reservation.status != ReservationStatus.PENDING:
         return HttpResponseForbidden("Only pending reservations can be edited.")
 
@@ -332,7 +332,7 @@ def reservation_update(request, pk):
 
 @manager_required
 def reservation_approve(request, pk):
-    reservation = get_object_or_404(Reservation, pk=pk)
+    reservation = get_object_or_404(VehicleReservation, pk=pk)
     if reservation.status != ReservationStatus.PENDING:
         return HttpResponseForbidden("Only pending reservations can be approved.")
     reservation.status = ReservationStatus.RESERVED
@@ -343,7 +343,7 @@ def reservation_approve(request, pk):
 
 @manager_required
 def reservation_reject(request, pk):
-    reservation = get_object_or_404(Reservation, pk=pk)
+    reservation = get_object_or_404(VehicleReservation, pk=pk)
     if reservation.status != ReservationStatus.PENDING:
         return HttpResponseForbidden("Only pending reservations can be rejected.")
     reservation.status = ReservationStatus.REJECTED
@@ -356,7 +356,7 @@ def reservation_reject(request, pk):
 @login_required
 def user_reservations(request):
     reservations = (
-        Reservation.objects.filter(user=request.user)
+        VehicleReservation.objects.filter(user=request.user)
         .select_related("vehicle", "pickup_location", "return_location")
         .all()
     )

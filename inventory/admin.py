@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from inventory.models.reservation import ReservationGroup
-from inventory.models.reservation import Reservation, Location
+from inventory.models.reservation import VehicleReservation, Location
 from inventory.models.vehicle import Vehicle
 
 
@@ -19,7 +19,7 @@ class VehicleAdmin(admin.ModelAdmin):
 
 
 class ReservationInline(admin.TabularInline):
-    model = Reservation
+    model = VehicleReservation
     fields = (
         "vehicle",
         "pickup_location",
@@ -47,7 +47,7 @@ class ReservationGroupAdmin(admin.ModelAdmin):
         instances = formset.save(commit=False)
 
         for obj in instances:
-            if isinstance(obj, Reservation) and form.instance.user and not obj.user_id:
+            if isinstance(obj, VehicleReservation) and form.instance.user and not obj.user_id:
                 obj.user = form.instance.user
             obj.save()
 
@@ -57,7 +57,7 @@ class ReservationGroupAdmin(admin.ModelAdmin):
             obj.delete()
 
 
-@admin.register(Reservation)
+@admin.register(VehicleReservation)
 class ReservationAdmin(admin.ModelAdmin):
     list_display = (
         "id",

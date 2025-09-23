@@ -1,9 +1,9 @@
 from django import forms
-from inventory.models.reservation import Reservation
+from inventory.models.reservation import VehicleReservation
 
 class ReservationEditForm(forms.ModelForm):
     class Meta:
-        model = Reservation
+        model = VehicleReservation
         fields = [
             "vehicle",
             "pickup_location",

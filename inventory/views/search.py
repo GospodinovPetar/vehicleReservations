@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from inventory.helpers.intervals import free_slices
 from inventory.models.cart import CartItem
-from inventory.models.reservation import Location, Reservation, BLOCKING_STATUSES
+from inventory.models.reservation import Location, VehicleReservation, BLOCKING_STATUSES
 from inventory.models.vehicle import Vehicle
 from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.helpers.pricing import RateTable, quote_total
@@ -70,7 +70,7 @@ def search(request):
             | Q(available_return_locations=return_location)
         )
 
-    available_ids = Reservation.available_vehicles(
+    available_ids = VehicleReservation.available_vehicles(
         start_date, end_date, pickup_location, return_location
     )
     fully_available_qs = allowed_qs.filter(id__in=available_ids)
@@ -96,7 +96,7 @@ def search(request):
 
     partial_candidates_qs = allowed_qs.exclude(id__in=available_ids)
 
-    conflicts_qs = Reservation.objects.filter(
+    conflicts_qs = VehicleReservation.objects.filter(
         vehicle_id__in=partial_candidates_qs.values_list("id", flat=True),
         status__in=BLOCKING_STATUSES,
         start_date__lt=end_date,

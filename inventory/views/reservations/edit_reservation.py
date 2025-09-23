@@ -4,7 +4,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from inventory.models.reservation import (
     Location,
-    Reservation,
+    VehicleReservation,
     ReservationStatus,
     BLOCKING_STATUSES,
 )
@@ -23,7 +23,7 @@ def edit_reservation(request, pk):
     back to PENDING for re-approval.
     """
     reservation = get_object_or_404(
-        Reservation.objects.select_related("vehicle", "group"),
+        VehicleReservation.objects.select_related("vehicle", "group"),
         pk=pk,
         user=request.user,
     )
@@ -91,7 +91,7 @@ def edit_reservation(request, pk):
                     },
                 )
 
-            overlaps = Reservation.objects.filter(
+            overlaps = VehicleReservation.objects.filter(
                 vehicle_id=selected_vehicle.pk,
                 status__in=BLOCKING_STATUSES,
                 start_date__lt=new_end,

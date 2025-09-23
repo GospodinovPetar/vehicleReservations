@@ -7,7 +7,7 @@ from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.helpers.redirect_back_to_search import redirect_back_to_search
 from inventory.models.reservation import (
     Location,
-    Reservation,
+    VehicleReservation,
     ReservationStatus,
 )
 from inventory.models.vehicle import Vehicle
@@ -57,7 +57,7 @@ def reserve(request):
         )
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
-    reservation = Reservation(
+    reservation = VehicleReservation(
         user=request.user,
         vehicle=vehicle,
         pickup_location=pickup_location,
