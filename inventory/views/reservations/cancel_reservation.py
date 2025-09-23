@@ -11,7 +11,7 @@ from inventory.models.reservation import (
 )
 
 @login_required
-def cancel_group(request, group_id):
+def cancel_reservation(request, group_id):
     group = get_object_or_404(ReservationGroup, pk=group_id, user=request.user)
     reference = group.reference or f"#{group.pk}"
 

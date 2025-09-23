@@ -4,7 +4,7 @@ from inventory.views.cart.add_to_cart import add_to_cart
 from inventory.views.cart.checkout import checkout
 from inventory.views.cart.remove_from_cart import remove_from_cart
 from inventory.views.cart.view_cart import view_cart
-from inventory.views.reservations.cancel_group import cancel_group
+from inventory.views.reservations.cancel_reservation import cancel_reservation
 from inventory.views.reservations.delete_reservation import delete_reservation
 from inventory.views.reservations.edit_reservation import edit_reservation
 from inventory.views.reservations.my_reservations import my_reservations
@@ -25,7 +25,7 @@ urlpatterns = [
         "reservations/<int:pk>/reject/", reject_reservation, name="reject_reservation"
     ),
     path(
-        "reservations/group/<int:group_id>/cancel/", cancel_group, name="cancel_group"
+        "reservations/group/<int:group_id>/cancel/", cancel_reservation, name="cancel_group"
     ),
     path("reservations/<int:pk>/edit/", edit_reservation, name="edit_reservation"),
     path(
