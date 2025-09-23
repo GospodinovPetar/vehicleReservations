@@ -8,7 +8,7 @@ from django.views.decorators.http import require_http_methods
 
 # Inventory models
 from inventory.models.vehicle import Vehicle
-from inventory.models.reservation import VehicleReservation, ReservationStatus, Location
+from inventory.models.reservation import VehicleReservation, ReservationStatus, Location, ReservationGroup
 
 from .forms import (
     CustomUserCreationForm,
@@ -295,14 +295,18 @@ def vehicle_delete(request, pk):
 # --- RESERVATION VIEWS ---
 @manager_required
 def reservation_list(request):
-    # Split reservations into two groups
-    ongoing = VehicleReservation.objects.filter(
+    # Split reservations into two groups (by ReservationGroup.status)
+    ongoing = ReservationGroup.objects.filter(
         status__in=[ReservationStatus.PENDING, ReservationStatus.RESERVED]
-    ).select_related("vehicle", "user")
+    ).prefetch_related("reservations__vehicle", "reservations__user")
 
-    archived = VehicleReservation.objects.filter(
-        status__in=[ReservationStatus.COMPLETED, ReservationStatus.REJECTED, ReservationStatus.CANCELED]
-    ).select_related("vehicle", "user")
+    archived = ReservationGroup.objects.filter(
+        status__in=[
+            ReservationStatus.COMPLETED,
+            ReservationStatus.REJECTED,
+            ReservationStatus.CANCELED,
+        ]
+    ).prefetch_related("reservations__vehicle", "reservations__user")
 
     return render(
         request,
@@ -312,22 +316,61 @@ def reservation_list(request):
 
 
 @manager_required
+def reservation_group_approve(request, pk):
+    group = get_object_or_404(ReservationGroup, pk=pk)
+    if group.status != ReservationStatus.PENDING:
+        return HttpResponseForbidden("Only pending groups can be approved.")
+    old_status = group.status
+    group.status = ReservationStatus.RESERVED
+    group.save(update_fields=["status"])
+    messages.success(request, f"Reservation group {group.id} has been approved.")
+    return redirect("accounts:reservation-list")
+
+
+@manager_required
+def reservation_group_reject(request, pk):
+    group = get_object_or_404(ReservationGroup, pk=pk)
+    if group.status != ReservationStatus.PENDING:
+        return HttpResponseForbidden("Only pending groups can be rejected.")
+    old_status = group.status
+    group.status = ReservationStatus.REJECTED
+    group.save(update_fields=["status"])
+    messages.warning(request, f"Reservation group {group.id} has been rejected.")
+    return redirect("accounts:reservation-list")
+
+
+@manager_required
 def reservation_update(request, pk):
-    reservation = get_object_or_404(VehicleReservation, pk=pk)
-    if reservation.status != ReservationStatus.PENDING:
-        return HttpResponseForbidden("Only pending reservations can be edited.")
+    """Update a group’s status instead of individual reservations."""
+    group = get_object_or_404(ReservationGroup, pk=pk)
+    if group.status != ReservationStatus.PENDING:
+        return HttpResponseForbidden("Only pending groups can be updated.")
 
     if request.method == "POST":
-        form = ReservationStatusForm(request.POST, instance=reservation)
+        form = ReservationStatusForm(request.POST, instance=group)
         if form.is_valid():
             form.save()
-            return redirect("accounts:manager-dashboard")
+            messages.success(request, f"Reservation group {group.id} updated.")
+            return redirect("accounts:reservation-list")
     else:
-        form = ReservationStatusForm(instance=reservation)
+        form = ReservationStatusForm(instance=group)
 
     return render(
-        request, "accounts/reservations/reservation_update.html", {"form": form, "reservation": reservation}
+        request,
+        "accounts/reservations/reservation_update.html",
+        {"form": form, "group": group},
     )
+
+
+@manager_required
+def reservation_cancel(request, pk):
+    reservation = get_object_or_404(VehicleReservation, pk=pk)
+    if reservation.status != ReservationStatus.RESERVED:
+        return HttpResponseForbidden("Only reserved reservations can be canceled.")
+    reservation.status = ReservationStatus.CANCELED
+    reservation.save(update_fields=["status"])
+    messages.warning(request, f"Reservation #{reservation.id} has been canceled.")
+    return redirect("accounts:reservation-list")
 
 
 @manager_required
@@ -336,7 +379,7 @@ def reservation_approve(request, pk):
     if reservation.status != ReservationStatus.PENDING:
         return HttpResponseForbidden("Only pending reservations can be approved.")
     reservation.status = ReservationStatus.RESERVED
-    reservation.save()
+    reservation.save(update_fields=["status"])
     messages.success(request, f"Reservation #{reservation.id} has been approved.")
     return redirect("accounts:reservation-list")
 
@@ -347,7 +390,7 @@ def reservation_reject(request, pk):
     if reservation.status != ReservationStatus.PENDING:
         return HttpResponseForbidden("Only pending reservations can be rejected.")
     reservation.status = ReservationStatus.REJECTED
-    reservation.save()
+    reservation.save(update_fields=["status"])
     messages.warning(request, f"Reservation #{reservation.id} has been rejected.")
     return redirect("accounts:reservation-list")
 

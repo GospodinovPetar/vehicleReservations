@@ -1,66 +1,78 @@
 {% extends "base.html" %}
 {% block content %}
   <h2>Ongoing Reservations</h2>
-  <div class="card">
+{% for group in ongoing %}
+  <div class="card" style="margin-bottom: 2em;">
+    <h3>Group {{ group.id }} ({{ group.get_status_display }})</h3>
+
+    <div style="margin-bottom: 1em;">
+      {% if group.status == "PENDING" %}
+        <a class="btn btn-success" href="{% url 'accounts:reservation-group-approve' group.id %}">Approve Entire Group</a>
+        <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject Entire Group</a>
+        <a class="btn" href="{% url 'accounts:reservation-update' group.id %}">Edit Group</a>
+      {% endif %}
+    </div>
+
     <table>
       <tr>
-        <th>ID</th>
-        <th>User</th>
         <th>Vehicle</th>
+        <th>User</th>
         <th>Dates</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
-      {% for r in ongoing %}
+      {% for r in group.reservations.all %}
         <tr>
-          <td>{{ r.id }}</td>
-          <td>{{ r.user.username }}</td>
           <td>{{ r.vehicle.name }}</td>
+          <td>{{ r.user.username }}</td>
           <td>{{ r.start_date }} → {{ r.end_date }}</td>
           <td>{{ r.get_status_display }}</td>
           <td>
             {% if r.status == "PENDING" %}
-              <a class="btn" href="{% url 'accounts:reservation-update' r.id %}">Edit</a>
               <a class="btn" href="{% url 'accounts:reservation-approve' r.id %}">Approve</a>
               <a class="btn" href="{% url 'accounts:reservation-reject' r.id %}">Reject</a>
+            {% elif r.status == "RESERVED" %}
+              <a class="btn" href="{% url 'accounts:reservation-cancel' r.id %}">Cancel</a>
             {% else %}
               <span style="color:#999;">No actions</span>
             {% endif %}
           </td>
         </tr>
-      {% empty %}
-        <tr><td colspan="6">No ongoing reservations.</td></tr>
       {% endfor %}
     </table>
   </div>
+{% empty %}
+  <p>No ongoing reservations.</p>
+{% endfor %}
 
   <h2 style="margin-top:2em;">Archived Reservations</h2>
-  <div class="card">
+{% for group in archived %}
+  <div class="card" style="margin-bottom: 2em;">
+    <h3>Group {{ group.id }} ({{ group.get_status_display }})</h3>
     <table>
       <tr>
-        <th>ID</th>
-        <th>User</th>
         <th>Vehicle</th>
+        <th>User</th>
         <th>Dates</th>
         <th>Status</th>
       </tr>
-      {% for r in archived %}
+      {% for r in group.reservations.all %}
         <tr>
-          <td>{{ r.id }}</td>
-          <td>{{ r.user.username }}</td>
           <td>{{ r.vehicle.name }}</td>
+          <td>{{ r.user.username }}</td>
           <td>{{ r.start_date }} → {{ r.end_date }}</td>
           <td>{{ r.get_status_display }}</td>
         </tr>
-      {% empty %}
-        <tr><td colspan="5">No archived reservations.</td></tr>
       {% endfor %}
     </table>
   </div>
-    {% if request.user.role == "admin" %}
-        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% else %}
-        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% endif %}
+{% empty %}
+  <p>No archived reservations.</p>
+{% endfor %}
 
+  {% if request.user.role == "admin" %}
+      <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% else %}
+      <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% endif %}
 {% endblock %}

@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 
 # Imports from inventory app
 from inventory.models.vehicle import Vehicle, VehicleType, EngineType
-from inventory.models.reservation import VehicleReservation, ReservationStatus, Location
+from inventory.models.reservation import VehicleReservation, ReservationStatus, Location, ReservationGroup
 
 CustomUser = get_user_model()
 
@@ -83,7 +83,7 @@ class VehicleForm(forms.ModelForm):
 
 class ReservationStatusForm(forms.ModelForm):
     class Meta:
-        model = VehicleReservation
+        model = ReservationGroup
         fields = ["status"]
 
     def __init__(self, *args, **kwargs):
