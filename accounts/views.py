@@ -36,7 +36,7 @@ def register(request):
         messages.error(request, "Please correct the errors below.")
     else:
         form = CustomUserCreationForm()
-    return render(request, "accounts/auth.html", {"form": form, "title": "Register"})
+    return render(request, "accounts/auth/auth.html", {"form": form, "title": "Register"})
 
 
 @require_http_methods(["GET", "POST"])
@@ -70,7 +70,7 @@ def login_view(request):
     else:
         form = AuthenticationForm(request)
 
-    return render(request, "accounts/auth.html", {"form": form, "title": "Login"})
+    return render(request, "accounts/auth/auth.html", {"form": form, "title": "Login"})
 
 
 def logout_view(request):
@@ -114,7 +114,7 @@ def admin_dashboard(request):
     }
 
     return render(
-        request, "accounts/admin_dashboard.html", {"users": users, "stats": stats}
+        request, "accounts/admin/admin_dashboard.html", {"users": users, "stats": stats}
     )
 
 
@@ -178,7 +178,7 @@ def create_user(request):
     else:
         form = CustomUserCreationForm()
     return render(
-        request, "accounts/admin_user_form.html", {"form": form, "title": "Create User"}
+        request, "accounts/admin/admin_user_form.html", {"form": form, "title": "Create User"}
     )
 
 
@@ -201,7 +201,7 @@ def edit_user(request, pk):
         form = UserEditForm(instance=user)
     return render(
         request,
-        "accounts/admin_user_form.html",
+        "accounts/admin/admin_user_form.html",
         {"form": form, "title": f"Edit {user.username}"},
     )
 
@@ -217,7 +217,7 @@ def delete_user(request, pk):
         user.delete()
         messages.success(request, "User deleted successfully.")
         return redirect("accounts:admin-dashboard")
-    return render(request, "accounts/admin_user_confirm_delete.html", {"user": user})
+    return render(request, "accounts/admin/admin_user_confirm_delete.html", {"user": user})
 
 
 # ----------- Manager decorators / views -----------
@@ -230,13 +230,13 @@ def manager_required(view_func):
 
 @manager_required
 def manager_dashboard(request):
-    return render(request, "accounts/manager_dashboard.html")
+    return render(request, "accounts/manager/manager_dashboard.html")
 
 
 @manager_required
 def manager_vehicles(request):
     vehicles = Vehicle.objects.all()
-    return render(request, "accounts/manager_vehicles.html", {"vehicles": vehicles})
+    return render(request, "accounts/manager/manager_vehicles.html", {"vehicles": vehicles})
 
 
 @manager_required
@@ -246,7 +246,7 @@ def manager_reservations(request):
         "user", "vehicle", "pickup_location", "return_location"
     )
     return render(
-        request, "accounts/reservation_list.html", {"reservations": reservations}
+        request, "accounts/reservations/reservation_list.html", {"reservations": reservations}
     )
 
 
@@ -254,7 +254,7 @@ def manager_reservations(request):
 @manager_required
 def vehicle_list(request):
     vehicles = Vehicle.objects.all()
-    return render(request, "accounts/vehicle_list.html", {"vehicles": vehicles})
+    return render(request, "accounts/vehicles/vehicle_list.html", {"vehicles": vehicles})
 
 
 @manager_required
@@ -267,7 +267,7 @@ def vehicle_create(request):
             return redirect("accounts:vehicle-list")
     else:
         form = VehicleForm()
-    return render(request, "accounts/vehicle_form.html", {"form": form})
+    return render(request, "accounts/vehicles/vehicle_form.html", {"form": form})
 
 
 @manager_required
@@ -281,7 +281,7 @@ def vehicle_edit(request, pk):
             return redirect("accounts:vehicle-list")
     else:
         form = VehicleForm(instance=vehicle)
-    return render(request, "accounts/vehicle_form.html", {"form": form})
+    return render(request, "accounts/vehicles/vehicle_form.html", {"form": form})
 
 
 @manager_required
@@ -306,7 +306,7 @@ def reservation_list(request):
 
     return render(
         request,
-        "accounts/reservation_list.html",
+        "accounts/reservations/reservation_list.html",
         {"ongoing": ongoing, "archived": archived},
     )
 
@@ -326,7 +326,7 @@ def reservation_update(request, pk):
         form = ReservationStatusForm(instance=reservation)
 
     return render(
-        request, "accounts/reservation_update.html", {"form": form, "reservation": reservation}
+        request, "accounts/reservations/reservation_update.html", {"form": form, "reservation": reservation}
     )
 
 
@@ -361,7 +361,7 @@ def user_reservations(request):
         .all()
     )
     return render(
-        request, "accounts/reservation_list_user.html", {"reservations": reservations}
+        request, "accounts/reservations/reservation_list_user.html", {"reservations": reservations}
     )
 
 
@@ -369,7 +369,7 @@ def user_reservations(request):
 @manager_required
 def location_list(request):
     locations = Location.objects.all()
-    return render(request, "accounts/location_list.html", {"locations": locations})
+    return render(request, "accounts/locations/location_list.html", {"locations": locations})
 
 
 @manager_required
@@ -381,7 +381,7 @@ def location_create(request):
             messages.success(request, "Location created.")
             return redirect("accounts:location-list")
         messages.error(request, "Please provide a name.")
-    return render(request, "accounts/location_form.html", {"title": "Create location"})
+    return render(request, "accounts/locations/location_form.html", {"title": "Create location"})
 
 
 @manager_required
@@ -397,7 +397,7 @@ def location_edit(request, pk):
         messages.error(request, "Please provide a name.")
     return render(
         request,
-        "accounts/location_form.html",
+        "accounts/locations/location_form.html",
         {"location": loc, "title": "Edit location"},
     )
 
@@ -409,4 +409,4 @@ def location_delete(request, pk):
         loc.delete()
         messages.success(request, "Location deleted.")
         return redirect("accounts:location-list")
-    return render(request, "accounts/location_confirm_delete.html", {"location": loc})
+    return render(request, "accounts/locations/location_confirm_delete.html", {"location": loc})
