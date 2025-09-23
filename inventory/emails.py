@@ -45,3 +45,33 @@ def send_reservation_status_changed_email(reservation, old_status, new_status):
         f"Reservation #{reservation.pk} {reservation.get_status_display().lower()}"
     )
     _send_email(subject, template, ctx, reservation.user.email)
+
+
+def send_vehicle_removed_email(reservation):
+    ctx = {"reservation": reservation, "user": reservation.user}
+    subject = f"Vehicle removed from reservation {reservation.group.reference or '#' + str(reservation.group.pk)}"
+    _send_email(subject, "vehicle_removed", ctx, reservation.user.email)
+
+
+def send_vehicle_updated_email(reservation, changed_fields):
+    ctx = {"reservation": reservation, "user": reservation.user, "changed_fields": changed_fields}
+    subject = f"Vehicle updated in reservation {reservation.group.reference or '#' + str(reservation.group.pk)}"
+    _send_email(subject, "vehicle_updated", ctx, reservation.user.email)
+
+
+def send_group_status_changed_email(group, old_status, new_status):
+    # Reuse existing templates but pass a "reservation-like" object shape
+    class _Shim:
+        def __init__(self, group):
+            self.group = group
+            self.user = group.user
+            self.status = new_status
+            self.pk = group.pk
+        def get_status_display(self):
+            try:
+                return group.get_status_display()
+            except Exception:
+                return str(new_status)
+
+    shim = _Shim(group)
+    send_reservation_status_changed_email(shim, old_status, new_status)

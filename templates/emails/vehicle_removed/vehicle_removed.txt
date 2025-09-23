@@ -1,0 +1,12 @@
+Hi {{ user.get_full_name|default:user.username }},
+
+One of the vehicles in your reservation {{ reservation.group.reference|default:("#" ~ reservation.group.pk) }} was removed.
+
+Details:
+- Vehicle: {{ reservation.vehicle.name }}
+- Period: {{ reservation.start_date }} → {{ reservation.end_date }}
+
+If this was unexpected, please contact support.
+
+Thanks,
+Support Team

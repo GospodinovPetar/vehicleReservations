@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 
 from inventory.models.reservation import (
-    Reservation,
+    VehicleReservation,
     ReservationStatus,
     ReservationGroup
 )
@@ -20,7 +20,7 @@ def cancel_reservation(request, group_id):
         if hasattr(ReservationStatus, "COMPLETED"):
             cancelable &= ~Q(status=ReservationStatus.COMPLETED)
 
-        updated = Reservation.objects.filter(group=group).filter(cancelable)
+        updated = VehicleReservation.objects.filter(group=group).filter(cancelable)
         for r in updated.only("id", "status"):
             r.status = getattr(ReservationStatus, "CANCELED", "CANCELED")
             r.save(update_fields=["status"])

@@ -4,14 +4,14 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 
 from inventory.models.reservation import (
-    Reservation,
+    VehicleReservation,
     ReservationStatus,
 )
 
 @login_required
 @require_http_methods(["POST"])
 def reject_reservation(request, pk):
-    reservation = get_object_or_404(Reservation, pk=pk, user=request.user)
+    reservation = get_object_or_404(VehicleReservation, pk=pk, user=request.user)
 
     if reservation.status in (
         ReservationStatus.CANCELED,

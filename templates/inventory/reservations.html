@@ -9,10 +9,11 @@
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
             <div>
               <strong>Reference:</strong> {{ g.reference }}
-              <em>({{ g.created_at }})</em>
+              <em>({{ g.created_at }})</em> &nbsp; <span><strong>Status:</strong> {{ g.status }}</span>
             </div>
             <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
               {% csrf_token %}
+              <a class="btn" href="{% url 'inventory:add_vehicle' g.id %}">Add vehicle</a>
               <button class="btn">Cancel</button>
             </form>
           </div>

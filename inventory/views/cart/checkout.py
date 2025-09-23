@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 
 from inventory.models.cart import Cart, CartItem
-from inventory.models.reservation import Reservation, ReservationStatus, ReservationGroup
+from inventory.models.reservation import VehicleReservation, ReservationStatus, ReservationGroup
 from inventory.models.vehicle import Vehicle
 
 @login_required
@@ -34,7 +34,7 @@ def checkout(request):
         )
 
         for it in items:
-            if not Reservation.is_vehicle_available(
+            if not VehicleReservation.is_vehicle_available(
                 vehicle=it.vehicle,
                 start_date=it.start_date,
                 end_date=it.end_date,
@@ -53,7 +53,7 @@ def checkout(request):
             group.save(update_fields=["reference"])
 
         for it in items:
-            Reservation.objects.create(
+            VehicleReservation.objects.create(
                 user=request.user,
                 vehicle=it.vehicle,
                 pickup_location=it.pickup_location,

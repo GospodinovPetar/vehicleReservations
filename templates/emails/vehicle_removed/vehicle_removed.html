@@ -1,0 +1,8 @@
+<p>Hi {{ user.get_full_name|default:user.username }},</p>
+<p>One of the vehicles in your reservation <strong>{{ reservation.group.reference|default:("#" ~ reservation.group.pk) }}</strong> was <strong>removed</strong>.</p>
+<ul>
+  <li><strong>Vehicle:</strong> {{ reservation.vehicle.name }}</li>
+  <li><strong>Period:</strong> {{ reservation.start_date }} → {{ reservation.end_date }}</li>
+</ul>
+<p>If this was unexpected, please contact support.</p>
+<p>Thanks,<br/>Support Team</p>

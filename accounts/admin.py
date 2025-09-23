@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
 from inventory.models.vehicle import Vehicle
-from inventory.models.reservation import Reservation, ReservationStatus, Location
+from inventory.models.reservation import VehicleReservation, ReservationStatus, Location
 from inventory.admin import VehicleAdmin, ReservationAdmin
 
 CustomUser = get_user_model()
@@ -163,7 +163,7 @@ def wrap_with_restrictions(modeladmin_cls, safeadmin_cls):
 
 
 # unregister and re-register with restrictions (preserve original admin classes)
-for model, admin_cls in [(Vehicle, VehicleAdmin), (Reservation, ReservationAdmin)]:
+for model, admin_cls in [(Vehicle, VehicleAdmin), (VehicleReservation, ReservationAdmin)]:
     try:
         admin.site.unregister(model)
     except admin.sites.NotRegistered:
