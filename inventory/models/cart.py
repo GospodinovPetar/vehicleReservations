@@ -3,20 +3,6 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.apps import apps
 
-
-class ReservationGroup(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="reservation_groups",
-    )
-    reference = models.CharField(max_length=32, unique=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.reference or self.pk}"
-
-
 class Cart(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="carts"

@@ -1,19 +1,15 @@
 from django.urls import path
 
+from inventory.views.cart.add_to_cart import add_to_cart
+from inventory.views.cart.checkout import checkout
+from inventory.views.cart.remove_from_cart import remove_from_cart
+from inventory.views.cart.view_cart import view_cart
+from inventory.views.reservations.cancel_group import cancel_group
+from inventory.views.reservations.delete_reservation import delete_reservation
+from inventory.views.reservations.edit_reservation import edit_reservation
+from inventory.views.reservations.my_reservations import my_reservations
+from inventory.views.reservations.reject_reservation import reject_reservation
 from inventory.views.search import home, search
-from inventory.views.reservations import (
-    reject_reservation,
-    my_reservations,
-    cancel_group,
-    edit_reservation,
-    delete_reservation,
-)
-from inventory.views.cart import (
-    add_to_cart,
-    view_cart,
-    remove_from_cart,
-    checkout,
-)
 
 app_name = "inventory"
 
