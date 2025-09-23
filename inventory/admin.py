@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from inventory.models.cart import ReservationGroup
+from inventory.models.reservation import ReservationGroup
 from inventory.models.reservation import Reservation, Location
 from inventory.models.vehicle import Vehicle
 

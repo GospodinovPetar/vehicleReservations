@@ -7,8 +7,8 @@ def _send_email(subject: str, template_base: str, context: dict, to_email: str):
     """
     Renders emails/emails/<template_base>.{txt,html} and sends both text+html.
     """
-    text_body = render_to_string(f"emails/{template_base}.txt", context)
-    html_body = render_to_string(f"emails/{template_base}.html", context)
+    text_body = render_to_string(f"emails/{template_base}/{template_base}.txt", context)
+    html_body = render_to_string(f"emails/{template_base}/{template_base}.html", context)
 
     msg = EmailMultiAlternatives(
         subject=subject,
