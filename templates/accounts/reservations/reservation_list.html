@@ -1,78 +1,126 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2>Ongoing Reservations</h2>
-{% for group in ongoing %}
-  <div class="card" style="margin-bottom: 2em;">
-    <h3>Group {{ group.id }} ({{ group.get_status_display }})</h3>
+<h2>Ongoing Reservations</h2>
 
-    <div style="margin-bottom: 1em;">
-      {% if group.status == "PENDING" %}
-        <a class="btn btn-success" href="{% url 'accounts:reservation-group-approve' group.id %}">Approve Entire Group</a>
-        <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject Entire Group</a>
-        <a class="btn" href="{% url 'accounts:reservation-update' group.id %}">Edit Group</a>
-      {% endif %}
+{% if ongoing %}
+  {% for group in ongoing %}
+    <div class="card" style="margin-bottom: 2em;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75em;">
+        <div>
+          <h3 style="margin:0;">Group {{ group.id }} — Ref: {{ group.reference }}</h3>
+          <div style="color:#666;">
+            Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
+            · <strong>Items:</strong> {{ group.reservations.count }}
+          </div>
+        </div>
+
+        <div>
+          {% if group.status == "PENDING" %}
+            <a class="btn btn-success" href="{% url 'accounts:reservation-group-approve' group.id %}">Approve Entire Group</a>
+            <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject Entire Group</a>
+            <a class="btn" href="{% url 'accounts:reservation-update' group.id %}">Edit Group</a>
+          {% elif group.status == "AWAITING_PAYMENT" %}
+            <span class="badge">Awaiting Payment</span>
+            <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject Entire Group</a>
+          {% elif group.status == "RESERVED" %}
+            <span class="badge">Reserved</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Vehicle</th>
+            <th>Dates</th>
+            <th>Pickup → Return</th>
+            <th>Status</th>
+            <th>Total</th>
+            <th>Item Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in group.reservations.all %}
+            <tr>
+              <td>{{ r.user.username }}</td>
+              <td>{{ r.vehicle.name }}</td>
+              <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+              <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
+              <td>{{ r.get_status_display }}</td>
+              <td>{{ r.total_price|floatformat:2 }} EUR</td>
+              <td>
+                {% if r.status == "PENDING" %}
+                  <a class="btn" href="{% url 'accounts:reservation-approve' r.id %}">Approve item</a>
+                  <a class="btn" href="{% url 'accounts:reservation-reject' r.id %}">Reject item</a>
+                {% elif r.status == "RESERVED" %}
+                  <a class="btn" href="{% url 'accounts:reservation-cancel' r.id %}">Cancel item</a>
+                {% else %}
+                  <span style="color:#999;">No actions</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7">No items in this group.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-
-    <table>
-      <tr>
-        <th>Vehicle</th>
-        <th>User</th>
-        <th>Dates</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-      {% for r in group.reservations.all %}
-        <tr>
-          <td>{{ r.vehicle.name }}</td>
-          <td>{{ r.user.username }}</td>
-          <td>{{ r.start_date }} → {{ r.end_date }}</td>
-          <td>{{ r.get_status_display }}</td>
-          <td>
-            {% if r.status == "PENDING" %}
-              <a class="btn" href="{% url 'accounts:reservation-approve' r.id %}">Approve</a>
-              <a class="btn" href="{% url 'accounts:reservation-reject' r.id %}">Reject</a>
-            {% elif r.status == "RESERVED" %}
-              <a class="btn" href="{% url 'accounts:reservation-cancel' r.id %}">Cancel</a>
-            {% else %}
-              <span style="color:#999;">No actions</span>
-            {% endif %}
-          </td>
-        </tr>
-      {% endfor %}
-    </table>
-  </div>
-{% empty %}
+  {% endfor %}
+{% else %}
   <p>No ongoing reservations.</p>
-{% endfor %}
+{% endif %}
 
-  <h2 style="margin-top:2em;">Archived Reservations</h2>
-{% for group in archived %}
-  <div class="card" style="margin-bottom: 2em;">
-    <h3>Group {{ group.id }} ({{ group.get_status_display }})</h3>
-    <table>
-      <tr>
-        <th>Vehicle</th>
-        <th>User</th>
-        <th>Dates</th>
-        <th>Status</th>
-      </tr>
-      {% for r in group.reservations.all %}
-        <tr>
-          <td>{{ r.vehicle.name }}</td>
-          <td>{{ r.user.username }}</td>
-          <td>{{ r.start_date }} → {{ r.end_date }}</td>
-          <td>{{ r.get_status_display }}</td>
-        </tr>
-      {% endfor %}
-    </table>
-  </div>
-{% empty %}
+<h2 style="margin-top:2em;">Archived Reservations</h2>
+
+{% if archived %}
+  {% for group in archived %}
+    <div class="card" style="margin-bottom: 2em;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75em;">
+        <div>
+          <h3 style="margin:0;">Group {{ group.id }} — Ref: {{ group.reference }}</h3>
+          <div style="color:#666;">
+            Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
+            · <strong>Items:</strong> {{ group.reservations.count }}
+          </div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Vehicle</th>
+            <th>Dates</th>
+            <th>Pickup → Return</th>
+            <th>Status</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in group.reservations.all %}
+            <tr>
+              <td>{{ r.user.username }}</td>
+              <td>{{ r.vehicle.name }}</td>
+              <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+              <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
+              <td>{{ r.get_status_display }}</td>
+              <td>{{ r.total_price|floatformat:2 }} EUR</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No items in this group.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+{% else %}
   <p>No archived reservations.</p>
-{% endfor %}
+{% endif %}
 
-  {% if request.user.role == "admin" %}
-      <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-  {% else %}
-      <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-  {% endif %}
+{% if request.user.role == "admin" %}
+  <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+{% else %}
+  <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+{% endif %}
 {% endblock %}

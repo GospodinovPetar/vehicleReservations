@@ -295,28 +295,32 @@ def vehicle_delete(request, pk):
 # --- RESERVATION VIEWS ---
 @manager_required
 def reservation_list(request):
-    # Split reservations into two groups
-    ongoing = VehicleReservation.objects.filter(
-        status__in=[ReservationStatus.PENDING, ReservationStatus.RESERVED]
-    ).select_related("vehicle", "user")
+    """
+    Managers/admins see groups split into:
+    - ongoing: PENDING, AWAITING_PAYMENT, RESERVED
+    - archived: COMPLETED, REJECTED, CANCELED
+    """
+    ongoing = (
+        ReservationGroup.objects
+        .filter(status__in=[
+            ReservationStatus.PENDING,
+            ReservationStatus.AWAITING_PAYMENT,
+            ReservationStatus.RESERVED,
+        ])
+        .prefetch_related("reservations__vehicle", "reservations__user")
+        .order_by("-created_at")
+    )
 
-    # Split reservations into two groups (by ReservationGroup.status)
-    ongoing = ReservationGroup.objects.filter(
-        status__in=[ReservationStatus.PENDING, ReservationStatus.AWAITING_PAYMENT, ReservationStatus.RESERVED]
-    ).prefetch_related("reservations__vehicle", "reservations__user")
-
-    # Split reservations into two groups (by ReservationGroup.status)
-    ongoing = ReservationGroup.objects.filter(
-        status__in=[ReservationStatus.PENDING, ReservationStatus.RESERVED]
-    ).prefetch_related("reservations__vehicle", "reservations__user")
-
-    archived = ReservationGroup.objects.filter(
-        status__in=[
+    archived = (
+        ReservationGroup.objects
+        .filter(status__in=[
             ReservationStatus.COMPLETED,
             ReservationStatus.REJECTED,
             ReservationStatus.CANCELED,
-        ]
-    ).prefetch_related("reservations__vehicle", "reservations__user")
+        ])
+        .prefetch_related("reservations__vehicle", "reservations__user")
+        .order_by("-created_at")
+    )
 
     return render(
         request,
@@ -336,17 +340,12 @@ def reservation_group_approve(request, pk):
     group.save(update_fields=["status"])
 
     # All PENDING items in the group → AWAITING_PAYMENT
-    VehicleReservation.objects.filter(group=group, status=ReservationStatus.PENDING)\
-                              .update(status=ReservationStatus.AWAITING_PAYMENT)
+    VehicleReservation.objects.filter(
+        group=group, status=ReservationStatus.PENDING
+    ).update(status=ReservationStatus.AWAITING_PAYMENT)
 
     messages.success(request, f"Reservation group {group.id} is now awaiting payment.")
-
-    old_status = group.status
-    group.status = ReservationStatus.RESERVED
-    group.save(update_fields=["status"])
-    messages.success(request, f"Reservation group {group.id} has been approved.")
     return redirect("accounts:reservation-list")
-
 
 @manager_required
 def reservation_group_reject(request, pk):
@@ -393,15 +392,12 @@ def reservation_approve(request, pk):
     reservation = get_object_or_404(VehicleReservation, pk=pk)
     if reservation.status != ReservationStatus.PENDING:
         return HttpResponseForbidden("Only pending reservations can be approved.")
-    reservation.status = ReservationStatus.RESERVED
-    reservation.save(update_fields=["status"])
-    messages.success(request, f"Reservation #{reservation.id} has been approved.")
 
     reservation.status = ReservationStatus.AWAITING_PAYMENT
     reservation.save(update_fields=["status"])
 
     grp = reservation.group
-    if (grp.status == ReservationStatus.PENDING and
+    if (grp and grp.status == ReservationStatus.PENDING and
         not grp.reservations.filter(status=ReservationStatus.PENDING).exists()):
         grp.status = ReservationStatus.AWAITING_PAYMENT
         grp.save(update_fields=["status"])

@@ -43,7 +43,7 @@ urlpatterns = [
     # Manager dashboards
     path("manager/dashboard/", views.manager_dashboard, name="manager-dashboard"),
     path("manager/vehicles/", views.manager_vehicles, name="manager-vehicles"),
-    path("manager/reservations/", views.manager_reservations, name="manager-reservations"),
+    path("manager/reservations/", views.reservation_list, name="reservation-list"),
 
     # Vehicle management
     path("vehicles/", views.vehicle_list, name="vehicle-list"),
