@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 
 from inventory.helpers.parse_iso_date import parse_iso_date
-from inventory.models.cart import Cart, CartItem
+from cart.models.cart import Cart, CartItem
 from inventory.models.reservation import Location
 from inventory.models.vehicle import Vehicle
 @login_required

@@ -1,31 +1,30 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.http import require_http_methods
 
-from inventory.models.reservation import (
-    VehicleReservation,
-    ReservationStatus,
-    ReservationGroup
-)
+from inventory.models.reservation import ReservationGroup, ReservationStatus
+from mockpay.models import PaymentIntent, PaymentIntentStatus
 
 @login_required
-def cancel_reservation(request, group_id):
-    group = get_object_or_404(ReservationGroup, pk=group_id, user=request.user)
-    reference = group.reference or f"#{group.pk}"
+@require_http_methods(["POST"])
+def cancel_reservation(request, group_id: int):
+    group = get_object_or_404(ReservationGroup, id=group_id, user=request.user)
 
     with transaction.atomic():
-        cancelable = ~Q(status=ReservationStatus.REJECTED)
-        if hasattr(ReservationStatus, "COMPLETED"):
-            cancelable &= ~Q(status=ReservationStatus.COMPLETED)
+        group.reservations.update(status=ReservationStatus.CANCELED)
+        group.status = ReservationStatus.CANCELED
+        group.save(update_fields=["status"])
 
-        updated = VehicleReservation.objects.filter(group=group).filter(cancelable)
-        for r in updated.only("id", "status"):
-            r.status = getattr(ReservationStatus, "CANCELED", "CANCELED")
-            r.save(update_fields=["status"])
+        intents = PaymentIntent.objects.filter(reservation_group=group)
+        for intent in intents.select_for_update():
+            if intent.status in (
+                PaymentIntentStatus.REQUIRES_CONFIRMATION,
+                PaymentIntentStatus.PROCESSING,
+            ):
+                intent.status = PaymentIntentStatus.CANCELED
+                intent.save(update_fields=["status"])
 
-        group.delete()
-
-    messages.success(request, f"Canceled {updated} reservation(s)")
+    messages.info(request, f"Reservation {group.reference} canceled.")
     return redirect("inventory:reservations")

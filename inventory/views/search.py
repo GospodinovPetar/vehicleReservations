@@ -3,8 +3,8 @@ from django.db.models import Q
 from django.shortcuts import render
 from django.utils import timezone
 
+from cart.models.cart import CartItem
 from inventory.helpers.intervals import free_slices
-from inventory.models.cart import CartItem
 from inventory.models.reservation import Location, VehicleReservation, BLOCKING_STATUSES
 from inventory.models.vehicle import Vehicle
 from inventory.helpers.parse_iso_date import parse_iso_date

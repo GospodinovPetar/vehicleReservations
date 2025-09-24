@@ -38,7 +38,7 @@ from inventory.models.reservation import VehicleReservation
 
 class CartItem(models.Model):
     cart = models.ForeignKey(
-        "inventory.Cart", on_delete=models.CASCADE, related_name="items"
+        "cart.Cart", on_delete=models.CASCADE, related_name="items"
     )
     vehicle = models.ForeignKey("inventory.Vehicle", on_delete=models.CASCADE)
     start_date = models.DateField()
@@ -78,7 +78,7 @@ class CartItem(models.Model):
         if overlap_qs.exists():
             raise ValidationError(
                 {
-                    "vehicle": "This vehicle already exists in your cart for overlapping dates."
+                    "vehicle": "This vehicle already exists in your views for overlapping dates."
                 }
             )
 

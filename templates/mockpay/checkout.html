@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .pay-card{max-width:540px;margin:24px auto;padding:24px;border:1px solid #e5e7eb;border-radius:14px;background:#fff}
+  .row{display:flex;gap:12px}
+  .row > *{flex:1}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:14px;margin-bottom:6px;color:#374151}
+  .input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:16px}
+  .input:focus{outline:none;border-color:#6366f1}
+  .err{color:#b91c1c;font-size:13px;margin-top:6px}
+  .btn{display:inline-block;padding:12px 16px;border-radius:10px;border:none;background:#111827;color:#fff;font-weight:600;cursor:pointer}
+  .btn.secondary{background:#6b7280}
+  .amount{font-weight:700}
+  .hint{font-size:12px;color:#6b7280}
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .badge{padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px}
+</style>
+
+<div class="pay-card">
+  <div class="header">
+    <h2 style="margin:0">Checkout</h2>
+    <span class="badge">Mock Gateway</span>
+  </div>
+  <p>Pay <span class="amount">{{ intent.amount|floatformat:2 }}</span> {{ intent.currency }}</p>
+  <hr style="border:none;height:1px;background:#e5e7eb;margin:12px 0" />
+
+  {% if form.non_field_errors %}
+    <div class="err">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="field">
+      <label for="{{ form.cc_number.id_for_label }}">Card number</label>
+      {{ form.cc_number }}
+      {% if form.cc_number.errors %}<div class="err">{{ form.cc_number.errors|striptags }}</div>{% endif %}
+      <div class="hint">Use test numbers (e.g. 4242 4242 4242 4242).</div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="{{ form.cc_exp.id_for_label }}">Expiry (MM/YY)</label>
+        {{ form.cc_exp }}
+        {% if form.cc_exp.errors %}<div class="err">{{ form.cc_exp.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.cc_csc.id_for_label }}">CVC</label>
+        {{ form.cc_csc }}
+        {% if form.cc_csc.errors %}<div class="err">{{ form.cc_csc.errors|striptags }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="{{ form.cc_name.id_for_label }}">Name on card</label>
+      {{ form.cc_name }}
+      {% if form.cc_name.errors %}<div class="err">{{ form.cc_name.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="{{ form.billing_country.id_for_label }}">Country</label>
+        {{ form.billing_country }}
+        {% if form.billing_country.errors %}<div class="err">{{ form.billing_country.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.billing_postal.id_for_label }}">ZIP / Postal code</label>
+        {{ form.billing_postal }}
+        {% if form.billing_postal.errors %}<div class="err">{{ form.billing_postal.errors|striptags }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="{{ form.outcome.id_for_label }}">Simulate outcome</label>
+      {{ form.outcome }}
+    </div>
+
+    <div class="row" style="justify-content:flex-end;gap:8px">
+      <a class="btn secondary" href="{% url 'inventory:reservations' %}">Back</a>
+      <button class="btn" type="submit">Pay now</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

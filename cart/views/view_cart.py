@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from inventory.helpers.pricing import RateTable, quote_total
-from inventory.models.cart import Cart, CartItem
+from cart.models.cart import Cart, CartItem
 
 @login_required
 def view_cart(request):
@@ -23,4 +23,4 @@ def view_cart(request):
         )
         rows.append({"item": it, "days": q["days"], "total": Decimal(str(q["total"]))})
 
-    return render(request, "inventory/cart.html", {"cart": cart, "rows": rows})
+    return render(request, "cart/cart.html", {"cart": cart, "rows": rows})
