@@ -12,10 +12,18 @@
               <em>({{ g.created_at }})</em> &nbsp; <span><strong>Status:</strong> {{ g.status }}</span>
             </div>
             <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
-              {% csrf_token %}
+            {% csrf_token %}
+
+            {% if g.status == 'AWAITING_PAYMENT' %}
+              <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
+            {% endif %}
+
+            {% if g.status != 'RESERVED' %}
               <a class="btn" href="{% url 'inventory:add_vehicle' g.id %}">Add vehicle</a>
-              <button class="btn">Cancel</button>
-            </form>
+            {% endif %}
+
+            <button class="btn">Cancel</button>
+          </form>
           </div>
 
           <table>

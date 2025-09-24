@@ -15,7 +15,6 @@ from inventory.models.reservation import (
     ReservationGroup,
 )
 from inventory.models.vehicle import Vehicle
-from mockpay.models import PaymentIntent, PaymentIntentStatus
 
 
 def _quantize_money(value: Decimal) -> Decimal:
@@ -135,15 +134,6 @@ def checkout(request):
 
         amount_cents += _cents(total_dec)
 
-    # Create a PaymentIntent and send the user to the hosted mock checkout
-    client_secret = secrets.token_hex(24)
-    intent = PaymentIntent.objects.create(
-        reservation_group=group,
-        amount=amount_cents,
-        currency="EUR",
-        client_secret=client_secret,
-        status=PaymentIntentStatus.REQUIRES_CONFIRMATION,
-    )
+    messages.success(request, f"Reservation submitted. Ref: {group.reference} (status: Pending)")
 
-    messages.info(request, f"Reference {group.reference}: proceed to payment.")
-    return redirect("mockpay:checkout_page", client_secret=intent.client_secret)
+    return redirect("inventory:reservations")

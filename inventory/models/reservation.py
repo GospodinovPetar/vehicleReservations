@@ -23,6 +23,7 @@ class ReservationStatus(models.TextChoices):
     REJECTED = "REJECTED", "Rejected"
     COMPLETED = "COMPLETED", "Completed"
     PENDING = "PENDING", "Pending"
+    AWAITING_PAYMENT = "AWAITING_PAYMENT", "Awaiting payment"
 
     @classmethod
     def blocking(cls):

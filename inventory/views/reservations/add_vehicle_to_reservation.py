@@ -11,6 +11,10 @@ from inventory.views.reservations.reservation_edit_form import ReservationEditFo
 def add_vehicle(request, group_id: int):
     group = get_object_or_404(ReservationGroup, pk=group_id, user=request.user)
 
+    if group.status == ReservationStatus.RESERVED:
+        messages.error(request, "You can’t modify a reserved reservation.")
+        return redirect("inventory:reservations")
+
     if request.method == "POST":
         form = ReservationEditForm(request.POST)
         if form.is_valid():
@@ -20,11 +24,6 @@ def add_vehicle(request, group_id: int):
                 rv.group = group
                 rv.status = ReservationStatus.PENDING
                 rv.save()
-
-                if getattr(group, "status", None) == ReservationStatus.RESERVED:
-                    old = group.status
-                    group.status = ReservationStatus.PENDING
-                    group.save(update_fields=["status"])
 
             messages.success(request, "Vehicle added. The reservation is now pending review.")
             return redirect("inventory:reservations")

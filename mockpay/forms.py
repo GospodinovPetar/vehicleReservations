@@ -1,4 +1,3 @@
-# mockpay/forms.py
 from __future__ import annotations
 from django import forms
 from django.utils import timezone
@@ -29,66 +28,16 @@ def luhn_is_valid(card_number_digits: str) -> bool:
     return (total % 10) == 0
 
 class CheckoutForm(forms.Form):
-    # Card fields
-    card_number = forms.CharField(
-        label="Card number",
-        max_length=19,
-        help_text="Enter digits or spaced groups (e.g. 4242 4242 4242 4242).",
-        widget=forms.TextInput(attrs={
-            "autocomplete": "cc-number",
-            "inputmode": "numeric",
-            "placeholder": "1234 1234 1234 1234",
-            "pattern": r"[0-9 ]*",
-            "class": "input",
-        }),
-    )
-    card_expiry = forms.CharField(
-        label="Expiry (MM/YY)",
-        max_length=5,
-        widget=forms.TextInput(attrs={
-            "autocomplete": "cc-exp",
-            "placeholder": "MM/YY",
-            "class": "input",
-        }),
-    )
-    card_cvc = forms.CharField(
-        label="CVC",
-        max_length=4,
-        help_text="3 or 4 digits.",
-        widget=forms.TextInput(attrs={
-            "autocomplete": "cc-csc",
-            "inputmode": "numeric",
-            "placeholder": "CVC",
-            "class": "input",
-        }),
-    )
-    cardholder_name = forms.CharField(
-        label="Name on card",
-        max_length=64,
-        widget=forms.TextInput(attrs={
-            "autocomplete": "cc-name",
-            "placeholder": "Jane Doe",
-            "class": "input",
-        }),
-    )
-
-    # Billing fields
-    billing_country = forms.ChoiceField(
-        label="Country",
-        choices=[("", "Select…"), ("BG", "Bulgaria"), ("DE", "Germany"),
-                 ("FR", "France"), ("US", "United States")],
-        widget=forms.Select(attrs={"class": "input"}),
-    )
-
-    # Mock control
+    card_number = forms.CharField(max_length=19)
+    exp_month = forms.CharField(max_length=2)
+    exp_year = forms.CharField(max_length=4)
+    cvc = forms.CharField(max_length=4)
+    cardholder_name = forms.CharField(max_length=96, required=False)
+    billing_country = forms.CharField(max_length=2, required=False)
+    billing_postal = forms.CharField(max_length=12, required=False)
     outcome = forms.ChoiceField(
-        label="Simulate outcome",
-        choices=OUTCOME_CHOICES,
-        initial="auto",
-        widget=forms.Select(attrs={"class": "input"}),
-    )
+        choices=[("auto", "Auto"), ("success", "Force success"), ("fail", "Force fail")])
 
-    # ---- Validation ----
     def clean_card_number(self) -> str:
         raw = self.cleaned_data["card_number"]
         digits = digits_only(raw)
