@@ -22,7 +22,9 @@
     <h2 style="margin:0">Checkout</h2>
     <span class="badge">Mock Gateway</span>
   </div>
-  <p>Pay <span class="amount">{{ intent.amount|floatformat:2 }}</span> {{ intent.currency }}</p>
+
+  {# intent.amount is cents; amount_eur is passed from the view #}
+  <p>Pay <span class="amount">{{ amount_eur }}</span> {{ intent.currency }}</p>
   <hr style="border:none;height:1px;background:#e5e7eb;margin:12px 0" />
 
   {% if form.non_field_errors %}
@@ -33,29 +35,34 @@
     {% csrf_token %}
 
     <div class="field">
-      <label for="{{ form.cc_number.id_for_label }}">Card number</label>
-      {{ form.cc_number }}
-      {% if form.cc_number.errors %}<div class="err">{{ form.cc_number.errors|striptags }}</div>{% endif %}
+      <label for="{{ form.card_number.id_for_label }}">Card number</label>
+      {{ form.card_number }}
+      {% if form.card_number.errors %}<div class="err">{{ form.card_number.errors|striptags }}</div>{% endif %}
       <div class="hint">Use test numbers (e.g. 4242 4242 4242 4242).</div>
     </div>
 
     <div class="row">
       <div class="field">
-        <label for="{{ form.cc_exp.id_for_label }}">Expiry (MM/YY)</label>
-        {{ form.cc_exp }}
-        {% if form.cc_exp.errors %}<div class="err">{{ form.cc_exp.errors|striptags }}</div>{% endif %}
+        <label for="{{ form.exp_month.id_for_label }}">Expiry (MM)</label>
+        {{ form.exp_month }}
+        {% if form.exp_month.errors %}<div class="err">{{ form.exp_month.errors|striptags }}</div>{% endif %}
       </div>
       <div class="field">
-        <label for="{{ form.cc_csc.id_for_label }}">CVC</label>
-        {{ form.cc_csc }}
-        {% if form.cc_csc.errors %}<div class="err">{{ form.cc_csc.errors|striptags }}</div>{% endif %}
+        <label for="{{ form.exp_year.id_for_label }}">Expiry (YY)</label>
+        {{ form.exp_year }}
+        {% if form.exp_year.errors %}<div class="err">{{ form.exp_year.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.cvc.id_for_label }}">CVC</label>
+        {{ form.cvc }}
+        {% if form.cvc.errors %}<div class="err">{{ form.cvc.errors|striptags }}</div>{% endif %}
       </div>
     </div>
 
     <div class="field">
-      <label for="{{ form.cc_name.id_for_label }}">Name on card</label>
-      {{ form.cc_name }}
-      {% if form.cc_name.errors %}<div class="err">{{ form.cc_name.errors|striptags }}</div>{% endif %}
+      <label for="{{ form.cardholder_name.id_for_label }}">Name on card</label>
+      {{ form.cardholder_name }}
+      {% if form.cardholder_name.errors %}<div class="err">{{ form.cardholder_name.errors|striptags }}</div>{% endif %}
     </div>
 
     <div class="row">

@@ -5,7 +5,9 @@ from cart.views.checkout import checkout
 from cart.views.remove_from_cart import remove_from_cart
 from cart.views.view_cart import view_cart
 from inventory.views.reservations.add_vehicle_to_reservation import add_vehicle
+from inventory.views.reservations.approve_group import approve_group
 from inventory.views.reservations.cancel_reservation import cancel_reservation
+from inventory.views.reservations.create_payment_intent import create_payment_intent
 from inventory.views.reservations.delete_reservation import delete_reservation
 from inventory.views.reservations.edit_reservation import edit_reservation
 from inventory.views.reservations.my_reservations import my_reservations
@@ -35,4 +37,6 @@ urlpatterns = [
     path(
         "reservations/<int:pk>/delete/", delete_reservation, name="delete_reservation"
     ),
+    path("reservations/group/<int:group_id>/approve/", approve_group, name="approve_group"),
+    path("reservations/group/<int:group_id>/pay/", create_payment_intent, name="create_payment_intent"),
 ]
