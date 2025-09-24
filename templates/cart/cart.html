@@ -15,7 +15,7 @@
         <td>{{ row.days }}</td>
         <td>{{ row.total }} EUR</td>
         <td>
-          <form method="post" action="{% url 'inventory:remove_from_cart' row.item.id %}">
+          <form method="post" action="{% url 'cart:remove_from_cart' row.item.id %}">
             {% csrf_token %}
             <button type="submit">Remove</button>
           </form>
@@ -24,7 +24,7 @@
       {% endfor %}
     </tbody>
   </table>
-  <form method="post" action="{% url 'inventory:checkout' %}">
+  <form method="post" action="{% url 'cart:checkout' %}">
     {% csrf_token %}
     <button type="submit">Checkout</button>
   </form>

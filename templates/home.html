@@ -50,7 +50,7 @@
 
   {% if request.user.is_authenticated %}
     <div class="row" style="gap:8px; margin: 12px 0;">
-      <a class="btn" href="{% url 'inventory:view_cart' %}">Cart</a>
+      <a class="btn" href="{% url 'cart:view_cart' %}">Cart</a>
       <a class="btn" href="{% url 'inventory:reservations' %}">My Reservations</a>
     </div>
   {% endif %}

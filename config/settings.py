@@ -23,6 +23,8 @@ INSTALLED_APPS = [
     "inventory.apps.InventoryConfig",
     "accounts",
     "api",
+    "cart",
+    "mockpay.apps.MockpayConfig"
 ]
 
 MIDDLEWARE = [

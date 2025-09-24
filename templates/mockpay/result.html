@@ -1,0 +1,4 @@
+<h1>Payment Result</h1>
+<p>Status: {{ intent.get_status_display }}</p>
+<p>Group: {{ intent.reservation_group }}</p>
+<a href="{% url 'inventory:reservations' %}">My reservations</a>
