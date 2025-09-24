@@ -11,46 +11,46 @@ from inventory.models.reservation import (
 
 @login_required
 def my_reservations(request):
-    non_active_statuses = [
-        ReservationStatus.REJECTED,
-        getattr(ReservationStatus, "CANCELED", "CANCELED"),
-    ]
+    archived_statuses = [ReservationStatus.REJECTED, ReservationStatus.CANCELED]
 
-    active_reservations_qs = (
-        VehicleReservation.objects.exclude(status__in=non_active_statuses)
+    active_res_qs = (
+        VehicleReservation.objects.exclude(status__in=archived_statuses)
         .select_related("vehicle", "pickup_location", "return_location")
         .order_by("-start_date")
     )
 
     groups = (
-        ReservationGroup.objects.filter(user=request.user)
-        .prefetch_related(Prefetch("reservations", queryset=active_reservations_qs))
+        ReservationGroup.objects
+        .filter(user=request.user)
+        .exclude(status__in=archived_statuses)
+        .prefetch_related(Prefetch("reservations", queryset=active_res_qs))
+        .order_by("-created_at")
+    )
+
+    archived = (
+        ReservationGroup.objects
+        .filter(user=request.user, status__in=archived_statuses)
+        .prefetch_related(
+            "reservations__vehicle",
+            "reservations__pickup_location",
+            "reservations__return_location",
+        )
         .order_by("-created_at")
     )
 
     ungroupped = (
-        VehicleReservation.objects.filter(user=request.user, group__isnull=True)
-        .exclude(status__in=non_active_statuses)
+        VehicleReservation.objects
+        .filter(user=request.user, group__isnull=True)
+        .exclude(status__in=archived_statuses)
         .select_related("vehicle", "pickup_location", "return_location")
-        .order_by("-start_date")
-    )
-
-    canceled = (
-        VehicleReservation.objects.filter(
-            user=request.user, status=getattr(ReservationStatus, "CANCELED", "CANCELED")
-        )
-        .select_related("vehicle", "pickup_location", "return_location", "group")
-        .order_by("-start_date")
-    )
-
-    rejected = (
-        VehicleReservation.objects.filter(user=request.user, status=ReservationStatus.REJECTED)
-        .select_related("vehicle", "pickup_location", "return_location", "group")
         .order_by("-start_date")
     )
 
     return render(
         request,
         "inventory/reservations.html",
-        {"groups": groups, "ungroupped": ungroupped, "canceled": canceled},
+        {
+            "groups": groups,
+            "archived": archived,
+        },
     )

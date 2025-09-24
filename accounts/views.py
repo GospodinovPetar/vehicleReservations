@@ -351,11 +351,16 @@ def reservation_group_approve(request, pk):
 @manager_required
 def reservation_group_reject(request, pk):
     group = get_object_or_404(ReservationGroup, pk=pk)
-    if group.status != ReservationStatus.PENDING:
-        return HttpResponseForbidden("Only pending groups can be rejected.")
-    old_status = group.status
+    if group.status not in (ReservationStatus.PENDING, ReservationStatus.AWAITING_PAYMENT):
+        return HttpResponseForbidden("Only pending/awaiting-payment groups can be rejected.")
+
     group.status = ReservationStatus.REJECTED
     group.save(update_fields=["status"])
+
+    VehicleReservation.objects.filter(group=group).exclude(
+        status=ReservationStatus.COMPLETED
+    ).update(status=ReservationStatus.REJECTED)
+
     messages.warning(request, f"Reservation group {group.id} has been rejected.")
     return redirect("accounts:reservation-list")
 
@@ -384,17 +389,6 @@ def reservation_update(request, pk):
 
 
 @manager_required
-def reservation_cancel(request, pk):
-    reservation = get_object_or_404(VehicleReservation, pk=pk)
-    if reservation.status != ReservationStatus.RESERVED:
-        return HttpResponseForbidden("Only reserved reservations can be canceled.")
-    reservation.status = ReservationStatus.CANCELED
-    reservation.save(update_fields=["status"])
-    messages.warning(request, f"Reservation #{reservation.id} has been canceled.")
-    return redirect("accounts:reservation-list")
-
-
-@manager_required
 def reservation_approve(request, pk):
     reservation = get_object_or_404(VehicleReservation, pk=pk)
     if reservation.status != ReservationStatus.PENDING:
@@ -418,12 +412,41 @@ def reservation_approve(request, pk):
 
 @manager_required
 def reservation_reject(request, pk):
-    reservation = get_object_or_404(VehicleReservation, pk=pk)
-    if reservation.status != ReservationStatus.PENDING:
+    r = get_object_or_404(VehicleReservation, pk=pk)
+    if r.status != ReservationStatus.PENDING:
         return HttpResponseForbidden("Only pending reservations can be rejected.")
-    reservation.status = ReservationStatus.REJECTED
-    reservation.save(update_fields=["status"])
-    messages.warning(request, f"Reservation #{reservation.id} has been rejected.")
+    r.status = ReservationStatus.REJECTED
+    r.save(update_fields=["status"])
+
+    grp = r.group
+    # If any item in a group is rejected, archive the whole group as REJECTED
+    grp.status = ReservationStatus.REJECTED
+    grp.save(update_fields=["status"])
+    VehicleReservation.objects.filter(group=grp).exclude(
+        status__in=[ReservationStatus.REJECTED, ReservationStatus.COMPLETED]
+    ).update(status=ReservationStatus.REJECTED)
+
+    messages.warning(request, f"Reservation #{r.id} rejected; group moved to Rejected.")
+    return redirect("accounts:reservation-list")
+
+
+@manager_required
+def reservation_cancel(request, pk):
+    r = get_object_or_404(VehicleReservation, pk=pk)
+    if r.status != ReservationStatus.RESERVED:
+        return HttpResponseForbidden("Only reserved reservations can be canceled.")
+    r.status = ReservationStatus.CANCELED
+    r.save(update_fields=["status"])
+
+    grp = r.group
+    # Cancel the whole group on any item cancel
+    grp.status = ReservationStatus.CANCELED
+    grp.save(update_fields=["status"])
+    VehicleReservation.objects.filter(group=grp).exclude(
+        status=ReservationStatus.COMPLETED
+    ).update(status=ReservationStatus.CANCELED)
+
+    messages.warning(request, f"Reservation #{r.id} canceled; group moved to Canceled.")
     return redirect("accounts:reservation-list")
 
 
