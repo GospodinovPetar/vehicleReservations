@@ -1,12 +1,15 @@
+Reservation received
+
 Hi {{ user.get_full_name|default:user.username }},
 
-One of the vehicles in your reservation {{ reservation.group.reference|default:("#" ~ reservation.group.pk) }} was removed.
+We received your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %}.
 
 Details:
-- Vehicle: {{ reservation.vehicle.name }}
-- Period: {{ reservation.start_date }} → {{ reservation.end_date }}
+- Vehicle: {{ reservation.vehicle }}
+- Dates: {{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}
+- Pickup → Return: {{ reservation.pickup_location }} → {{ reservation.return_location }}
+- Status: {{ reservation.get_status_display|default:reservation.status }}{% if reservation.total_price %}
+- Estimated total: €{{ reservation.total_price|floatformat:2 }}{% endif %}
 
-If this was unexpected, please contact support.
-
-Thanks,
-Support Team
+You can review your reservation here:
+{% url 'inventory:reservations' %}

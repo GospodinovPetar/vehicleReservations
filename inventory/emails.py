@@ -2,6 +2,8 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
+from inventory.models.reservation import ReservationStatus
+
 
 def _send_email(subject: str, template_base: str, context: dict, to_email: str):
     """
@@ -27,11 +29,13 @@ def send_reservation_created_email(reservation):
 
 
 def send_reservation_status_changed_email(reservation, old_status, new_status):
-    # Choose a template based on the new status.
-    status = reservation.status
     template_map = {
-        getattr(status, "RESERVED", "RESERVED"): "reservation_confirmed",
-        getattr(status, "REJECTED", "REJECTED"): "reservation_rejected",
+        ReservationStatus.RESERVED: "reservation_confirmed",
+        ReservationStatus.REJECTED: "reservation_rejected",
+        ReservationStatus.CANCELED: "reservation_status_changed",
+        ReservationStatus.AWAITING_PAYMENT: "reservation_status_changed",
+        ReservationStatus.PENDING: "reservation_status_changed",
+        ReservationStatus.COMPLETED: "reservation_status_changed",
     }
     template = template_map.get(new_status, "reservation_status_changed")
 
@@ -41,9 +45,7 @@ def send_reservation_status_changed_email(reservation, old_status, new_status):
         "old_status": old_status,
         "new_status": new_status,
     }
-    subject = (
-        f"Reservation #{reservation.pk} {reservation.get_status_display().lower()}"
-    )
+    subject = f"Reservation #{getattr(reservation, 'pk', getattr(reservation, 'id', ''))} {reservation.get_status_display().lower()}"
     _send_email(subject, template, ctx, reservation.user.email)
 
 
@@ -60,7 +62,6 @@ def send_vehicle_updated_email(reservation, changed_fields):
 
 
 def send_group_status_changed_email(group, old_status, new_status):
-    # Reuse existing templates but pass a "reservation-like" object shape
     class _Shim:
         def __init__(self, group):
             self.group = group
@@ -75,3 +76,11 @@ def send_group_status_changed_email(group, old_status, new_status):
 
     shim = _Shim(group)
     send_reservation_status_changed_email(shim, old_status, new_status)
+
+def send_vehicle_added_email(reservation):
+    ctx = {"reservation": reservation, "user": reservation.user}
+    subject = (
+        f"Vehicle added to reservation "
+        f"{(reservation.group.reference or '#' + str(reservation.group.pk)) if reservation.group else f'#{reservation.pk}'}"
+    )
+    _send_email(subject, "vehicle_added", ctx, reservation.user.email)

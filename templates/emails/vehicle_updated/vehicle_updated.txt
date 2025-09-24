@@ -1,14 +1,17 @@
+Vehicle updated in your reservation
+
 Hi {{ user.get_full_name|default:user.username }},
 
-A vehicle in your reservation {{ reservation.group.reference|default:("#" ~ reservation.group.pk) }} was edited.
+We updated details for a vehicle in your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %}.
 
-Changed fields: {{ changed_fields|join:", " }}
-Current details:
-- Vehicle: {{ reservation.vehicle.name }}
-- Pickup: {{ reservation.pickup_location.name }} | Return: {{ reservation.return_location.name }}
-- Period: {{ reservation.start_date }} → {{ reservation.end_date }}
+{% if changed_fields %}
+Changed:
+{% for f in changed_fields %}- {{ f|title }}
+{% endfor %}{% endif %}
 
-Because the reservation was previously RESERVED, its status has been set to PENDING for re‑review.
+Vehicle: {{ reservation.vehicle }}
+Dates: {{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}
+Pickup → Return: {{ reservation.pickup_location }} → {{ reservation.return_location }}
 
-Thanks,
-Support Team
+Review your reservation:
+{% url 'inventory:reservations' %}
