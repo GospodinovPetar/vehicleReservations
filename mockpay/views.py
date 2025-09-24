@@ -128,7 +128,7 @@ def checkout_success(request, client_secret: str):
     intent = get_object_or_404(PaymentIntent, client_secret=client_secret)
     return render(
         request,
-        "mockpay/checkout_success.html",
+        "mockpay/result.html",
         {"intent": intent, "amount_eur": _eur_amount(intent)},
     )
 

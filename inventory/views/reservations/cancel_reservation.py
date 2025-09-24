@@ -12,7 +12,6 @@ def cancel_reservation(request, group_id: int):
     if request.method != "POST":
         return redirect("inventory:reservations")
 
-    # Group → CANCELED, and all non-completed items → CANCELED
     group.status = ReservationStatus.CANCELED
     group.save(update_fields=["status"])
     VehicleReservation.objects.filter(group=group).exclude(
