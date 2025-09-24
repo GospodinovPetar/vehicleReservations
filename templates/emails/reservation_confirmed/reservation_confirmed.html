@@ -1,9 +1,66 @@
-<p>Hi {{ user.get_full_name|default:user.username }},</p>
-<p><strong>Good news — your reservation #{{ reservation.pk }} has been confirmed!</strong></p>
-<ul>
-  <li><strong>Vehicle:</strong> {{ reservation.vehicle }}</li>
-  <li><strong>Pickup:</strong> {{ reservation.pickup_location }} on {{ reservation.start_date }}</li>
-  <li><strong>Return:</strong> {{ reservation.return_location }} on {{ reservation.end_date }}</li>
-  <li><strong>Total price:</strong> {{ reservation.total_price }} {{ reservation.currency|default:"EUR" }}</li>
-</ul>
-<p>Thanks,<br>The Team</p>
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Reservation confirmed</title></head>
+  <body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f7f7f8; padding:24px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:12px;">
+      <tr><td style="padding:24px;">
+        <h2 style="margin:0 0 8px;">Your reservation is confirmed</h2>
+        <p style="margin:0 0 16px; color:#374151;">
+          Hi {{ user.get_full_name|default:user.username }}, your reservation is now confirmed.
+        </p>
+
+        <p style="margin:0 0 16px; color:#374151;">
+          Reference:
+          <strong>
+            {% if reservation.group and reservation.group.reference %}
+              {{ reservation.group.reference }}
+            {% elif reservation.group %}
+              #{{ reservation.group.pk }}
+            {% else %}
+              #{{ reservation.pk }}
+            {% endif %}
+          </strong>
+        </p>
+
+        {% if reservation.group %}
+          <!-- Group email: list all items -->
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0; border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th align="left" style="padding:8px 0; color:#6b7280;">Vehicle</th>
+                <th align="left" style="padding:8px 0; color:#6b7280;">Dates</th>
+                <th align="left" style="padding:8px 0; color:#6b7280;">Pickup → Return</th>
+                <th align="left" style="padding:8px 0; color:#6b7280;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in reservation.group.reservations.all %}
+              <tr>
+                <td style="padding:6px 0; color:#111827;">{{ r.vehicle }}</td>
+                <td style="padding:6px 0; color:#111827;">{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+                <td style="padding:6px 0; color:#111827;">{{ r.pickup_location }} → {{ r.return_location }}</td>
+                <td style="padding:6px 0; color:#111827;">{{ r.get_status_display|default:r.status }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" style="padding:6px 0; color:#6b7280;">No items found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0;">
+            <tr><td style="padding:8px 0; width:160px; color:#6b7280;">Vehicle</td><td style="padding:8px 0; color:#111827;">{{ reservation.vehicle }}</td></tr>
+            <tr><td style="padding:8px 0; color:#6b7280;">Dates</td><td style="padding:8px 0; color:#111827;">{{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}</td></tr>
+            <tr><td style="padding:8px 0; color:#6b7280;">Pickup → Return</td><td style="padding:8px 0; color:#111827;">{{ reservation.pickup_location }} → {{ reservation.return_location }}</td></tr>
+            <tr><td style="padding:8px 0; color:#6b7280;">Status</td><td style="padding:8px 0; color:#111827;">{{ reservation.get_status_display|default:reservation.status }}</td></tr>
+          </table>
+        {% endif %}
+
+        <p style="margin:24px 0 0;">
+          <a href="{% url 'inventory:reservations' %}" style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:12px 16px; border-radius:10px; font-weight:600;">
+            View my reservations
+          </a>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>

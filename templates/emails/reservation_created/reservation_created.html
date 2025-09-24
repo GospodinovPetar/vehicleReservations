@@ -1,10 +1,43 @@
-<p>Hi {{ user.get_full_name|default:user.username }},</p>
-<p>We received your reservation (<strong>#{{ reservation.pk|default:reservation.id }}</strong>) for <strong>{{ reservation.vehicle.name }}</strong>.</p>
-<p>
-  <strong>Dates:</strong> {{ reservation.start_date }} -> {{ reservation.end_date }}<br>
-  <strong>Pickup:</strong> {{ reservation.pickup_location.name }} |
-  <strong>Return:</strong> {{ reservation.return_location.name }}<br>
-  <strong>Status:</strong> {{ reservation.get_status_display }}
-</p>
-<p>We’ll email you when it’s confirmed or rejected.</p>
-<p>— Vehicle Reservations</p>
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Reservation received</title></head>
+  <body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f7f7f8; padding:24px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:12px;">
+      <tr><td style="padding:24px;">
+        <h2 style="margin:0 0 8px;">We received your reservation</h2>
+        <p style="margin:0 0 16px; color:#374151;">
+          Hi {{ user.get_full_name|default:user.username }}, thanks for your request.
+        </p>
+
+        <p style="margin:0 0 16px; color:#374151;">
+          Reference:
+          <strong>
+          {% if reservation.group and reservation.group.reference %}
+            {{ reservation.group.reference }}
+          {% elif reservation.group %}
+            #{{ reservation.group.pk }}
+          {% else %}
+            #{{ reservation.pk }}
+          {% endif %}
+          </strong>
+        </p>
+
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0; border-collapse:collapse;">
+          <tr><td style="padding:8px 0; width:160px; color:#6b7280;">Vehicle</td><td style="padding:8px 0; color:#111827;">{{ reservation.vehicle }}</td></tr>
+          <tr><td style="padding:8px 0; color:#6b7280;">Dates</td><td style="padding:8px 0; color:#111827;">{{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}</td></tr>
+          <tr><td style="padding:8px 0; color:#6b7280;">Pickup → Return</td><td style="padding:8px 0; color:#111827;">{{ reservation.pickup_location }} → {{ reservation.return_location }}</td></tr>
+          <tr><td style="padding:8px 0; color:#6b7280;">Status</td><td style="padding:8px 0; color:#111827;">{{ reservation.get_status_display|default:reservation.status }}</td></tr>
+          {% if reservation.total_price %}<tr><td style="padding:8px 0; color:#6b7280;">Estimated total</td><td style="padding:8px 0; color:#111827;">€{{ reservation.total_price|floatformat:2 }}</td></tr>{% endif %}
+        </table>
+
+        <p style="margin:16px 0; color:#374151;">We’ll notify you when the status changes.</p>
+
+        <p style="margin:24px 0 0;">
+          <a href="{% url 'inventory:reservations' %}" style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:12px 16px; border-radius:10px; font-weight:600;">
+            View my reservations
+          </a>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>
