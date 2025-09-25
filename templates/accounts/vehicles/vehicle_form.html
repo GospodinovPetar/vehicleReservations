@@ -5,6 +5,7 @@
   <form method="post">
     {% csrf_token %}
       <p>{{ form.name.label_tag }} {{ form.name }}</p>
+      <p>{{ form.plate_number.label_tag }} {{ form.plate_number }}</p>
       <p>{{ form.car_type.label_tag }} {{ form.car_type }}</p>
       <p>{{ form.engine_type.label_tag }} {{ form.engine_type }}</p>
       <p>{{ form.seats.label_tag }} {{ form.seats }}</p>

@@ -6,12 +6,11 @@ from django.core.exceptions import ValidationError
 
 from inventory.models.vehicle import Vehicle
 from inventory.models.reservation import VehicleReservation, ReservationStatus, Location
-from inventory.admin import VehicleAdmin, ReservationAdmin
+from inventory.admin import VehicleAdmin, ReservationGroupAdmin, VehicleReservationAdmin
 
 CustomUser = get_user_model()
 
 
-# === CUSTOM USER ADMIN (admins only) ===
 class CustomUserAdmin(UserAdmin):
     list_display = [
         "username",
@@ -99,7 +98,6 @@ class CustomUserAdmin(UserAdmin):
         return request.user.is_authenticated and request.user.role == "admin"
 
 
-# unregister first, then register
 try:
     admin.site.unregister(CustomUser)
 except admin.sites.NotRegistered:
@@ -107,11 +105,7 @@ except admin.sites.NotRegistered:
 admin.site.register(CustomUser, CustomUserAdmin)
 
 
-# === MANAGER SAFE ADMIN (for vehicles & reservations) ===
 class ManagerSafeAdmin(admin.ModelAdmin):
-    """Managers can view/add/change/delete vehicles & reservations via Django Admin if they reach it.
-    NOTE: we'll restrict admin site entry to admins only below, so typically managers won't use Django admin.
-    """
     def has_module_permission(self, request):
         return request.user.is_authenticated and request.user.role in ["admin", "manager"]
 
@@ -129,9 +123,7 @@ class ManagerSafeAdmin(admin.ModelAdmin):
 
 
 def wrap_with_restrictions(modeladmin_cls, safeadmin_cls):
-    """Return a ModelAdmin that adapts behavior based on user role."""
     class WrappedAdmin(modeladmin_cls):
-        # Preserve search_fields so autocomplete_fields work
         search_fields = getattr(modeladmin_cls, "search_fields", ["id"])
 
         def has_module_permission(self, request):
@@ -162,8 +154,10 @@ def wrap_with_restrictions(modeladmin_cls, safeadmin_cls):
     return WrappedAdmin
 
 
-# unregister and re-register with restrictions (preserve original admin classes)
-for model, admin_cls in [(Vehicle, VehicleAdmin), (VehicleReservation, ReservationAdmin)]:
+for model, admin_cls in [
+    (Vehicle, VehicleAdmin),
+    (VehicleReservation, VehicleReservationAdmin),
+]:
     try:
         admin.site.unregister(model)
     except admin.sites.NotRegistered:
@@ -171,7 +165,6 @@ for model, admin_cls in [(Vehicle, VehicleAdmin), (VehicleReservation, Reservati
     admin.site.register(model, wrap_with_restrictions(admin_cls, ManagerSafeAdmin))
 
 
-# === LOCATION ADMIN: admin-only full control; managers WILL use custom UI (not admin) ===
 class AdminOnlyAdmin(admin.ModelAdmin):
     search_fields = ["name"]
 
@@ -198,9 +191,7 @@ except admin.sites.NotRegistered:
 admin.site.register(Location, AdminOnlyAdmin)
 
 
-# === ADMIN SITE ENTRY RESTRICTION ===
 def custom_has_permission(request):
-    """Only admins can log into /admin/"""
     return request.user.is_active and request.user.role == "admin"
 
 

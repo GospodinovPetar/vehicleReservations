@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 
@@ -9,8 +10,11 @@ from inventory.models.reservation import (
     Location,
     VehicleReservation,
     ReservationStatus,
+    ReservationGroup,
 )
 from inventory.models.vehicle import Vehicle
+from mockpay.models import PaymentIntent, PaymentIntentStatus
+
 
 @login_required
 @require_http_methods(["POST"])
@@ -26,53 +30,87 @@ def reserve(request):
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     if form_data.get("pickup_location"):
-        pickup_location = get_object_or_404(
-            Location, pk=form_data.get("pickup_location")
-        )
+        pickup_location = get_object_or_404(Location, pk=form_data.get("pickup_location"))
     else:
         pickup_location = vehicle.available_pickup_locations.first()
 
     if form_data.get("return_location"):
-        return_location = get_object_or_404(
-            Location, pk=form_data.get("return_location")
-        )
+        return_location = get_object_or_404(Location, pk=form_data.get("return_location"))
     else:
         return_location = vehicle.available_return_locations.first()
 
     if pickup_location is None or return_location is None:
-        messages.error(
-            request, "This vehicle has no configured pickup/return locations."
-        )
+        messages.error(request, "This vehicle has no configured pickup/return locations.")
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     if not vehicle.available_pickup_locations.filter(pk=pickup_location.pk).exists():
-        messages.error(
-            request, "Selected pickup location is not available for this vehicle."
-        )
+        messages.error(request, "Selected pickup location is not available for this vehicle.")
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     if not vehicle.available_return_locations.filter(pk=return_location.pk).exists():
-        messages.error(
-            request, "Selected return location is not available for this vehicle."
-        )
+        messages.error(request, "Selected return location is not available for this vehicle.")
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
-    reservation = VehicleReservation(
-        user=request.user,
-        vehicle=vehicle,
-        pickup_location=pickup_location,
-        return_location=return_location,
-        start_date=start_date,
-        end_date=end_date,
-        status=ReservationStatus.PENDING,
-    )
-
     try:
-        reservation.full_clean()
-        reservation.save()
+        with transaction.atomic():
+            group = (
+                ReservationGroup.objects.select_for_update()
+                .filter(user=request.user, status=ReservationStatus.AWAITING_PAYMENT)
+                .order_by("-created_at")
+                .first()
+            )
+            if group is None:
+                group = (
+                    ReservationGroup.objects.select_for_update()
+                    .filter(user=request.user, status=ReservationStatus.PENDING)
+                    .order_by("-created_at")
+                    .first()
+                )
+
+            if group and group.status == ReservationStatus.RESERVED:
+                messages.error(request, "You can’t modify a reserved reservation.")
+                return redirect("inventory:reservations")
+
+            if group is None:
+                group = ReservationGroup.objects.create(
+                    user=request.user,
+                    status=ReservationStatus.PENDING,
+                )
+
+            if group.status == ReservationStatus.AWAITING_PAYMENT:
+                (
+                    PaymentIntent.objects.select_for_update()
+                    .filter(
+                        reservation_group=group,
+                        status__in=[
+                            PaymentIntentStatus.REQUIRES_CONFIRMATION,
+                            PaymentIntentStatus.PROCESSING,
+                        ],
+                    )
+                    .update(status=PaymentIntentStatus.CANCELED)
+                )
+                ReservationGroup.objects.filter(pk=group.pk).update(status=ReservationStatus.PENDING)
+                group.refresh_from_db(fields=["status"])
+
+            reservation = VehicleReservation(
+                user=request.user,
+                vehicle=vehicle,
+                pickup_location=pickup_location,
+                return_location=return_location,
+                start_date=start_date,
+                end_date=end_date,
+                status=ReservationStatus.PENDING,
+                group=group,
+            )
+            reservation.full_clean()
+            reservation.save()
+
+            ReservationGroup.objects.filter(pk=group.pk).update(status=ReservationStatus.PENDING)
+            group.refresh_from_db(fields=["status"])
+
     except Exception as exc:
         messages.error(request, str(exc))
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
-    messages.success(request, "Reservation created.")
+    messages.success(request, "Vehicle added to your reservation.")
     return redirect("inventory:reservations")

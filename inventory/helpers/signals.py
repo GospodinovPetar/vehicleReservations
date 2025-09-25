@@ -2,11 +2,12 @@ from django.db import transaction
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 
-from inventory.models.reservation import ReservationGroup
+from inventory.models.reservation import ReservationGroup, VehicleReservation, ReservationStatus
 from inventory.emails import (
     send_group_created_email,
     send_group_status_changed_email,
 )
+from mockpay.models import PaymentIntent, PaymentIntentStatus
 
 
 @receiver(pre_save, sender=ReservationGroup)
@@ -44,3 +45,29 @@ def _notify_group_created_or_status_changed(
     transaction.on_commit(
         lambda: send_group_status_changed_email(instance, old_status, instance.status)
     )
+
+@receiver(post_save, sender=VehicleReservation)
+def _flip_group_to_pending_when_item_added(sender, instance: VehicleReservation, created: bool, **kwargs):
+    """
+    Guarantee rule: if a VehicleReservation is added to a group that is AWAITING_PAYMENT,
+    the group returns to PENDING and any active payment intents are canceled.
+    Works regardless of which view path added the vehicle.
+    """
+    if not created:
+        return
+    grp = instance.group
+    if not grp or grp.status != ReservationStatus.AWAITING_PAYMENT:
+        return
+
+    def _do():
+        PaymentIntent.objects.filter(
+            reservation_group=grp,
+            status__in=[PaymentIntentStatus.REQUIRES_CONFIRMATION, PaymentIntentStatus.PROCESSING],
+        ).update(status=PaymentIntentStatus.CANCELED)
+        ReservationGroup.objects.filter(pk=grp.pk).update(status=ReservationStatus.PENDING)
+
+    from django.db import transaction
+    if transaction.get_connection().in_atomic_block:
+        transaction.on_commit(_do)
+    else:
+        _do()

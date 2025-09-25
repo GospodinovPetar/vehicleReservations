@@ -32,7 +32,6 @@ class UserEditForm(forms.ModelForm):
 
     class Meta:
         model = CustomUser
-        # Do NOT include password fields here
         fields = [
             "username",
             "email",
@@ -77,7 +76,7 @@ class VehicleForm(forms.ModelForm):
             "price_per_day",
             "available_pickup_locations",
             "available_return_locations",
-        ]
+            'plate_number',]
 
 
 class ReservationStatusForm(forms.ModelForm):
@@ -87,5 +86,4 @@ class ReservationStatusForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Provided friendly choices
         self.fields["status"].choices = ReservationStatus.choices

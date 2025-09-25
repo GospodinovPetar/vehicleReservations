@@ -20,9 +20,6 @@
                 <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
               {% endif %}
 
-              {% if g.status != 'RESERVED' %}
-                <a class="btn" href="{% url 'inventory:add_vehicle' g.id %}">Add vehicle</a>
-              {% endif %}
 
               <button class="btn" type="submit">Cancel</button>
             </form>
