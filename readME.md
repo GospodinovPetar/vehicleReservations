@@ -4,6 +4,7 @@ A Django-based web application for managing vehicle rentals with support for adm
 Includes a web dashboard, REST API (via Django Ninja), and a mock payment system.
 <br />
 
+
 📖 Features
 
 User Roles
@@ -51,6 +52,7 @@ API
 * Basic Authentication support
 <br />
 
+
 🛠 Tech Stack
 
 * Backend: Python, Django, Django Ninja
@@ -61,6 +63,7 @@ API
 
 * Docs: Swagger UI (/api/docs) + Redoc (/api/redoc)
 <br />
+
 
 ⚙️ Setup Instructions
 1. Clone the repo
@@ -101,8 +104,9 @@ Now visit:
 * API Docs: http://127.0.0.1:8000/api/docs
 
 * Admin Panel: http://127.0.0.1:8000/admin
-
 <br />
+
+
 🔑 Authentication
 
 * Web app: Django default authentication (username + password)
@@ -111,6 +115,7 @@ Now visit:
 
 When using Swagger UI, click Authorize and enter your Django username + password.
 <br />
+
 
 📡 API Overview
 
@@ -123,6 +128,7 @@ When using Swagger UI, click Authorize and enter your Django username + password
 More endpoints will be added as the project grows.
 👉 See full interactive docs at /api/docs.
 <br />
+
 
 📦 Database Structure (High-Level)
 
@@ -137,6 +143,7 @@ More endpoints will be added as the project grows.
 * inventory.VehicleReservation – single vehicle reservation linked to a group
 <br />
 
+
 📝 Development Notes
 
 * Reservations are split into:
@@ -150,8 +157,9 @@ More endpoints will be added as the project grows.
 * Managers cannot access Django Admin; they manage everything via UI
 
 * Unlimited seats logic applies automatically to Golf MK2 🚙
-
 <br />
+
+
 🚀 Future Improvements
 
 * ✅ Integration with real payment providers
