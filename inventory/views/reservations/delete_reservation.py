@@ -15,40 +15,44 @@ from mockpay.models import PaymentIntent, PaymentIntentStatus
 @login_required
 @require_http_methods(["POST"])
 @transaction.atomic
-def delete_reservation(request, pk):
+def delete_reservation(request, pk: int):
     reservation = get_object_or_404(
         VehicleReservation.objects.select_related("group"),
         pk=pk,
         user=request.user,
     )
-
-    canceled_value = getattr(ReservationStatus, "CANCELED", "CANCELED")
-    non_active_statuses = [ReservationStatus.REJECTED, canceled_value]
-
     group = reservation.group
     if group is None:
         messages.error(request, "You cannot remove the only vehicle in this reservation.")
         return redirect("inventory:reservations")
 
-    ReservationGroup.objects.select_for_update().filter(pk=group.pk).exists()
+    group = ReservationGroup.objects.select_for_update().get(pk=group.pk)
 
-    active_in_group = (
-        VehicleReservation.objects.filter(group=group)
-        .exclude(group__status__in=non_active_statuses)
-        .count()
-    )
-    if active_in_group <= 1:
+    canceled_value = getattr(ReservationStatus, "CANCELED", "CANCELED")
+    non_editable_statuses = [ReservationStatus.REJECTED, canceled_value, ReservationStatus.RESERVED]
+
+    if group.status in non_editable_statuses:
+        messages.error(request, "This reservation cannot be modified.")
+        return redirect("inventory:reservations")
+
+    total_in_group = VehicleReservation.objects.filter(group=group).count()
+    if total_in_group <= 1:
         messages.error(request, "You cannot remove the only vehicle in this reservation.")
         return redirect("inventory:reservations")
 
     reservation.delete()
 
-    for intent in (
+    intents_qs = (
         PaymentIntent.objects.select_for_update()
-        .filter(reservation_group=group,
-                group__status__in=[PaymentIntentStatus.REQUIRES_CONFIRMATION,
-                            PaymentIntentStatus.PROCESSING])
-    ):
+        .filter(
+            reservation_group=group,
+            status__in=[
+                PaymentIntentStatus.REQUIRES_CONFIRMATION,
+                PaymentIntentStatus.PROCESSING,
+            ],
+        )
+    )
+    for intent in intents_qs:
         intent.status = PaymentIntentStatus.CANCELED
         intent.save(update_fields=["status"])
 

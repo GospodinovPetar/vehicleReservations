@@ -36,46 +36,38 @@ def edit_reservation(request, pk):
             new_start = form.cleaned_data.get("start_date")
             new_end = form.cleaned_data.get("end_date")
 
+            # keep originals to build diff/email
             original_start = reservation.start_date
             original_end = reservation.end_date
 
+            # basic validation
             if not new_start or not new_end:
                 form.add_error(None, "Please provide both pickup and return dates.")
             else:
                 if new_start >= new_end:
                     form.add_error("end_date", "End date must be after start date.")
-
                 today = timezone.localdate()
                 if new_start < today:
                     form.add_error("start_date", "Pickup date cannot be in the past.")
                 if new_end < today:
                     form.add_error("end_date", "Return date cannot be in the past.")
 
+            # location constraints
             if (
                 selected_vehicle
                 and selected_pickup
                 and selected_vehicle.available_pickup_locations.exists()
+                and not selected_vehicle.available_pickup_locations.filter(pk=selected_pickup.pk).exists()
             ):
-                if not selected_vehicle.available_pickup_locations.filter(
-                    pk=selected_pickup.pk
-                ).exists():
-                    form.add_error(
-                        "pickup_location",
-                        "Pickup location not allowed for this vehicle.",
-                    )
+                form.add_error("pickup_location", "Pickup location not allowed for this vehicle.")
 
             if (
                 selected_vehicle
                 and selected_return
                 and selected_vehicle.available_return_locations.exists()
+                and not selected_vehicle.available_return_locations.filter(pk=selected_return.pk).exists()
             ):
-                if not selected_vehicle.available_return_locations.filter(
-                    pk=selected_return.pk
-                ).exists():
-                    form.add_error(
-                        "return_location",
-                        "Return location not allowed for this vehicle.",
-                    )
+                form.add_error("return_location", "Return location not allowed for this vehicle.")
 
             if form.errors:
                 return render(
@@ -89,18 +81,18 @@ def edit_reservation(request, pk):
                     },
                 )
 
-            overlaps = VehicleReservation.objects.filter(
-                vehicle_id=selected_vehicle.pk,
-                group__status__in=BLOCKING_STATUSES,
-                start_date__lt=new_end,
-                end_date__gt=new_start,
-            ).exclude(pk=reservation.pk)
-
-            if overlaps.exists():
-                form.add_error(
-                    "start_date",
-                    "This vehicle is not available in the selected period.",
+            # availability check (ignore this same reservation)
+            overlaps = (
+                VehicleReservation.objects.filter(
+                    vehicle_id=selected_vehicle.pk,
+                    group__status__in=BLOCKING_STATUSES,
+                    start_date__lt=new_end,
+                    end_date__gt=new_start,
                 )
+                .exclude(pk=reservation.pk)
+            )
+            if overlaps.exists():
+                form.add_error("start_date", "This vehicle is not available in the selected period.")
                 return render(
                     request,
                     "inventory/edit_reservation.html",
@@ -114,6 +106,7 @@ def edit_reservation(request, pk):
 
             try:
                 with transaction.atomic():
+                    # capture "before" for email
                     before = {
                         "vehicle": reservation.vehicle,
                         "pickup_location": reservation.pickup_location,
@@ -126,25 +119,18 @@ def edit_reservation(request, pk):
                     instance.full_clean()
                     instance.save()
 
-                    important_fields = {
-                        "vehicle",
-                        "pickup_location",
-                        "return_location",
-                        "start_date",
-                        "end_date",
-                    }
+                    # what changed?
+                    important_fields = {"vehicle", "pickup_location", "return_location", "start_date", "end_date"}
                     changed_fields = set(form.changed_data) & important_fields
                     important_changed = bool(changed_fields)
+                    dates_changed = bool({"start_date", "end_date"} & changed_fields)
 
-                    if dates_changed:
-                        instance.status = ReservationStatus.PENDING
-                        instance.save(
-                            update_fields=["status"]
-                        )  # triggers your status-change signal
+                    # if any important field changed, push the WHOLE GROUP back to PENDING
                     if important_changed and instance.group_id:
                         instance.group.status = ReservationStatus.PENDING
                         instance.group.save(update_fields=["status"])
 
+                    # email the user about the edit (only once)
                     if important_changed and instance.user and instance.user.email:
                         after = {
                             "vehicle": instance.vehicle,
@@ -168,11 +154,7 @@ def edit_reservation(request, pk):
                             return str(val) if val is not None else "-"
 
                         changes = [
-                            {
-                                "label": label_map[f],
-                                "before": fmt(before[f], f),
-                                "after": fmt(after[f], f),
-                            }
+                            {"label": label_map[f], "before": fmt(before[f], f), "after": fmt(after[f], f)}
                             for f in ["vehicle", "pickup_location", "return_location", "start_date", "end_date"]
                             if f in changed_fields
                         ]
@@ -190,7 +172,6 @@ def edit_reservation(request, pk):
                         subject = f"Reservation updated: {ctx['reference']}"
                         text_body = render_to_string("emails/reservation_edited/reservation_edited.txt", ctx)
                         html_body = render_to_string("emails/reservation_edited/reservation_edited.html", ctx)
-
                         send_mail(
                             subject=subject,
                             message=text_body,
@@ -199,14 +180,10 @@ def edit_reservation(request, pk):
                             html_message=html_body,
                             fail_silently=True,
                         )
-                    if dates_changed and instance.group_id:
-                        instance.group.status = ReservationStatus.PENDING
-                        instance.group.save(update_fields=["status"])
 
                 messages.success(
                     request,
-                    "Reservation updated."
-                    + (" Status set to PENDING for re-approval." if important_changed else ""),
+                    "Reservation updated." + (" Status set to PENDING for re-approval." if important_changed else ""),
                 )
                 return redirect("inventory:reservations")
 

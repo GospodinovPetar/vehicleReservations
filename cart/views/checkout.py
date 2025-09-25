@@ -85,12 +85,23 @@ def checkout(request):
                 )
                 return redirect("cart:view_cart")
 
-        # Create a fresh group
-        group = ReservationGroup.objects.create(user=request.user)
+        group = (
+            ReservationGroup.objects.select_for_update()
+            .filter(
+                user=request.user,
+                status__in=[ReservationStatus.PENDING, ReservationStatus.AWAITING_PAYMENT],
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if group is None:
+            group = ReservationGroup.objects.create(
+                user=request.user,
+                status=ReservationStatus.PENDING,
+            )
 
-        # Ensure a unique short reference (rarely collides, but let’s be safe)
         if not getattr(group, "reference", None):
-            for _ in range(5):  # tiny loop; collisions are extremely unlikely
+            for _ in range(5):
                 ref = secrets.token_hex(4).upper()
                 exists = ReservationGroup.objects.filter(reference=ref).exists()
                 if not exists:
@@ -98,7 +109,6 @@ def checkout(request):
                     group.save(update_fields=["reference"])
                     break
 
-        # Create the individual reservations in PENDING
         for it in items:
             VehicleReservation.objects.create(
                 user=request.user,
@@ -110,7 +120,6 @@ def checkout(request):
                 group=group,
             )
 
-        # Mark the cart as checked out & clear items (still inside the lock)
         cart.is_checked_out = True
         cart.save(update_fields=["is_checked_out"])
         CartItem.objects.filter(cart=cart).delete()
@@ -119,16 +128,14 @@ def checkout(request):
     reservations = group.reservations.select_related("vehicle").all()
 
     for r in reservations:
-        # Use Decimal all the way
-        day_rate = Decimal(str(r.vehicle.price_per_day))  # ensure Decimal
-        rt = RateTable(day=float(day_rate), currency="EUR")  # RateTable expects float; OK for input
+        day_rate = Decimal(str(r.vehicle.price_per_day))
+        rt = RateTable(day=float(day_rate), currency="EUR")
         q = quote_total(r.start_date, r.end_date, rt)
 
-        # q["total"] may be float or str; coerce to Decimal safely
         total_dec = Decimal(str(q["total"]))
         total_dec = _quantize_money(total_dec)
 
-        r.total_price = total_dec  # if the model is DecimalField, this is perfect
+        r.total_price = total_dec
         r.save(update_fields=["total_price"])
 
         amount_cents += _cents(total_dec)
