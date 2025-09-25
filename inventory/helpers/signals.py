@@ -20,30 +20,46 @@ from mockpay.models import PaymentIntent, PaymentIntentStatus
 
 
 @receiver(pre_save, sender=ReservationGroup)
-def _capture_group_old_status(sender, instance: ReservationGroup, **kwargs):
-    old_status = None
-    if instance.pk:
-        try:
-            old_status = ReservationGroup.objects.only("status").get(pk=instance.pk).status
-        except ReservationGroup.DoesNotExist:
-            old_status = None
-    instance._old_status = old_status
+def _remember_old_status(sender, instance: ReservationGroup, **kwargs):
+    if not instance.pk:
+        instance._old_status = None
+        return
+    try:
+        instance._old_status = sender.objects.only("status").get(pk=instance.pk).status
+    except sender.DoesNotExist:
+        instance._old_status = None
 
 
 @receiver(post_save, sender=ReservationGroup)
-def _group_created_or_status_changed(sender, instance: ReservationGroup, created, **kwargs):
-    def _do():
+def _handle_group_post_save(sender, instance: ReservationGroup, created: bool, **kwargs):
+    old = getattr(instance, "_old_status", None)
+    status_changed = (old is not None and old != instance.status)
+
+    def _email_side_effects():
         if created:
             send_group_created_email(instance)
-        else:
-            old_status = getattr(instance, "_old_status", None)
-            if old_status is not None and old_status != instance.status:
-                send_group_status_changed_email(instance, old_status, instance.status)
+        elif status_changed:
+            send_group_status_changed_email(instance, old, instance.status)
 
     if transaction.get_connection().in_atomic_block:
-        transaction.on_commit(_do)
+        transaction.on_commit(_email_side_effects)
     else:
-        _do()
+        _email_side_effects()
+
+    if not created and status_changed and instance.status == ReservationStatus.COMPLETED:
+        items = (
+            VehicleReservation.objects
+            .filter(group=instance)
+            .select_related("vehicle", "pickup_location", "return_location")
+        )
+        for item in items:
+            v = item.vehicle
+            # One-and-only pickup becomes the last drop-off.
+            if item.return_location_id:
+                v.available_pickup_locations.set([item.return_location_id])
+            # Last pickup becomes an allowed drop-off.
+            if item.pickup_location_id:
+                v.available_return_locations.add(item.pickup_location_id)
 
 
 @receiver(pre_save, sender=VehicleReservation)
@@ -52,9 +68,11 @@ def _capture_reservation_snapshot(sender, instance: VehicleReservation, **kwargs
         instance._before_snapshot = None
         return
     try:
-        before = VehicleReservation.objects.select_related(
-            "group", "vehicle", "pickup_location", "return_location"
-        ).get(pk=instance.pk)
+        before = (
+            VehicleReservation.objects
+            .select_related("group", "vehicle", "pickup_location", "return_location")
+            .get(pk=instance.pk)
+        )
     except VehicleReservation.DoesNotExist:
         before = None
     instance._before_snapshot = before
@@ -69,10 +87,14 @@ def _reservation_created_or_edited(sender, instance: VehicleReservation, created
         before = getattr(instance, "_before_snapshot", None)
         if before is None:
             return
-        tracked_fields = ["start_date", "end_date", "pickup_location_id", "return_location_id", "vehicle_id"]
-        changed = any(
-            getattr(before, f, None) != getattr(instance, f, None) for f in tracked_fields
-        )
+        tracked_fields = [
+            "start_date",
+            "end_date",
+            "pickup_location_id",
+            "return_location_id",
+            "vehicle_id",
+        ]
+        changed = any(getattr(before, f, None) != getattr(instance, f, None) for f in tracked_fields)
         if changed:
             send_reservation_edited_email(before, instance)
 
@@ -104,6 +126,7 @@ def _auto_cleanup_payment_on_pending(sender, instance: VehicleReservation, **kwa
             reservation_group=grp,
             status__in=[PaymentIntentStatus.REQUIRES_CONFIRMATION, PaymentIntentStatus.PROCESSING],
         ).update(status=PaymentIntentStatus.CANCELED)
+        # Intentionally using update() here; we do NOT want to retrigger status side-effects.
         ReservationGroup.objects.filter(pk=grp.pk).update(status=ReservationStatus.PENDING)
 
     if transaction.get_connection().in_atomic_block:

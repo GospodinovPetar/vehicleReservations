@@ -27,10 +27,9 @@ class ReservationStatus(models.TextChoices):
 
     @classmethod
     def blocking(cls):
+        # Single source of truth for blocking statuses
         return cls.RESERVED, cls.PENDING
 
-
-BLOCKING_STATUSES = (ReservationStatus.RESERVED, ReservationStatus.PENDING)
 
 class ReservationGroup(models.Model):
     user = models.ForeignKey(
@@ -46,8 +45,62 @@ class ReservationGroup(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def apply_vehicle_location_flip(self):
+        """
+        Business rule when a group is COMPLETED:
+        - For each reservation in this group:
+          - The last drop-off becomes the one-and-only allowed pick-up location.
+          - The last pick-up is added to the allowed drop-off locations.
+        """
+        items = (
+            VehicleReservation.objects
+            .filter(group=self)
+            .select_related("vehicle", "pickup_location", "return_location")
+        )
+        for item in items:
+            v = item.vehicle
+            # One-and-only pick-up becomes last drop-off.
+            if item.return_location_id:
+                v.available_pickup_locations.set([item.return_location_id])
+            # Last pick-up becomes an allowed drop-off.
+            if item.pickup_location_id:
+                v.available_return_locations.add(item.pickup_location_id)
+
+    def mark_completed(self, save=True):
+        """
+        Explicit API to mark as COMPLETED. Uses save() so the transition hook
+        applies the vehicle-location flip (no duplicate calls).
+        """
+        if self.status == ReservationStatus.COMPLETED:
+            return
+        self.status = ReservationStatus.COMPLETED
+        if save:
+            # Call self.save() (not super()) so our overridden save() runs.
+            self.save(update_fields=["status"])
+
+    def save(self, *args, **kwargs):
+        """
+        Safety net: if anyone does obj.status=...; obj.save(), detect the
+        transition to COMPLETED and apply the flip.
+        """
+        old_status = None
+        if self.pk:
+            try:
+                old_status = type(self).objects.only("status").get(pk=self.pk).status
+            except type(self).DoesNotExist:
+                pass
+
+        result = super().save(*args, **kwargs)
+
+        if old_status != self.status and self.status == ReservationStatus.COMPLETED:
+            # Apply immediately so the change is visible in the same request.
+            self.apply_vehicle_location_flip()
+
+        return result
+
     def __str__(self):
         return f"{self.reference or self.pk}"
+
 
 class VehicleReservation(models.Model):
     user = models.ForeignKey(
@@ -101,25 +154,16 @@ class VehicleReservation(models.Model):
                 errors["end_date"] = "Return date cannot be in the past."
 
         if self.vehicle_id and self.start_date and self.end_date:
-            overlapping = (
-                VehicleReservation.objects.filter(
-                    vehicle_id=self.vehicle_id,
-                    group__status__in=BLOCKING_STATUSES,
-                    start_date__lt=self.end_date,
-                    end_date__gt=self.start_date,
-                ).exclude(pk=self.pk)
-                if self.pk
-                else VehicleReservation.objects.filter(
-                    vehicle_id=self.vehicle_id,
-                    group__status__in=BLOCKING_STATUSES,
-                    start_date__lt=self.end_date,
-                    end_date__gt=self.start_date,
-                )
+            overlapping = VehicleReservation.objects.filter(
+                vehicle_id=self.vehicle_id,
+                group__status__in=ReservationStatus.blocking(),
+                start_date__lt=self.end_date,
+                end_date__gt=self.start_date,
             )
+            if self.pk:
+                overlapping = overlapping.exclude(pk=self.pk)
             if overlapping.exists():
-                errors["start_date"] = (
-                    "Vehicle is not available in the selected period."
-                )
+                errors["start_date"] = "Vehicle is not available in the selected period."
 
         if errors:
             raise ValidationError(errors)
@@ -130,7 +174,7 @@ class VehicleReservation(models.Model):
     ):
         blocked_vehicle_ids = (
             VehicleReservation.objects.filter(
-                group__status__in=BLOCKING_STATUSES,
+                group__status__in=ReservationStatus.blocking(),
                 start_date__lt=end_date,
                 end_date__gt=start_date,
             )
@@ -158,7 +202,7 @@ class VehicleReservation(models.Model):
     def conflicts_exist(cls, vehicle, start_date, end_date):
         return cls.objects.filter(
             vehicle=vehicle,
-            group__status__in=BLOCKING_STATUSES,
+            group__status__in=ReservationStatus.blocking(),
             start_date__lt=end_date,
             end_date__gt=start_date,
         ).exists()
@@ -166,13 +210,11 @@ class VehicleReservation(models.Model):
     @classmethod
     def is_vehicle_available(cls, vehicle, start_date, end_date, pickup=None, ret=None):
         if pickup is not None and vehicle.available_pickup_locations.exists():
-            allowed = vehicle.available_pickup_locations.filter(pk=pickup.pk).exists()
-            if not allowed:
+            if not vehicle.available_pickup_locations.filter(pk=pickup.pk).exists():
                 return False
 
         if ret is not None and vehicle.available_return_locations.exists():
-            allowed = vehicle.available_return_locations.filter(pk=ret.pk).exists()
-            if not allowed:
+            if not vehicle.available_return_locations.filter(pk=ret.pk).exists():
                 return False
 
         has_conflict = cls.conflicts_exist(vehicle, start_date, end_date)
