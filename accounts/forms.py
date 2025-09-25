@@ -74,7 +74,6 @@ class VehicleForm(forms.ModelForm):
             "car_type",
             "engine_type",
             "seats",
-            "unlimited_seats",
             "price_per_day",
             "available_pickup_locations",
             "available_return_locations",

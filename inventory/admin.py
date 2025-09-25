@@ -26,14 +26,19 @@ class ReservationInline(admin.TabularInline):
         "return_location",
         "start_date",
         "end_date",
-        "status",
+        "group_status",
         "total_price",
     )
-    readonly_fields = ("total_price",)
+    readonly_fields = ("group_status", "total_price")
     autocomplete_fields = ("vehicle", "pickup_location", "return_location")
     extra = 0
     show_change_link = True
     can_delete = True
+
+    # NEW: computed column used by fields/readonly_fields above
+    def group_status(self, obj):
+        return getattr(obj.group, "status", "-")
+    group_status.short_description = "Status"
 
 
 @admin.register(ReservationGroup)
@@ -67,16 +72,13 @@ class ReservationAdmin(admin.ModelAdmin):
         "return_location",
         "start_date",
         "end_date",
-        "status",
+        "group_status",
         "total_price",
         "group",
     )
-    list_filter = ("status", "vehicle", "user")
-    search_fields = ("id", "vehicle__name", "user__username")
-    autocomplete_fields = (
-        "user",
-        "vehicle",
-        "pickup_location",
-        "return_location",
-        "group",
-    )
+    list_filter = ("group__status", "vehicle", "user")
+
+    def group_status(self, obj):
+        return getattr(obj.group, "status", "-")
+    group_status.short_description = "Status"
+    group_status.admin_order_field = "group__status"

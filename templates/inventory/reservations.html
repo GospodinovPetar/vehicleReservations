@@ -9,7 +9,8 @@
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
             <div>
               <strong>Reference:</strong> {{ g.reference }}
-              <em>({{ g.created_at }})</em> &nbsp; <span><strong>Status:</strong> {{ g.status }}</span>
+              <em>({{ g.created_at }})</em>
+              &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
             </div>
 
             <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
@@ -34,7 +35,6 @@
                 <th>Vehicle</th>
                 <th>Dates</th>
                 <th>Pickup → Return</th>
-                <th>Status</th>
                 <th>Total</th>
                 <th>Actions</th>
               </tr>
@@ -47,7 +47,6 @@
                     <td>{{ r.vehicle }}</td>
                     <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                     <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
-                    <td>{{ r.status }}</td>
                     <td>{{ r.total_price|floatformat:2 }} EUR</td>
                     <td>
                       <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
@@ -63,7 +62,7 @@
                   </tr>
                 {% empty %}
                   <tr>
-                    <td colspan="7">This group has no active reservations.</td>
+                    <td colspan="6">This group has no active reservations.</td>
                   </tr>
                 {% endfor %}
               {% endwith %}
@@ -86,7 +85,7 @@
             <div>
               <strong>Reference:</strong> {{ g.reference }}
               <em>({{ g.created_at }})</em>
-              &nbsp; <span><strong>Status:</strong> {{ g.status }}</span>
+              &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
             </div>
           </div>
 
@@ -97,7 +96,6 @@
                 <th>Vehicle</th>
                 <th>Dates</th>
                 <th>Pickup → Return</th>
-                <th>Status</th>
                 <th>Total</th>
               </tr>
             </thead>
@@ -108,11 +106,10 @@
                   <td>{{ r.vehicle }}</td>
                   <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                   <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
-                  <td>{{ r.status }}</td>
                   <td>{{ r.total_price|floatformat:2 }} EUR</td>
                 </tr>
               {% empty %}
-                <tr><td colspan="6">This group has no reservations.</td></tr>
+                <tr><td colspan="5">This group has no reservations.</td></tr>
               {% endfor %}
             </tbody>
           </table>

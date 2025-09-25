@@ -38,12 +38,12 @@ class ReservationGroup(models.Model):
         on_delete=models.CASCADE,
         related_name="reservation_groups",
     )
+    reference = models.CharField(max_length=32, unique=True, blank=True)
     status = models.CharField(
         max_length=20,
         choices=ReservationStatus.choices,
         default=ReservationStatus.PENDING,
     )
-    reference = models.CharField(max_length=32, unique=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -64,11 +64,6 @@ class VehicleReservation(models.Model):
     )
     start_date = models.DateField()
     end_date = models.DateField()
-    status = models.CharField(
-        max_length=20,
-        choices=ReservationStatus.choices,
-        default=ReservationStatus.PENDING,
-    )
     total_price = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
@@ -109,14 +104,14 @@ class VehicleReservation(models.Model):
             overlapping = (
                 VehicleReservation.objects.filter(
                     vehicle_id=self.vehicle_id,
-                    status__in=BLOCKING_STATUSES,
+                    group__status__in=BLOCKING_STATUSES,
                     start_date__lt=self.end_date,
                     end_date__gt=self.start_date,
                 ).exclude(pk=self.pk)
                 if self.pk
                 else VehicleReservation.objects.filter(
                     vehicle_id=self.vehicle_id,
-                    status__in=BLOCKING_STATUSES,
+                    group__status__in=BLOCKING_STATUSES,
                     start_date__lt=self.end_date,
                     end_date__gt=self.start_date,
                 )
@@ -135,7 +130,6 @@ class VehicleReservation(models.Model):
     ):
         blocked_vehicle_ids = (
             VehicleReservation.objects.filter(
-                status__in=BLOCKING_STATUSES,
                 group__status__in=BLOCKING_STATUSES,
                 start_date__lt=end_date,
                 end_date__gt=start_date,
@@ -164,7 +158,7 @@ class VehicleReservation(models.Model):
     def conflicts_exist(cls, vehicle, start_date, end_date):
         return cls.objects.filter(
             vehicle=vehicle,
-            status__in=BLOCKING_STATUSES,
+            group__status__in=BLOCKING_STATUSES,
             start_date__lt=end_date,
             end_date__gt=start_date,
         ).exists()

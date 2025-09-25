@@ -98,7 +98,7 @@ def search(request):
 
     conflicts_qs = VehicleReservation.objects.filter(
         vehicle_id__in=partial_candidates_qs.values_list("id", flat=True),
-        status__in=BLOCKING_STATUSES,
+        group__status__in=BLOCKING_STATUSES,
         start_date__lt=end_date,
         end_date__gt=start_date,
     ).values("vehicle_id", "start_date", "end_date")

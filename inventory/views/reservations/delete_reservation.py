@@ -34,7 +34,7 @@ def delete_reservation(request, pk):
 
     active_in_group = (
         VehicleReservation.objects.filter(group=group)
-        .exclude(status__in=non_active_statuses)
+        .exclude(group__status__in=non_active_statuses)
         .count()
     )
     if active_in_group <= 1:
@@ -46,7 +46,7 @@ def delete_reservation(request, pk):
     for intent in (
         PaymentIntent.objects.select_for_update()
         .filter(reservation_group=group,
-                status__in=[PaymentIntentStatus.REQUIRES_CONFIRMATION,
+                group__status__in=[PaymentIntentStatus.REQUIRES_CONFIRMATION,
                             PaymentIntentStatus.PROCESSING])
     ):
         intent.status = PaymentIntentStatus.CANCELED

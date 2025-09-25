@@ -4,10 +4,12 @@ Hi {{ group.user.get_full_name|default:group.user.username }},
 
 Your reservation is confirmed.
 
-<<<<<<< Updated upstream
+
+Vehicle: {{ reservation.vehicle }}
+Pickup: {{ reservation.pickup_location }} on {{ reservation.start_date }}
+Return: {{ reservation.return_location }} on {{ reservation.end_date }}
+Total price: {{ reservation.total_price }} {{ reservation.currency|default:"EUR" }}
 {% if reservation.group %}
-=======
->>>>>>> Stashed changes
 Items:
 {% for r in items %}
 - Vehicle: {{ r.vehicle }}

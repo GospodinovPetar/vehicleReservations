@@ -28,11 +28,8 @@ def create_payment_intent(request, group_id: int):
         messages.error(request, "This reservation is not awaiting payment.")
         return redirect("inventory:reservations")
 
-    # Sum ONLY the items that are awaiting payment
     amount_cents = 0
-    items = group.reservations.select_related("vehicle").filter(
-        status=ReservationStatus.AWAITING_PAYMENT
-    )
+    items = group.reservations.select_related("vehicle").all()
     for r in items:
         # if r.total_price is None, ensure your model saves it on create; otherwise compute here:
         # days = (r.end_date - r.start_date).days or 1

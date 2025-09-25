@@ -45,14 +45,12 @@ def checkout_page(request, client_secret: str):
     """
     intent = get_object_or_404(PaymentIntent, client_secret=client_secret)
 
-    # Expired sessions go straight to result page as EXPIRED
     if intent.is_expired():
         intent.status = PaymentIntentStatus.EXPIRED
         intent.save(update_fields=["status"])
         messages.error(request, "Payment session expired. Please try again.")
         return redirect("mockpay:result", client_secret=client_secret)
 
-    # Only allow confirming when newly created / requires confirmation
     if intent.status != PaymentIntentStatus.REQUIRES_CONFIRMATION:
         return redirect("mockpay:result", client_secret=client_secret)
 
@@ -64,7 +62,6 @@ def checkout_page(request, client_secret: str):
             {"intent": intent, "form": form, "amount_eur": _eur_amount(intent)},
         )
 
-    # POST
     form = CheckoutForm(request.POST)
     if not form.is_valid():
         return render(
@@ -74,11 +71,9 @@ def checkout_page(request, client_secret: str):
             status=400,
         )
 
-    # Support both naming styles: card_number/cc_number
     pan: str = (_cd(form.cleaned_data, "card_number", "cc_number").replace(" ", ""))
     chosen = _cd(form.cleaned_data, "outcome", default="auto")
 
-    # Decide outcome when 'auto' is selected (no challenge path anymore)
     if chosen == "auto":
         if pan == "4242424242424242":
             outcome = "success"
@@ -87,10 +82,7 @@ def checkout_page(request, client_secret: str):
         else:
             outcome = "success"
     else:
-        outcome = chosen  # expected: "success", "fail", or "cancel"
-
-    # (Optional) basic UX info; not used now that 3DS is removed
-    _ = _brand(pan)  # computed but not stored
+        outcome = chosen
 
     with transaction.atomic():
         intent.refresh_from_db()
@@ -102,10 +94,6 @@ def checkout_page(request, client_secret: str):
             grp = intent.reservation_group
             grp.status = ReservationStatus.RESERVED
             grp.save(update_fields=["status"])
-
-            VehicleReservation.objects.filter(
-                group=grp, status=ReservationStatus.AWAITING_PAYMENT
-            ).update(status=ReservationStatus.RESERVED)
 
             messages.success(request, "Payment successful.")
             return redirect("mockpay:checkout_success", client_secret=intent.client_secret)

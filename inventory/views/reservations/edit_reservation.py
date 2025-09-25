@@ -20,19 +20,6 @@ from django.conf import settings
 
 @login_required
 def edit_reservation(request, pk):
-    """
-<<<<<<< Updated upstream
-    Allow a user to edit their reservation. If the user changes pickup/return dates,
-    we check whether the selected vehicle is available for those dates (ignoring the
-    current reservation itself). If available, we save the new dates and set status
-    back to PENDING for re-approval.
-=======
-    Allow a user to edit their reservation. If the user changes pickup/return dates
-    or vehicle/locations, we check availability and then save changes. When any of
-    these fields change, the GROUP status goes back to PENDING for re-approval,
-    and we send an email summary of the changes to the reservation owner.
->>>>>>> Stashed changes
-    """
     qs = VehicleReservation.objects.select_related("vehicle", "group", "user")
     if getattr(request.user, "role", "") in ("manager", "admin"):
         reservation = get_object_or_404(qs, pk=pk)
@@ -104,7 +91,7 @@ def edit_reservation(request, pk):
 
             overlaps = VehicleReservation.objects.filter(
                 vehicle_id=selected_vehicle.pk,
-                status__in=BLOCKING_STATUSES,
+                group__status__in=BLOCKING_STATUSES,
                 start_date__lt=new_end,
                 end_date__gt=new_start,
             ).exclude(pk=reservation.pk)
@@ -149,17 +136,14 @@ def edit_reservation(request, pk):
                     changed_fields = set(form.changed_data) & important_fields
                     important_changed = bool(changed_fields)
 
-<<<<<<< Updated upstream
                     if dates_changed:
                         instance.status = ReservationStatus.PENDING
                         instance.save(
                             update_fields=["status"]
                         )  # triggers your status-change signal
-=======
                     if important_changed and instance.group_id:
                         instance.group.status = ReservationStatus.PENDING
                         instance.group.save(update_fields=["status"])
->>>>>>> Stashed changes
 
                     if important_changed and instance.user and instance.user.email:
                         after = {
@@ -215,6 +199,9 @@ def edit_reservation(request, pk):
                             html_message=html_body,
                             fail_silently=True,
                         )
+                    if dates_changed and instance.group_id:
+                        instance.group.status = ReservationStatus.PENDING
+                        instance.group.save(update_fields=["status"])
 
                 messages.success(
                     request,
