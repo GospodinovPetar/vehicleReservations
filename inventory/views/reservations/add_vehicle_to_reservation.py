@@ -22,7 +22,8 @@ def add_vehicle(request, group_id: int):
                 rv = form.save(commit=False)
                 rv.user = request.user
                 rv.group = group
-                rv.status = ReservationStatus.PENDING
+                group.status = ReservationStatus.PENDING
+                group.save(update_fields=["status"])
                 rv.save()
 
             messages.success(request, "Vehicle added. The reservation is now pending review.")

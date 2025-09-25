@@ -1,3 +1,16 @@
+<p>Hi {{ user.get_full_name|default:user.username }},</p>
+<p>
+  The status of your reservation <strong>#{{ reservation.pk }}</strong> has changed
+  from “{{ old_status|title }}” to <strong>{{ new_status|title }}</strong>.
+</p>
+<ul>
+  <li><strong>Vehicle:</strong> {{ reservation.vehicle }}</li>
+  <li><strong>Pickup:</strong> {{ reservation.pickup_location }} on {{ reservation.start_date }}</li>
+  <li><strong>Return:</strong> {{ reservation.return_location }} on {{ reservation.end_date }}</li>
+  <li><strong>Total price:</strong> {{ reservation.total_price }} {{ reservation.currency|default:"EUR" }}</li>
+</ul>
+<p>You can view your reservation from your account.</p>
+<p>Thanks,<br>The Team</p>
 <!doctype html>
 <html>
   <head><meta charset="utf-8"><title>Reservation status updated</title></head>
@@ -20,9 +33,7 @@
 
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0;">
           <tr><td style="padding:8px 0; width:160px; color:#6b7280;">Old status</td><td style="padding:8px 0; color:#111827;">{{ old_status }}</td></tr>
-          <tr><td style="padding:8px 0; color:#6b7280;">New status</td><td style="padding:8px 0; color:#111827;">{{ reservation.get_status_display|default:new_status }}</td></tr>
-        </table>
-
+          <tr><td style="padding:8px 0; color:#6b7280;">New status</td><td style="padding:8px 0; color:#111827;">{{ reservation.group.get_status_display|default:new_status }}</td></tr>
         {% if reservation.group %}
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0; border-collapse:collapse;">
             <thead>
@@ -39,7 +50,7 @@
                 <td style="padding:6px 0; color:#111827;">{{ r.vehicle }}</td>
                 <td style="padding:6px 0; color:#111827;">{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                 <td style="padding:6px 0; color:#111827;">{{ r.pickup_location }} → {{ r.return_location }}</td>
-                <td style="padding:6px 0; color:#111827;">{{ r.get_status_display|default:r.status }}</td>
+                <td style="padding:6px 0; color:#111827;">{{ r.group.get_status_display|default:r.group.status }}</td>
               </tr>
               {% empty %}
               <tr><td colspan="4" style="padding:6px 0; color:#6b7280;">No items found.</td></tr>

@@ -4,16 +4,23 @@ Hi {{ user.get_full_name|default:user.username }},
 
 Your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %} changed status.
 
-- Old status: {{ old_status }}
-- New status: {{ reservation.get_status_display|default:new_status }}
+Vehicle: {{ reservation.vehicle }}
+Pickup: {{ reservation.pickup_location }} on {{ reservation.start_date }}
+Return: {{ reservation.return_location }} on {{ reservation.end_date }}
+Total price: {{ reservation.total_price }} {{ reservation.currency|default:"EUR" }}
 
+You can view your reservation from your account.
+- Old status: {{ old_status }}
+- New status: {{ reservation.group.get_status_display|default:new_status }}
 {% if reservation.group %}
 Items:
 {% for r in reservation.group.reservations.all %}
 - Vehicle: {{ r.vehicle }}
   Dates: {{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}
   Pickup → Return: {{ r.pickup_location }} → {{ r.return_location }}
-  Status: {{ r.get_status_display|default:r.status }}
+  Status: {{ r.group.get_status_display|default:r.group.status }}
+{% endfor %}
+{% endif %}
 {% endfor %}
 {% endif %}
 

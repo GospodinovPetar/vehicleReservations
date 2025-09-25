@@ -16,8 +16,6 @@ def approve_group(request, group_id: int):
 
     group.status = ReservationStatus.AWAITING_PAYMENT
     group.save(update_fields=["status"])
-    VehicleReservation.objects.filter(group=group, status=ReservationStatus.PENDING)\
-                              .update(status=ReservationStatus.AWAITING_PAYMENT)
-
+    
     messages.success(request, f"Reservation {group.reference} approved. Awaiting payment.")
     return redirect("inventory:reservations")
