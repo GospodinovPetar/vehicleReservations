@@ -1,10 +1,10 @@
 # 🚗 Vehicle Reservations Platform
 
 A Django-based web application for managing vehicle rentals with support for admins, managers, and users.
-Includes a web dashboard, REST API (via Django Ninja), and a mock payment system.<br />
+Includes a web dashboard, REST API (via Django Ninja), and a mock payment system.
+<br />
 
-
-📖 Features<br />
+📖 Features
 
 User Roles
 
@@ -48,8 +48,8 @@ API
 
 * Fully documented API using Django Ninja & Swagger UI
 
-* Basic Authentication support<br />
-
+* Basic Authentication support
+<br />
 
 🛠 Tech Stack
 
@@ -59,8 +59,8 @@ API
 
 * Frontend: Django templates (HTML, CSS)
 
-* Docs: Swagger UI (/api/docs) + Redoc (/api/redoc)<br />
-
+* Docs: Swagger UI (/api/docs) + Redoc (/api/redoc)
+<br />
 
 ⚙️ Setup Instructions
 1. Clone the repo
@@ -100,17 +100,17 @@ Now visit:
 
 * API Docs: http://127.0.0.1:8000/api/docs
 
-* Admin Panel: http://127.0.0.1:8000/admin<br />
+* Admin Panel: http://127.0.0.1:8000/admin
 
-
+<br />
 🔑 Authentication
 
 * Web app: Django default authentication (username + password)
 
 * API: HTTP Basic Authentication
 
-When using Swagger UI, click Authorize and enter your Django username + password.<br />
-
+When using Swagger UI, click Authorize and enter your Django username + password.
+<br />
 
 📡 API Overview
 
@@ -121,8 +121,8 @@ When using Swagger UI, click Authorize and enter your Django username + password
 | /api/availability | GET    | Check vehicle availability   | Public  |
 
 More endpoints will be added as the project grows.
-👉 See full interactive docs at /api/docs.<br />
-
+👉 See full interactive docs at /api/docs.
+<br />
 
 📦 Database Structure (High-Level)
 
@@ -134,8 +134,8 @@ More endpoints will be added as the project grows.
 
 * inventory.ReservationGroup – groups multiple reservations under one booking
 
-* inventory.VehicleReservation – single vehicle reservation linked to a group<br />
-
+* inventory.VehicleReservation – single vehicle reservation linked to a group
+<br />
 
 📝 Development Notes
 
@@ -149,9 +149,9 @@ More endpoints will be added as the project grows.
 
 * Managers cannot access Django Admin; they manage everything via UI
 
-* Unlimited seats logic applies automatically to Golf MK2 🚙<br />
+* Unlimited seats logic applies automatically to Golf MK2 🚙
 
-
+<br />
 🚀 Future Improvements
 
 * ✅ Integration with real payment providers
