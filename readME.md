@@ -64,7 +64,7 @@ Docs: Swagger UI (/api/docs) + Redoc (/api/redoc)
 
 ⚙️ Setup Instructions
 1. Clone the repo
-git clone https://github.com/your-org/vehicle-reservations.git
+git clone 
 cd vehicle-reservations
 2. Create virtual environment & install dependencies
 python -m venv .venv
@@ -74,18 +74,18 @@ pip install -r requirements.txt
 
 Create a .env file in the root folder:
 
-SECRET_KEY=your-secret-key
-DEBUG=True
-POSTGRES_DB=vehiclerental
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=you@example.com
-EMAIL_HOST_PASSWORD=yourpassword
-EMAIL_USE_TLS=true
+SECRET_KEY=
+DEBUG=
+POSTGRES_DB=
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_HOST=
+POSTGRES_PORT=
+EMAIL_HOST=
+EMAIL_PORT=
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+EMAIL_USE_TLS=
 4. Run migrations & create admin and manager
 python manage.py makemigrations
 python manage.py migrate
@@ -96,11 +96,11 @@ python manage.py runserver
 
 Now visit:
 
-Web app: http://127.0.0.1:8000
+Web app: 
 
-API Docs: http://127.0.0.1:8000/api/docs
+API Docs: 
 
-Admin Panel: http://127.0.0.1:8000/admin
+Admin Panel: 
 
 
 🔑 Authentication
