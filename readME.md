@@ -148,9 +148,9 @@ More endpoints will be added as the project grows.
 
 * Reservations are split into:
 
-*  Ongoing: Pending, Reserved
+*        Ongoing: Pending, Reserved
 
-*  Archived: Completed, Rejected, Canceled
+*        Archived: Completed, Rejected, Canceled
 
 * Group actions allow approving/rejecting an entire reservation group at once
 
