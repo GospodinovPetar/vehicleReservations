@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.contrib.auth import logout
 
 
 class BlockedUserMiddleware:
@@ -14,8 +15,6 @@ class BlockedUserMiddleware:
 
     def __call__(self, request):
         if request.user.is_authenticated and request.user.is_blocked:
-            from django.contrib.auth import logout
-
             logout(request)
             messages.error(request, "Your account has been blocked.")
             return redirect(reverse("accounts:blocked"))  # redirect to blocked page

@@ -50,7 +50,7 @@ class Command(BaseCommand):
             email=email,
             password=password,
             role="manager",
-            is_staff=True,  # can access Django admin
+            is_staff=False,  # can not access Django admin
             is_superuser=False,  # not a superuser
         )
 
