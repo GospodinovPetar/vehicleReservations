@@ -67,7 +67,7 @@ API
 
 ⚙️ Setup Instructions
 1. Clone the repo
-*     git clone 
+*     git clone https://github.com/your-org/vehicle-reservations.git
       cd vehicle-reservations
 2. Create virtual environment & install dependencies
 *     python -m venv .venv
