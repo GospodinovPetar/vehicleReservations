@@ -14,9 +14,6 @@ def cancel_reservation(request, group_id: int):
 
     group.status = ReservationStatus.CANCELED
     group.save(update_fields=["status"])
-    VehicleReservation.objects.filter(group=group).exclude(
-        status=ReservationStatus.COMPLETED
-    ).update(status=ReservationStatus.CANCELED)
 
     messages.info(request, f"Reservation {group.reference} canceled.")
     return redirect("inventory:reservations")

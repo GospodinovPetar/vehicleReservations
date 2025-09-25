@@ -22,14 +22,6 @@ def reject_reservation(request, pk):
         user=request.user,
     )
 
-    if reservation.status in (
-        ReservationStatus.CANCELED,
-        ReservationStatus.COMPLETED,
-        ReservationStatus.REJECTED,
-    ):
-        messages.error(request, "Only ongoing reservations can be rejected.")
-        return redirect("inventory:reservations")
-
     group = reservation.group
     if group is None:
         messages.error(request, "Reservation group not found.")
@@ -40,23 +32,16 @@ def reject_reservation(request, pk):
     canceled_value = getattr(ReservationStatus, "CANCELED", "CANCELED")
     non_active_statuses = [ReservationStatus.REJECTED, canceled_value]
 
-    active_in_group = (
-        VehicleReservation.objects.filter(group=group)
-        .exclude(status__in=non_active_statuses)
-        .count()
-    )
+    active_in_group = VehicleReservation.objects.filter(group=group).count()
 
     if active_in_group <= 1:
         messages.error(request, "You cannot reject the only active vehicle in this reservation.")
         return redirect("inventory:reservations")
 
-    reservation.status = ReservationStatus.REJECTED
-    reservation.save(update_fields=["status"])
-
     for intent in (
         PaymentIntent.objects.select_for_update()
         .filter(reservation_group=group,
-                status__in=[PaymentIntentStatus.REQUIRES_CONFIRMATION,
+                group__status__in=[PaymentIntentStatus.REQUIRES_CONFIRMATION,
                             PaymentIntentStatus.PROCESSING])
     ):
         intent.status = PaymentIntentStatus.CANCELED

@@ -19,8 +19,8 @@ def edit_reservation(request, pk):
     """
     Allow a user to edit their reservation. If the user changes pickup/return dates,
     we check whether the selected vehicle is available for those dates (ignoring the
-    current reservation itself). If available, we save the new dates and set status
-    back to PENDING for re-approval.
+    current reservation itself). If available, we save the new dates and set the
+    GROUP status back to PENDING for re-approval.
     """
     reservation = get_object_or_404(
         VehicleReservation.objects.select_related("vehicle", "group"),
@@ -93,7 +93,7 @@ def edit_reservation(request, pk):
 
             overlaps = VehicleReservation.objects.filter(
                 vehicle_id=selected_vehicle.pk,
-                status__in=BLOCKING_STATUSES,
+                group__status__in=BLOCKING_STATUSES,
                 start_date__lt=new_end,
                 end_date__gt=new_start,
             ).exclude(pk=reservation.pk)
@@ -127,11 +127,9 @@ def edit_reservation(request, pk):
                         or original_end != new_end
                     )
 
-                    if dates_changed:
-                        instance.status = ReservationStatus.PENDING
-                        instance.save(
-                            update_fields=["status"]
-                        )  # triggers your status-change signal
+                    if dates_changed and instance.group_id:
+                        instance.group.status = ReservationStatus.PENDING
+                        instance.group.save(update_fields=["status"])
 
                 messages.success(
                     request,
