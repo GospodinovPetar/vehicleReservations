@@ -1,10 +1,10 @@
 # 🚗 Vehicle Reservations Platform
 
 A Django-based web application for managing vehicle rentals with support for admins, managers, and users.
-Includes a web dashboard, REST API (via Django Ninja), and a mock payment system.
+Includes a web dashboard, REST API (via Django Ninja), and a mock payment system.<br />
 
 
-📖 Features
+📖 Features<br />
 
 User Roles
 
@@ -48,7 +48,7 @@ API
 
 * Fully documented API using Django Ninja & Swagger UI
 
-* Basic Authentication support
+* Basic Authentication support<br />
 
 
 🛠 Tech Stack
@@ -59,7 +59,7 @@ API
 
 * Frontend: Django templates (HTML, CSS)
 
-* Docs: Swagger UI (/api/docs) + Redoc (/api/redoc)
+* Docs: Swagger UI (/api/docs) + Redoc (/api/redoc)<br />
 
 
 ⚙️ Setup Instructions
@@ -74,25 +74,25 @@ API
 
 Create a .env file in the root folder:
 
-    SECRET_KEY=your-secret-key
-    DEBUG=True
-    POSTGRES_DB=vehiclerental
-    POSTGRES_USER=postgres
-    POSTGRES_PASSWORD=postgres
-    POSTGRES_HOST=localhost
-    POSTGRES_PORT=5432
-    EMAIL_HOST=smtp.gmail.com
-    EMAIL_PORT=587
-    EMAIL_HOST_USER=you@example.com
-    EMAIL_HOST_PASSWORD=yourpassword
-    EMAIL_USE_TLS=true
+*      SECRET_KEY=your-secret-key
+          DEBUG=True
+          POSTGRES_DB=vehiclerental
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          POSTGRES_HOST=localhost
+          POSTGRES_PORT=5432
+          EMAIL_HOST=smtp.gmail.com
+          EMAIL_PORT=587
+          EMAIL_HOST_USER=you@example.com
+          EMAIL_HOST_PASSWORD=yourpassword
+          EMAIL_USE_TLS=true
 4. Run migrations & create admin and manager
 *     python manage.py makemigrations
       python manage.py migrate
       python manage.py create_admin
       python manage.py create_manager
 5. Start the server
-*     python manage.py runserver
+*     python manage.py runserver 
 
 Now visit:
 
@@ -100,7 +100,7 @@ Now visit:
 
 * API Docs: http://127.0.0.1:8000/api/docs
 
-* Admin Panel: http://127.0.0.1:8000/admin
+* Admin Panel: http://127.0.0.1:8000/admin<br />
 
 
 🔑 Authentication
@@ -109,7 +109,7 @@ Now visit:
 
 * API: HTTP Basic Authentication
 
-When using Swagger UI, click Authorize and enter your Django username + password.
+When using Swagger UI, click Authorize and enter your Django username + password.<br />
 
 
 📡 API Overview
@@ -121,7 +121,7 @@ When using Swagger UI, click Authorize and enter your Django username + password
 | /api/availability | GET    | Check vehicle availability   | Public  |
 
 More endpoints will be added as the project grows.
-👉 See full interactive docs at /api/docs.
+👉 See full interactive docs at /api/docs.<br />
 
 
 📦 Database Structure (High-Level)
@@ -134,7 +134,7 @@ More endpoints will be added as the project grows.
 
 * inventory.ReservationGroup – groups multiple reservations under one booking
 
-* inventory.VehicleReservation – single vehicle reservation linked to a group
+* inventory.VehicleReservation – single vehicle reservation linked to a group<br />
 
 
 📝 Development Notes
@@ -149,7 +149,7 @@ More endpoints will be added as the project grows.
 
 * Managers cannot access Django Admin; they manage everything via UI
 
-* Unlimited seats logic applies automatically to Golf MK2 🚙
+* Unlimited seats logic applies automatically to Golf MK2 🚙<br />
 
 
 🚀 Future Improvements
