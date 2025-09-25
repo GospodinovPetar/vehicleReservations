@@ -6,28 +6,43 @@
       <tr><td style="padding:24px;">
         <h2 style="margin:0 0 8px;">We received your reservation</h2>
         <p style="margin:0 0 16px; color:#374151;">
-          Hi {{ user.get_full_name|default:user.username }}, thanks for your request.
+          Hi {{ group.user.get_full_name|default:group.user.username }}, thanks for your request.
         </p>
 
         <p style="margin:0 0 16px; color:#374151;">
-          Reference:
-          <strong>
-          {% if reservation.group and reservation.group.reference %}
-            {{ reservation.group.reference }}
-          {% elif reservation.group %}
-            #{{ reservation.group.pk }}
-          {% else %}
-            #{{ reservation.pk }}
-          {% endif %}
-          </strong>
+          Reference: <strong>{{ reference }}</strong>
         </p>
 
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0; border-collapse:collapse;">
+<<<<<<< Updated upstream
           <tr><td style="padding:8px 0; width:160px; color:#6b7280;">Vehicle</td><td style="padding:8px 0; color:#111827;">{{ reservation.vehicle }}</td></tr>
           <tr><td style="padding:8px 0; color:#6b7280;">Dates</td><td style="padding:8px 0; color:#111827;">{{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}</td></tr>
           <tr><td style="padding:8px 0; color:#6b7280;">Pickup → Return</td><td style="padding:8px 0; color:#111827;">{{ reservation.pickup_location }} → {{ reservation.return_location }}</td></tr>
           <tr><td style="padding:8px 0; color:#6b7280;">Status</td><td style="padding:8px 0; color:#111827;">{{ reservation.get_status_display|default:reservation.status }}</td></tr>
           {% if reservation.total_price %}<tr><td style="padding:8px 0; color:#6b7280;">Estimated total</td><td style="padding:8px 0; color:#111827;">€{{ reservation.total_price|floatformat:2 }}</td></tr>{% endif %}
+=======
+          <thead>
+            <tr>
+              <th align="left" style="padding:8px 0; color:#6b7280;">Vehicle</th>
+              <th align="left" style="padding:8px 0; color:#6b7280;">Dates</th>
+              <th align="left" style="padding:8px 0; color:#6b7280;">Pickup → Return</th>
+              <th align="left" style="padding:8px 0; color:#6b7280;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in items %}
+            <tr>
+              <td style="padding:6px 0; color:#111827;">{{ r.vehicle }}</td>
+              <td style="padding:6px 0; color:#111827;">{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+              <td style="padding:6px 0; color:#111827;">{{ r.pickup_location }} → {{ r.return_location }}</td>
+              <!-- group-wide status only -->
+              <td style="padding:6px 0; color:#111827;">{{ status }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="padding:6px 0; color:#6b7280;">No items found.</td></tr>
+            {% endfor %}
+          </tbody>
+>>>>>>> Stashed changes
         </table>
 
         <p style="margin:16px 0; color:#374151;">We’ll notify you when the status changes.</p>

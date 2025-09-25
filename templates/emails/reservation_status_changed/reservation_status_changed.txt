@@ -1,21 +1,34 @@
-Reservation status updated
+Reservation status updated: {{ reference }}
 
-Hi {{ user.get_full_name|default:user.username }},
+Hi {{ group.user.get_full_name|default:group.user.username }},
 
+<<<<<<< Updated upstream
 Your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %} changed status.
 
 - Old status: {{ old_status }}
 - New status: {{ reservation.get_status_display|default:new_status }}
 
 {% if reservation.group %}
+=======
+- Old status: {{ old_status }}
+- New status: {{ new_status }}
+
+>>>>>>> Stashed changes
 Items:
-{% for r in reservation.group.reservations.all %}
+{% for r in items %}
 - Vehicle: {{ r.vehicle }}
   Dates: {{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}
   Pickup → Return: {{ r.pickup_location }} → {{ r.return_location }}
+<<<<<<< Updated upstream
   Status: {{ r.get_status_display|default:r.status }}
 {% endfor %}
 {% endif %}
+=======
+  Status: {{ new_status }}
+{% empty %}
+- (No items)
+{% endfor %}
+>>>>>>> Stashed changes
 
 Manage your reservation:
 {% url 'inventory:reservations' %}

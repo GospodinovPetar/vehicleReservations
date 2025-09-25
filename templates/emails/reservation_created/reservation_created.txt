@@ -1,7 +1,8 @@
-Reservation received
+Reservation received: {{ reference }}
 
-Hi {{ user.get_full_name|default:user.username }},
+Hi {{ group.user.get_full_name|default:group.user.username }},
 
+<<<<<<< Updated upstream
 We received your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %}.
 
 Details:
@@ -10,6 +11,18 @@ Details:
 - Pickup → Return: {{ reservation.pickup_location }} → {{ reservation.return_location }}
 - Status: {{ reservation.get_status_display|default:reservation.status }}{% if reservation.total_price %}
 - Estimated total: €{{ reservation.total_price|floatformat:2 }}{% endif %}
+=======
+Status: {{ status }}
+
+Items:
+{% for r in items %}
+- Vehicle: {{ r.vehicle }}
+  Dates: {{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}
+  Pickup → Return: {{ r.pickup_location }} → {{ r.return_location }}
+{% empty %}
+- (No items)
+{% endfor %}
+>>>>>>> Stashed changes
 
 You can review your reservation here:
 {% url 'inventory:reservations' %}

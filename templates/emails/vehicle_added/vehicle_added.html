@@ -1,82 +1,34 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Vehicle added to your reservation</title>
-  </head>
+  <head><meta charset="utf-8" /><title>Vehicle added to your reservation</title></head>
   <body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f7f7f8; padding:24px;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:12px;">
-      <tr>
-        <td style="padding:24px;">
-          <h2 style="margin:0 0 8px;">Vehicle added to your reservation</h2>
-          <p style="margin:0 0 16px; color:#374151;">
-            Hi {{ user.get_full_name|default:user.username }},
-          </p>
+      <tr><td style="padding:24px;">
+        <h2 style="margin:0 0 8px;">Vehicle added to your reservation</h2>
+        <p style="margin:0 0 16px; color:#374151;">
+          Hi {{ group.user.get_full_name|default:group.user.username }},
+        </p>
 
-          <p style="margin:0 0 16px; color:#374151;">
-            You've added a vehicle to your reservation
-            <strong>
-              {% if reservation.group and reservation.group.reference %}
-                {{ reservation.group.reference }}
-              {% elif reservation.group %}
-                #{{ reservation.group.pk }}
-              {% else %}
-                #{{ reservation.pk }}
-              {% endif %}
-            </strong>.
-          </p>
+        <p style="margin:0 0 16px; color:#374151;">
+          You've added a vehicle to your reservation <strong>{{ reference }}</strong>.
+        </p>
 
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0; border-collapse:collapse;">
-            <tr>
-              <td style="padding:8px 0; width:160px; color:#6b7280;">Vehicle</td>
-              <td style="padding:8px 0; color:#111827;">
-                {{ reservation.vehicle }}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 0; color:#6b7280;">Dates</td>
-              <td style="padding:8px 0; color:#111827;">
-                {{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 0; color:#6b7280;">Pickup → Return</td>
-              <td style="padding:8px 0; color:#111827;">
-                {{ reservation.pickup_location }} → {{ reservation.return_location }}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 0; color:#6b7280;">Status</td>
-              <td style="padding:8px 0; color:#111827;">
-                {{ reservation.get_status_display|default:reservation.status }}
-              </td>
-            </tr>
-            {% if reservation.total_price %}
-            <tr>
-              <td style="padding:8px 0; color:#6b7280;">Estimated total</td>
-              <td style="padding:8px 0; color:#111827;">
-                €{{ reservation.total_price|floatformat:2 }}
-              </td>
-            </tr>
-            {% endif %}
-          </table>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0; border-collapse:collapse;">
+          <tr><td style="padding:8px 0; width:160px; color:#6b7280;">Vehicle</td><td style="padding:8px 0; color:#111827;">{{ reservation.vehicle }}</td></tr>
+          <tr><td style="padding:8px 0; color:#6b7280;">Dates</td><td style="padding:8px 0; color:#111827;">{{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}</td></tr>
+          <tr><td style="padding:8px 0; color:#6b7280;">Pickup → Return</td><td style="padding:8px 0; color:#111827;">{{ reservation.pickup_location }} → {{ reservation.return_location }}</td></tr>
+          <tr><td style="padding:8px 0; color:#6b7280;">Status</td><td style="padding:8px 0; color:#111827;">{{ status }}</td></tr>
+          {% if reservation.total_price %}<tr><td style="padding:8px 0; color:#6b7280;">Estimated total</td><td style="padding:8px 0; color:#111827;">€{{ reservation.total_price|floatformat:2 }}</td></tr>{% endif %}
+        </table>
 
-          <p style="margin:16px 0; color:#374151;">
-            You can review or manage your reservation from your account.
-          </p>
+        <p style="margin:16px 0; color:#374151;">You can review or manage your reservation from your account.</p>
 
-          <p style="margin:24px 0 0;">
-            <a href="{% url 'inventory:reservations' %}"
-               style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:12px 16px; border-radius:10px; font-weight:600;">
-              View my reservations
-            </a>
-          </p>
+        <p style="margin:24px 0 0;">
+          <a href="{% url 'inventory:reservations' %}" style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:12px 16px; border-radius:10px; font-weight:600;">View my reservations</a>
+        </p>
 
-          <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">
-            If you didn’t make this change, please contact support.
-          </p>
-        </td>
-      </tr>
+        <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">If you didn’t make this change, please contact support.</p>
+      </td></tr>
     </table>
   </body>
 </html>

@@ -13,20 +13,31 @@ from django.utils import timezone
 
 from inventory.views.reservations.reservation_edit_form import ReservationEditForm
 
+from django.template.loader import render_to_string
+from django.core.mail import send_mail
+from django.conf import settings
+
 
 @login_required
 def edit_reservation(request, pk):
     """
+<<<<<<< Updated upstream
     Allow a user to edit their reservation. If the user changes pickup/return dates,
     we check whether the selected vehicle is available for those dates (ignoring the
     current reservation itself). If available, we save the new dates and set status
     back to PENDING for re-approval.
+=======
+    Allow a user to edit their reservation. If the user changes pickup/return dates
+    or vehicle/locations, we check availability and then save changes. When any of
+    these fields change, the GROUP status goes back to PENDING for re-approval,
+    and we send an email summary of the changes to the reservation owner.
+>>>>>>> Stashed changes
     """
-    reservation = get_object_or_404(
-        VehicleReservation.objects.select_related("vehicle", "group"),
-        pk=pk,
-        user=request.user,
-    )
+    qs = VehicleReservation.objects.select_related("vehicle", "group", "user")
+    if getattr(request.user, "role", "") in ("manager", "admin"):
+        reservation = get_object_or_404(qs, pk=pk)
+    else:
+        reservation = get_object_or_404(qs.filter(user=request.user), pk=pk)
 
     if request.method == "POST":
         form = ReservationEditForm(request.POST, instance=reservation)
@@ -116,31 +127,99 @@ def edit_reservation(request, pk):
 
             try:
                 with transaction.atomic():
+                    before = {
+                        "vehicle": reservation.vehicle,
+                        "pickup_location": reservation.pickup_location,
+                        "return_location": reservation.return_location,
+                        "start_date": reservation.start_date,
+                        "end_date": reservation.end_date,
+                    }
+
                     instance = form.save(commit=False)
                     instance.full_clean()
                     instance.save()
 
-                    dates_changed = (
-                        ("start_date" in form.changed_data)
-                        or ("end_date" in form.changed_data)
-                        or original_start != new_start
-                        or original_end != new_end
-                    )
+                    important_fields = {
+                        "vehicle",
+                        "pickup_location",
+                        "return_location",
+                        "start_date",
+                        "end_date",
+                    }
+                    changed_fields = set(form.changed_data) & important_fields
+                    important_changed = bool(changed_fields)
 
+<<<<<<< Updated upstream
                     if dates_changed:
                         instance.status = ReservationStatus.PENDING
                         instance.save(
                             update_fields=["status"]
                         )  # triggers your status-change signal
+=======
+                    if important_changed and instance.group_id:
+                        instance.group.status = ReservationStatus.PENDING
+                        instance.group.save(update_fields=["status"])
+>>>>>>> Stashed changes
+
+                    if important_changed and instance.user and instance.user.email:
+                        after = {
+                            "vehicle": instance.vehicle,
+                            "pickup_location": instance.pickup_location,
+                            "return_location": instance.return_location,
+                            "start_date": instance.start_date,
+                            "end_date": instance.end_date,
+                        }
+
+                        label_map = {
+                            "vehicle": "Vehicle",
+                            "pickup_location": "Pickup location",
+                            "return_location": "Return location",
+                            "start_date": "Start date",
+                            "end_date": "End date",
+                        }
+
+                        def fmt(val, field):
+                            if field in ("start_date", "end_date") and val:
+                                return val.strftime("%Y-%m-%d")
+                            return str(val) if val is not None else "-"
+
+                        changes = [
+                            {
+                                "label": label_map[f],
+                                "before": fmt(before[f], f),
+                                "after": fmt(after[f], f),
+                            }
+                            for f in ["vehicle", "pickup_location", "return_location", "start_date", "end_date"]
+                            if f in changed_fields
+                        ]
+
+                        group = instance.group
+                        ctx = {
+                            "reservation": instance,
+                            "group": group,
+                            "reference": (getattr(group, "reference", None) or f"#{group.pk}") if group else f"#{instance.pk}",
+                            "status": group.get_status_display() if group else "",
+                            "changes": changes,
+                            "total_price": instance.total_price,
+                        }
+
+                        subject = f"Reservation updated: {ctx['reference']}"
+                        text_body = render_to_string("emails/reservation_edited/reservation_edited.txt", ctx)
+                        html_body = render_to_string("emails/reservation_edited/reservation_edited.html", ctx)
+
+                        send_mail(
+                            subject=subject,
+                            message=text_body,
+                            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None) or "no-reply@example.com",
+                            recipient_list=[instance.user.email],
+                            html_message=html_body,
+                            fail_silently=True,
+                        )
 
                 messages.success(
                     request,
                     "Reservation updated."
-                    + (
-                        " Status set to PENDING for re-approval."
-                        if dates_changed
-                        else ""
-                    ),
+                    + (" Status set to PENDING for re-approval." if important_changed else ""),
                 )
                 return redirect("inventory:reservations")
 

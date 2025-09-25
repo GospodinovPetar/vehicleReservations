@@ -1,14 +1,12 @@
-Vehicle added to your reservation
+Vehicle added to your reservation: {{ reference }}
 
-Hi {{ user.get_full_name|default:user.username }},
-
-We’ve added a vehicle to your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %}.
+Hi {{ group.user.get_full_name|default:group.user.username }},
 
 Details:
 - Vehicle: {{ reservation.vehicle }}
 - Dates: {{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}
 - Pickup → Return: {{ reservation.pickup_location }} → {{ reservation.return_location }}
-- Status: {{ reservation.get_status_display|default:reservation.status }}{% if reservation.total_price %}
+- Status: {{ status }}{% if reservation.total_price %}
 - Estimated total: €{{ reservation.total_price|floatformat:2 }}{% endif %}
 
 You can review or manage your reservation from your account:
