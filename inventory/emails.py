@@ -1,86 +1,221 @@
+from typing import Iterable, Optional
+
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import send_mail
 from django.template.loader import render_to_string
+from django.template.exceptions import TemplateDoesNotExist
 
-from inventory.models.reservation import ReservationStatus
+
+def _recipients_for_group(group) -> list[str]:
+    user = getattr(group, "user", None)
+    email = getattr(user, "email", None) if user else None
+    return [email] if email else []
 
 
-def _send_email(subject: str, template_base: str, context: dict, to_email: str):
+def _group_items(group) -> Iterable:
+    return group.reservations.select_related(
+        "vehicle", "pickup_location", "return_location", "user"
+    ).all()
+
+
+def _render_pair(base_name: str, context: dict) -> tuple[str, Optional[str]]:
     """
-    Renders emails/emails/<template_base>.{txt,html} and sends both text+html.
-    """
-    text_body = render_to_string(f"emails/{template_base}/{template_base}.txt", context)
-    html_body = render_to_string(f"emails/{template_base}/{template_base}.html", context)
+    Render txt/html pair using your existing folder convention:
+      emails/<base>/<base>.txt and emails/<base>/<base>.html
 
-    msg = EmailMultiAlternatives(
+    Returns (text_body, html_body), where html_body can be None if missing.
+    """
+    txt_path = f"emails/{base_name}/{base_name}.txt"
+    html_path = f"emails/{base_name}/{base_name}.html"
+
+    text_body = render_to_string(txt_path, context)
+    try:
+        html_body = render_to_string(html_path, context)
+    except TemplateDoesNotExist:
+        html_body = None
+    return text_body, html_body
+
+
+def _send(subject: str, recipients: list[str], text_body: str, html_body: Optional[str]):
+    if not recipients:
+        return
+    send_mail(
         subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[to_email],
+        message=text_body,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@example.com"),
+        recipient_list=recipients,
+        html_message=html_body,
+        fail_silently=True,
     )
-    msg.attach_alternative(html_body, "text/html")
-    msg.send(fail_silently=False)
 
 
-def send_reservation_created_email(reservation):
-    ctx = {"reservation": reservation, "user": reservation.user}
-    subject = f"Reservation received — #{reservation.pk}"
-    _send_email(subject, "reservation_created", ctx, reservation.user.email)
-
-
-def send_reservation_status_changed_email(reservation, old_status, new_status):
-    template_map = {
-        ReservationStatus.RESERVED: "reservation_confirmed",
-        ReservationStatus.REJECTED: "reservation_rejected",
-        ReservationStatus.CANCELED: "reservation_status_changed",
-        ReservationStatus.AWAITING_PAYMENT: "reservation_status_changed",
-        ReservationStatus.PENDING: "reservation_status_changed",
-        ReservationStatus.COMPLETED: "reservation_status_changed",
+def send_group_created_email(group) -> None:
+    """
+    ONE email per group when created. Uses 'reservation_created' templates.
+    """
+    recipients = _recipients_for_group(group)
+    ctx = {
+        "group": group,
+        "reference": getattr(group, "reference", None) or f"#{group.pk}",
+        "status": group.get_status_display(),
+        "items": list(_group_items(group)),
     }
-    template = template_map.get(new_status, "reservation_status_changed")
+    subject = f"Reservation created: {ctx['reference']}"
+
+    try:
+        text_body, html_body = _render_pair("reservation_created", ctx)
+    except TemplateDoesNotExist:
+        lines = [
+            f"Reservation created: {ctx['reference']}",
+            f"Status: {ctx['status']}",
+            "",
+            "Items:",
+        ]
+        for r in ctx["items"]:
+            lines.append(
+                f"- {r.vehicle} | {r.start_date:%Y-%m-%d} → {r.end_date:%Y-%m-%d} | "
+                f"{r.pickup_location} → {r.return_location}"
+            )
+        text_body, html_body = "\n".join(lines), None
+
+    _send(subject, recipients, text_body, html_body)
+
+
+# ---------- GROUP: STATUS CHANGED ----------
+
+def send_group_status_changed_email(group, old_status, new_status) -> None:
+    """
+    Group-scoped status change. We pick the most specific template name:
+      - RESERVED  -> 'reservation_confirmed'
+      - REJECTED  -> 'reservation_rejected'
+      - otherwise -> 'reservation_status_changed'
+    """
+    recipients = _recipients_for_group(group)
+
+    get_disp = getattr(group, "get_status_display", lambda: str(new_status))
+    new_disp = get_disp()
+    old_disp = getattr(group, "get_status_display", lambda: str(old_status))()
 
     ctx = {
-        "reservation": reservation,
-        "user": reservation.user,
-        "old_status": old_status,
-        "new_status": new_status,
+        "group": group,
+        "reference": getattr(group, "reference", None) or f"#{group.pk}",
+        "old_status": old_disp,
+        "new_status": new_disp,
+        "items": list(_group_items(group)),
     }
-    subject = f"Reservation #{getattr(reservation, 'pk', getattr(reservation, 'id', ''))} {reservation.get_status_display().lower()}"
-    _send_email(subject, template, ctx, reservation.user.email)
+
+    status_name = str(new_status)
+    status_name_upper = status_name.upper()
+    if status_name_upper == "RESERVED":
+        base = "reservation_confirmed"
+        subject = f"Reservation confirmed: {ctx['reference']}"
+    elif status_name_upper == "REJECTED":
+        base = "reservation_rejected"
+        subject = f"Reservation rejected: {ctx['reference']}"
+    else:
+        base = "reservation_status_changed"
+        subject = f"Reservation updated: {ctx['reference']}"
+
+    try:
+        text_body, html_body = _render_pair(base, ctx)
+    except TemplateDoesNotExist:
+        try:
+            text_body, html_body = _render_pair("reservation_status_changed", ctx)
+        except TemplateDoesNotExist:
+            text_body = (
+                f"Reservation updated: {ctx['reference']}\n"
+                f"Old status: {ctx['old_status']}\n"
+                f"New status: {ctx['new_status']}\n"
+            )
+            html_body = None
+
+    _send(subject, recipients, text_body, html_body)
 
 
-def send_vehicle_removed_email(reservation):
-    ctx = {"reservation": reservation, "user": reservation.user}
-    subject = f"Vehicle removed from reservation {reservation.group.reference or '#' + str(reservation.group.pk)}"
-    _send_email(subject, "vehicle_removed", ctx, reservation.user.email)
+
+def send_reservation_edited_email(group, reservation, changes: list[dict]) -> None:
+    """
+    Use in your 'edit_reservation' view after saving changes.
+    Expects `changes` as [{'label': 'Vehicle', 'before': 'A', 'after': 'B'}, ...]
+    Uses 'reservation_edited' templates.
+    """
+    recipients = _recipients_for_group(group)
+    ctx = {
+        "group": group,
+        "reservation": reservation,
+        "reference": getattr(group, "reference", None) or f"#{group.pk}",
+        "status": group.get_status_display(),
+        "changes": changes,
+        "items": list(_group_items(group)),
+        "total_price": getattr(reservation, "total_price", None),
+    }
+    subject = f"Reservation updated: {ctx['reference']}"
+
+    try:
+        text_body, html_body = _render_pair("reservation_edited", ctx)
+    except TemplateDoesNotExist:
+        # Simple fallback summarizing changes
+        lines = [
+            f"Reservation updated: {ctx['reference']}",
+            f"Status: {ctx['status']}",
+            "",
+            "Changes:",
+        ]
+        for c in changes or []:
+            lines.append(f"- {c.get('label')}: {c.get('before')} → {c.get('after')}")
+        text_body, html_body = "\n".join(lines), None
+
+    _send(subject, recipients, text_body, html_body)
 
 
-def send_vehicle_updated_email(reservation, changed_fields):
-    ctx = {"reservation": reservation, "user": reservation.user, "changed_fields": changed_fields}
-    subject = f"Vehicle updated in reservation {reservation.group.reference or '#' + str(reservation.group.pk)}"
-    _send_email(subject, "vehicle_updated", ctx, reservation.user.email)
+def send_vehicle_added_email(group, reservation) -> None:
+    """
+    Call in your 'add_vehicle' view after creating the VehicleReservation.
+    Uses 'vehicle_added' templates.
+    """
+    recipients = _recipients_for_group(group)
+    ctx = {
+        "group": group,
+        "reservation": reservation,
+        "reference": getattr(group, "reference", None) or f"#{group.pk}",
+        "status": group.get_status_display(),
+        "items": list(_group_items(group)),
+    }
+    subject = f"Vehicle added to reservation: {ctx['reference']}"
+
+    try:
+        text_body, html_body = _render_pair("vehicle_added", ctx)
+    except TemplateDoesNotExist:
+        text_body, html_body = (
+            f"Vehicle added to reservation {ctx['reference']}: {reservation.vehicle}",
+            None,
+        )
+
+    _send(subject, recipients, text_body, html_body)
 
 
-def send_group_status_changed_email(group, old_status, new_status):
-    class _Shim:
-        def __init__(self, group):
-            self.group = group
-            self.user = group.user
-            self.status = new_status
-            self.pk = group.pk
-        def get_status_display(self):
-            try:
-                return group.get_status_display()
-            except Exception:
-                return str(new_status)
+def send_vehicle_removed_email(group, reservation) -> None:
+    """
+    Call in your 'delete_reservation' (remove vehicle) flow BEFORE deleting the row,
+    or pass a lightweight object containing needed fields after deletion.
+    Uses 'vehicle_removed' templates.
+    """
+    recipients = _recipients_for_group(group)
+    ctx = {
+        "group": group,
+        "reservation": reservation,
+        "reference": getattr(group, "reference", None) or f"#{group.pk}",
+        "status": group.get_status_display(),
+        "items": list(_group_items(group)),
+    }
+    subject = f"Vehicle removed from reservation: {ctx['reference']}"
 
-    shim = _Shim(group)
-    send_reservation_status_changed_email(shim, old_status, new_status)
+    try:
+        text_body, html_body = _render_pair("vehicle_removed", ctx)
+    except TemplateDoesNotExist:
+        text_body, html_body = (
+            f"Vehicle removed from reservation {ctx['reference']}: {reservation.vehicle}",
+            None,
+        )
 
-def send_vehicle_added_email(reservation):
-    ctx = {"reservation": reservation, "user": reservation.user}
-    subject = (
-        f"Vehicle added to reservation "
-        f"{(reservation.group.reference or '#' + str(reservation.group.pk)) if reservation.group else f'#{reservation.pk}'}"
-    )
-    _send_email(subject, "vehicle_added", ctx, reservation.user.email)
+    _send(subject, recipients, text_body, html_body)

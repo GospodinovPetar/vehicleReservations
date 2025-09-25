@@ -1,0 +1,21 @@
+Reservation updated: {{ reference }}
+
+Current status: {{ status }}
+
+Summary:
+- Vehicle: {{ reservation.vehicle }}
+- Dates: {{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}
+- Pickup → Return: {{ reservation.pickup_location }} → {{ reservation.return_location }}
+{% if total_price %}- Estimated total: €{{ total_price|floatformat:2 }}{% endif %}
+
+Changes made:
+{% if changes %}
+{% for c in changes %}
+- {{ c.label }}: {{ c.before }} → {{ c.after }}
+{% endfor %}
+{% else %}
+- (No visible changes)
+{% endif %}
+
+Manage your reservation:
+{% url 'inventory:reservations' %}

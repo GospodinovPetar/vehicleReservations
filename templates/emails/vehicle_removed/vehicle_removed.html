@@ -6,16 +6,11 @@
       <tr><td style="padding:24px;">
         <h2 style="margin:0 0 8px;">Vehicle removed from your reservation</h2>
         <p style="margin:0 0 16px; color:#374151;">
-          Hi {{ user.get_full_name|default:user.username }}, a vehicle was removed from your reservation.
+          Hi {{ group.user.get_full_name|default:group.user.username }}, a vehicle was removed from your reservation.
         </p>
 
         <p style="margin:0 0 16px; color:#374151;">
-          Reference:
-          <strong>
-          {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}
-          {% elif reservation.group %}#{{ reservation.group.pk }}
-          {% else %}#{{ reservation.pk }}{% endif %}
-          </strong>
+          Reference: <strong>{{ reference }}</strong>
         </p>
 
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0;">

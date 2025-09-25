@@ -1,11 +1,12 @@
-Reservation rejected
+Reservation rejected: {{ reference }}
 
-Hi {{ user.get_full_name|default:user.username }},
+Hi {{ group.user.get_full_name|default:group.user.username }},
 
-Your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %} was rejected.
+Your reservation was rejected.
 
-Current status: {{ reservation.get_status_display|default:reservation.status }}
+Current status: {{ status }}
 
 If you have questions, please reply to this email.
+
 Manage your reservations:
 {% url 'inventory:reservations' %}

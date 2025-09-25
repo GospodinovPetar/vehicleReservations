@@ -1,8 +1,9 @@
-Reservation confirmed
+Reservation confirmed: {{ reference }}
 
-Hi {{ user.get_full_name|default:user.username }},
+Hi {{ group.user.get_full_name|default:group.user.username }},
 
-Your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %} is confirmed.
+Your reservation is confirmed.
+
 
 Vehicle: {{ reservation.vehicle }}
 Pickup: {{ reservation.pickup_location }} on {{ reservation.start_date }}
@@ -10,18 +11,14 @@ Return: {{ reservation.return_location }} on {{ reservation.end_date }}
 Total price: {{ reservation.total_price }} {{ reservation.currency|default:"EUR" }}
 {% if reservation.group %}
 Items:
-{% for r in reservation.group.reservations.all %}
+{% for r in items %}
 - Vehicle: {{ r.vehicle }}
   Dates: {{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}
   Pickup → Return: {{ r.pickup_location }} → {{ r.return_location }}
-  Status: {{ r.get_status_display|default:r.status }}
+  Status: {{ status }}
+{% empty %}
+- (No items)
 {% endfor %}
-{% else %}
-- Vehicle: {{ reservation.vehicle }}
-- Dates: {{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}
-- Pickup → Return: {{ reservation.pickup_location }} → {{ reservation.return_location }}
-- Status: {{ reservation.get_status_display|default:reservation.status }}
-{% endif %}
 
 Manage your reservation:
 {% url 'inventory:reservations' %}
