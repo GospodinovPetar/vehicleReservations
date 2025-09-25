@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 <p>Hi {{ user.get_full_name|default:user.username }},</p>
 <p>
   The status of your reservation <strong>#{{ reservation.pk }}</strong> has changed
@@ -12,7 +11,6 @@
 </ul>
 <p>You can view your reservation from your account.</p>
 <p>Thanks,<br>The Team</p>
-=======
 <!doctype html>
 <html>
   <head><meta charset="utf-8"><title>Reservation status updated</title></head>
@@ -36,8 +34,6 @@
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0;">
           <tr><td style="padding:8px 0; width:160px; color:#6b7280;">Old status</td><td style="padding:8px 0; color:#111827;">{{ old_status }}</td></tr>
           <tr><td style="padding:8px 0; color:#6b7280;">New status</td><td style="padding:8px 0; color:#111827;">{{ reservation.group.get_status_display|default:new_status }}</td></tr>
-        </table>
-
         {% if reservation.group %}
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0; border-collapse:collapse;">
             <thead>
@@ -72,4 +68,3 @@
     </table>
   </body>
 </html>
->>>>>>> Stashed changes

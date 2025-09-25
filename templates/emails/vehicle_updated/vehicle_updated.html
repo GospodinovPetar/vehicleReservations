@@ -1,10 +1,44 @@
-<p>Hi {{ user.get_full_name|default:user.username }},</p>
-<p>A vehicle in your reservation <strong>{{ reservation.group.reference|default:("#" ~ reservation.group.pk) }}</strong> was <strong>edited</strong>.</p>
-<p><strong>Changed fields:</strong> {{ changed_fields|join:", " }}</p>
-<ul>
-  <li><strong>Vehicle:</strong> {{ reservation.vehicle.name }}</li>
-  <li><strong>Pickup:</strong> {{ reservation.pickup_location.name }} | <strong>Return:</strong> {{ reservation.return_location.name }}</li>
-  <li><strong>Period:</strong> {{ reservation.start_date }} → {{ reservation.end_date }}</li>
-</ul>
-<p>Because the reservation was previously <strong>RESERVED</strong>, its status has been set to <strong>PENDING</strong> for re‑review.</p>
-<p>Thanks,<br/>Support Team</p>
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Vehicle updated</title></head>
+  <body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f7f7f8; padding:24px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:12px;">
+      <tr><td style="padding:24px;">
+        <h2 style="margin:0 0 8px;">Vehicle updated in your reservation</h2>
+        <p style="margin:0 0 16px; color:#374151;">
+          Hi {{ user.get_full_name|default:user.username }}, we updated details for a vehicle in your reservation.
+        </p>
+
+        <p style="margin:0 0 16px; color:#374151;">
+          Reference:
+          <strong>
+          {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}
+          {% elif reservation.group %}#{{ reservation.group.pk }}
+          {% else %}#{{ reservation.pk }}{% endif %}
+          </strong>
+        </p>
+
+        {% if changed_fields %}
+          <p style="margin:0 0 8px; color:#374151;"><strong>Changed:</strong></p>
+          <ul style="margin-top:0; color:#111827;">
+            {% for f in changed_fields %}
+              <li>{{ f|title }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0;">
+          <tr><td style="padding:8px 0; width:160px; color:#6b7280;">Vehicle</td><td style="padding:8px 0; color:#111827;">{{ reservation.vehicle }}</td></tr>
+          <tr><td style="padding:8px 0; color:#6b7280;">Dates</td><td style="padding:8px 0; color:#111827;">{{ reservation.start_date|date:"Y-m-d" }} → {{ reservation.end_date|date:"Y-m-d" }}</td></tr>
+          <tr><td style="padding:8px 0; color:#6b7280;">Pickup → Return</td><td style="padding:8px 0; color:#111827;">{{ reservation.pickup_location }} → {{ reservation.return_location }}</td></tr>
+        </table>
+
+        <p style="margin:24px 0 0;">
+          <a href="{% url 'inventory:reservations' %}" style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:12px 16px; border-radius:10px; font-weight:600;">
+            View my reservations
+          </a>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>

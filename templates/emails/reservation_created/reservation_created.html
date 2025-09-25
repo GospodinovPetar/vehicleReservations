@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 <p>Hi {{ user.get_full_name|default:user.username }},</p>
 <p>We received your reservation (<strong>#{{ reservation.pk|default:reservation.id }}</strong>) for <strong>{{ reservation.vehicle.name }}</strong>.</p>
 <p>
@@ -9,7 +8,6 @@
 </p>
 <p>We’ll email you when it’s confirmed or rejected.</p>
 <p>— Vehicle Reservations</p>
-=======
 <!doctype html>
 <html>
   <head><meta charset="utf-8"><title>Reservation received</title></head>
@@ -20,7 +18,6 @@
         <p style="margin:0 0 16px; color:#374151;">
           Hi {{ user.get_full_name|default:user.username }}, thanks for your request.
         </p>
-
         <p style="margin:0 0 16px; color:#374151;">
           Reference:
           <strong>
@@ -53,4 +50,3 @@
     </table>
   </body>
 </html>
->>>>>>> Stashed changes

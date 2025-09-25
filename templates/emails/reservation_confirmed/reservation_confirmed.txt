@@ -1,20 +1,20 @@
+Reservation confirmed
+
 Hi {{ user.get_full_name|default:user.username }},
 
-Good news — your reservation #{{ reservation.pk }} has been confirmed!
+Your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %} is confirmed.
 
-<<<<<<< Updated upstream
 Vehicle: {{ reservation.vehicle }}
 Pickup: {{ reservation.pickup_location }} on {{ reservation.start_date }}
 Return: {{ reservation.return_location }} on {{ reservation.end_date }}
 Total price: {{ reservation.total_price }} {{ reservation.currency|default:"EUR" }}
-=======
 {% if reservation.group %}
 Items:
 {% for r in reservation.group.reservations.all %}
 - Vehicle: {{ r.vehicle }}
   Dates: {{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}
   Pickup → Return: {{ r.pickup_location }} → {{ r.return_location }}
-  Status: {{ reservation.get_status_display|default:reservation.status }}
+  Status: {{ r.get_status_display|default:r.status }}
 {% endfor %}
 {% else %}
 - Vehicle: {{ reservation.vehicle }}
@@ -22,7 +22,6 @@ Items:
 - Pickup → Return: {{ reservation.pickup_location }} → {{ reservation.return_location }}
 - Status: {{ reservation.get_status_display|default:reservation.status }}
 {% endif %}
->>>>>>> Stashed changes
 
-Thanks,
-The Team
+Manage your reservation:
+{% url 'inventory:reservations' %}

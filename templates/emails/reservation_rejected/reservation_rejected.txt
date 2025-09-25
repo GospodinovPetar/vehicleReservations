@@ -1,8 +1,11 @@
+Reservation rejected
+
 Hi {{ user.get_full_name|default:user.username }},
 
-We’re sorry — your reservation #{{ reservation.pk }} has been rejected.
+Your reservation {% if reservation.group and reservation.group.reference %}{{ reservation.group.reference }}{% elif reservation.group %}#{{ reservation.group.pk }}{% else %}#{{ reservation.pk }}{% endif %} was rejected.
 
-If you have questions, reply to this message.
+Current status: {{ reservation.get_status_display|default:reservation.status }}
 
-Thanks,
-The Team
+If you have questions, please reply to this email.
+Manage your reservations:
+{% url 'inventory:reservations' %}
