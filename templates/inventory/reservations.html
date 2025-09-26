@@ -20,7 +20,6 @@
                 <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
               {% endif %}
 
-
               <button class="btn" type="submit">Cancel</button>
             </form>
           </div>
@@ -41,9 +40,9 @@
                 {% for r in g.reservations.all %}
                   <tr>
                     <td>{{ r.user }}</td>
-                    <td>{{ r.vehicle }}</td>
+                    <td>{{ r.vehicle_display }}</td>
                     <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                    <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
+                    <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
                     <td>{{ r.total_price|floatformat:2 }} EUR</td>
                     <td>
                       <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
@@ -100,9 +99,9 @@
               {% for r in g.reservations.all %}
                 <tr>
                   <td>{{ r.user }}</td>
-                  <td>{{ r.vehicle }}</td>
+                  <td>{{ r.vehicle_display }}</td>
                   <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                  <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
+                  <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
                   <td>{{ r.total_price|floatformat:2 }} EUR</td>
                 </tr>
               {% empty %}

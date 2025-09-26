@@ -48,26 +48,25 @@
             {% for r in group.reservations.all %}
               <tr>
                 <td><a href="{% url 'accounts:profile' r.user.id %}">{{ r.user.username }}</a></td>
-                <td>{{ r.vehicle.name }}</td>
+                <td>{{ r.vehicle_display }}</td>
                 <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
+                <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
                 <td>{{ r.total_price|floatformat:2 }} EUR</td>
                 <td>
-            {% if group.status in "COMPLETED,REJECTED,CANCELED" %}
-                <button class="btn" disabled>Actions Disabled</button>
-            {% else %}
-                <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
-            {% if active_count > 1 %}
-                <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
-            {% csrf_token %}
-                <button class="btn" type="submit">Delete</button>
-                </form>
-            {% else %}
-                <button class="btn" disabled title="Cannot remove the only vehicle">Delete</button>
-            {% endif %}
-             {% endif %}
+                  {% if group.status == "COMPLETED" or group.status == "REJECTED" or group.status == "CANCELED" %}
+                    <button class="btn" disabled>Actions Disabled</button>
+                  {% else %}
+                    <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
+                    {% if active_count > 1 %}
+                      <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button class="btn" type="submit">Delete</button>
+                      </form>
+                    {% else %}
+                      <button class="btn" disabled title="Cannot remove the only vehicle">Delete</button>
+                    {% endif %}
+                  {% endif %}
                 </td>
-
               </tr>
             {% empty %}
               <tr><td colspan="6">No items in this group.</td></tr>
@@ -110,9 +109,9 @@
           {% for r in group.reservations.all %}
             <tr>
               <td><a href="{% url 'accounts:profile' r.user.id %}">{{ r.user.username }}</a></td>
-              <td>{{ r.vehicle.name }}</td>
+              <td>{{ r.vehicle_display }}</td>
               <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-              <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
+              <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
               <td>{{ r.total_price|floatformat:2 }} EUR</td>
             </tr>
           {% empty %}
