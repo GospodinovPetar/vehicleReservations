@@ -1,8 +1,8 @@
 from django.contrib import messages
 from django.http import HttpResponseForbidden
-from django.contrib.auth import login, logout, get_user_model
+from django.contrib.auth import login, logout, get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.shortcuts import redirect, render, get_object_or_404
 from django.views.decorators.http import require_http_methods
 
@@ -84,6 +84,66 @@ def logout_view(request):
     logout(request)
     messages.success(request, "You have been logged out.")
     return redirect("/")
+
+
+@login_required
+def profile_view(request, pk=None):
+    """
+    User profile page.
+    - Users can only see their own profile.
+    - Admin/Manager can view others' profiles.
+    """
+    if pk:
+        if request.user.role in ["admin", "manager"]:
+            user = get_object_or_404(User, pk=pk)
+        else:
+            return HttpResponseForbidden("You cannot view other users’ profiles.")
+    else:
+        user = request.user
+
+    reservations = VehicleReservation.objects.filter(user=user).select_related(
+        "vehicle", "pickup_location", "return_location"
+    )
+
+    return render(
+        request,
+        "accounts/profile/profile_detail.html",
+        {"profile_user": user, "reservations": reservations},
+    )
+
+
+@login_required
+def profile_edit(request):
+    """Allow a logged-in user to edit their own profile."""
+    user = request.user
+    if request.method == "POST":
+        form = UserProfileForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Your profile has been updated.")
+            return redirect("accounts:profile", pk=user.id)
+    else:
+        form = UserProfileForm(instance=user)
+
+    return render(request, "accounts/profile/profile_edit.html", {"form": form})
+
+
+@login_required
+def profile_change_password(request):
+    """Allow logged-in user to change their password."""
+    if request.method == "POST":
+        form = PasswordChangeForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)  # Keep user logged in
+            messages.success(request, "Your password has been updated successfully.")
+            return redirect("accounts:profile", pk=request.user.id)
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = PasswordChangeForm(user=request.user)
+
+    return render(request, "accounts/profile/profile_change_password.html", {"form": form})
 
 
 # ----------- Admin decorators / views -----------

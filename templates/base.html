@@ -31,6 +31,7 @@
             <li><a href="{% url 'accounts:logout' %}" class="btn">Logout</a></li>
             <li><a href="/reservations/" class="btn">My Reservations</a></li>
             <li><a class="btn" href="{% url 'cart:view_cart' %}">Cart</a></li>
+            <li><a href="{% url 'accounts:profile' user.id %}" class="btn">Profile</a></li>
 
             {% if user.role == "admin" %}
               <li><a href="{% url 'accounts:admin-dashboard' %}" class="btn primary">Admin Dashboard</a></li>
