@@ -88,6 +88,11 @@ def logout_view(request):
 
 
 @login_required
+def my_profile(request):
+    return redirect("accounts:profile-detail", pk=request.user.pk)
+
+
+@login_required
 def profile_view(request, pk=None):
     """
     User profile page.
@@ -122,7 +127,7 @@ def profile_edit(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Your profile has been updated.")
-            return redirect("accounts:profile", pk=user.id)
+            return redirect("accounts:profile")
     else:
         form = UserProfileForm(instance=user)
 
@@ -138,7 +143,7 @@ def profile_change_password(request):
             user = form.save()
             update_session_auth_hash(request, user)  # Keep user logged in
             messages.success(request, "Your password has been updated successfully.")
-            return redirect("accounts:profile", pk=request.user.id)
+            return redirect("accounts:profile")
         else:
             messages.error(request, "Please correct the errors below.")
     else:
@@ -430,8 +435,8 @@ def reservation_group_approve(request, pk):
 def reservation_group_reject(request, pk):
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status not in (
-        ReservationStatus.PENDING,
-        ReservationStatus.AWAITING_PAYMENT,
+            ReservationStatus.PENDING,
+            ReservationStatus.AWAITING_PAYMENT,
     ):
         return HttpResponseForbidden(
             "Only pending/awaiting-payment groups can be rejected."
@@ -486,8 +491,8 @@ def reservation_reject(request, pk):
     r = get_object_or_404(VehicleReservation, pk=pk)
     grp = r.group
     if not grp or grp.status not in (
-        ReservationStatus.PENDING,
-        ReservationStatus.AWAITING_PAYMENT,
+            ReservationStatus.PENDING,
+            ReservationStatus.AWAITING_PAYMENT,
     ):
         return HttpResponseForbidden(
             "Only pending/awaiting-payment reservation groups can be rejected."
