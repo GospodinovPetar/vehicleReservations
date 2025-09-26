@@ -47,19 +47,18 @@
       <p><button class="btn primary" type="submit">Search</button></p>
     </form>
 
+    <!-- Pricing notice (simple, no-JS, no new files) -->
     <div class="card" aria-live="polite" style="display:flex; gap:12px; align-items:flex-start; background:#f8fafc; border-color:#cbd5e1; margin-top:8px;">
       <div aria-hidden="true" style="font-size:18px; line-height:1.2;">💡</div>
       <div>
         <div style="font-weight:700; margin-bottom:4px;">Pricing tip</div>
         <p style="margin:0; color:#374151;">
-          Book more days to pay less <em>per day</em> — we automatically apply the best long-stay rate for your dates (weekly: pay 6 of 7; monthly: pay 26 of 30). No codes needed.
+          Book more days to pay less <em>per day</em> — we automatically apply the best long-stay rate for your dates.
         </p>
-        <details style="margin-top:6px;">
-          <summary style="cursor:pointer; color:#111; font-weight:600;">How it works</summary>
-          <p style="margin-top:6px; color:#4b5563; font-size:14px;">
-            We compare daily pricing to longer blocks (e.g., weekly = 6/7 days, monthly = 26/30 days) and charge whichever combination is cheaper for your exact dates. Savings apply automatically at checkout.
-          </p>
-        </details>
+        <ul style="margin:8px 0 0; padding-left:18px; color:#374151;">
+          <li>Reserve <strong>a week</strong> → pay <strong>6</strong> days (you get 1 day free).</li>
+          <li>Reserve <strong>a month</strong> → pay <strong>26</strong> days (you get 4 days free).</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -81,7 +80,6 @@
 
           <div>
             {% if r.quote.days > 6 %}
-              {# Try to find a baseline daily rate to compute the original (non-discounted) total #}
               {% if r.vehicle.price_per_day %}
                 <div style="margin-bottom:2px;">
                   <span style="text-decoration:line-through; color:#6b7280;">
@@ -91,7 +89,7 @@
                 </div>
                 <div style="font-size:.9em; color:#6b7280;">
                   ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  <span> (instead of {{ r.vehicle.price_per_day }} {{ r.quote.currency }}/day)</span>
+                  (instead of {{ r.vehicle.price_per_day }} {{ r.quote.currency }}/day)
                 </div>
               {% elif r.vehicle.daily_price %}
                 <div style="margin-bottom:2px;">
@@ -102,7 +100,7 @@
                 </div>
                 <div style="font-size:.9em; color:#6b7280;">
                   ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  <span> (instead of {{ r.vehicle.daily_price }} {{ r.quote.currency }}/day)</span>
+                  (instead of {{ r.vehicle.daily_price }} {{ r.quote.currency }}/day)
                 </div>
               {% elif r.vehicle.base_daily_rate %}
                 <div style="margin-bottom:2px;">
@@ -113,7 +111,7 @@
                 </div>
                 <div style="font-size:.9em; color:#6b7280;">
                   ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  <span> (instead of {{ r.vehicle.base_daily_rate }} {{ r.quote.currency }}/day)</span>
+                  (instead of {{ r.vehicle.base_daily_rate }} {{ r.quote.currency }}/day)
                 </div>
               {% elif r.quote.daily_price %}
                 <div style="margin-bottom:2px;">
@@ -124,7 +122,7 @@
                 </div>
                 <div style="font-size:.9em; color:#6b7280;">
                   ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  <span> (instead of {{ r.quote.daily_price }} {{ r.quote.currency }}/day)</span>
+                  (instead of {{ r.quote.daily_price }} {{ r.quote.currency }}/day)
                 </div>
               {% elif r.quote.base_daily_rate %}
                 <div style="margin-bottom:2px;">
@@ -135,10 +133,9 @@
                 </div>
                 <div style="font-size:.9em; color:#6b7280;">
                   ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  <span> (instead of {{ r.quote.base_daily_rate }} {{ r.quote.currency }}/day)</span>
+                  (instead of {{ r.quote.base_daily_rate }} {{ r.quote.currency }}/day)
                 </div>
               {% else %}
-                {# Fallback: show standard total if we can't determine a baseline rate #}
                 <div>
                   Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
                   <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
@@ -198,7 +195,7 @@
               </form>
             {% else %}
               <a class="btn"
-                 href="{% url 'accounts:login' %}?next={{ request.get_full_path|urlencode }}">
+                 href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ start }}&end={{ end }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}">
                 Login to add to cart
               </a>
             {% endif %}
@@ -343,7 +340,7 @@
                 </form>
               {% else %}
                 <a class="btn" style="margin:.25rem 0;"
-                   href="{% url 'accounts:login' %}?next={{ request.get_full_path|urlencode }}">
+                   href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ s.start|date:'Y-m-d' }}&end={{ s.end|date:'Y-m-d' }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}">
                   Login to reserve {{ s.start }} → {{ s.end }}
                 </a>
               {% endif %}
