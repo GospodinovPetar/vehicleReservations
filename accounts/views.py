@@ -451,6 +451,32 @@ def reservation_cancel(request, pk):
     return redirect("accounts:reservation-list")
 
 
+@manager_required
+def reservation_complete(request, pk):
+    group = get_object_or_404(ReservationGroup, pk=pk)
+    if group.status != ReservationStatus.RESERVED:
+        return HttpResponseForbidden("Only reserved groups can be marked as completed.")
+
+    group.status = ReservationStatus.COMPLETED
+    group.save(update_fields=["status"])
+
+    messages.success(request, f"Reservation group {group.id} marked as Completed.")
+    return redirect("accounts:reservation-list")
+
+
+@manager_required
+def reservation_group_complete(request, pk):
+    group = get_object_or_404(ReservationGroup, pk=pk)
+    if group.status != ReservationStatus.RESERVED:
+        return HttpResponseForbidden("Only reserved groups can be marked as completed.")
+
+    group.status = ReservationStatus.COMPLETED
+    group.save(update_fields=["status"])
+
+    messages.success(request, f"Reservation group {group.id} marked as Completed.")
+    return redirect("accounts:reservation-list")
+
+
 # --- User reservation view (normal users only) ---
 @login_required
 def user_reservations(request):
