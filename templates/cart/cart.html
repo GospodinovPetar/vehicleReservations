@@ -1,34 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Your Cart</h1>
-{% if rows %}
-  <table>
-    <thead>
-      <tr><th>Vehicle</th><th>From</th><th>To</th><th>Days</th><th>Total</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for row in rows %}
-      <tr>
-        <td>{{ row.item.vehicle }}</td>
-        <td>{{ row.item.start_date }}</td>
-        <td>{{ row.item.end_date }}</td>
-        <td>{{ row.days }}</td>
-        <td>{{ row.total }} EUR</td>
-        <td>
-          <form method="post" action="{% url 'cart:remove_from_cart' row.item.id %}">
-            {% csrf_token %}
-            <button type="submit">Remove</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <form method="post" action="{% url 'cart:checkout' %}">
-    {% csrf_token %}
-    <button type="submit">Checkout</button>
-  </form>
-{% else %}
-  <p>Your cart is empty.</p>
-{% endif %}
+  <h3>Your Cart</h3>
+
+  <div class="card">
+    {% if rows %}
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+        <div><strong>{{ rows|length }}</strong> item{{ rows|length|pluralize }} in cart</div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Vehicle</th>
+            <th>From</th>
+            <th>To</th>
+            <th style="text-align:right;">Days</th>
+            <th style="text-align:right;">Total</th>
+            <th style="width:1%;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>{{ row.item.vehicle }}</td>
+              <td>{{ row.item.start_date|date:"Y-m-d" }}</td>
+              <td>{{ row.item.end_date|date:"Y-m-d" }}</td>
+              <td style="text-align:right;">{{ row.days }}</td>
+              <td style="text-align:right;">{{ row.total|floatformat:2 }} EUR</td>
+              <td>
+                <form method="post" action="{% url 'cart:remove_from_cart' row.item.id %}" style="display:inline;">
+                  {% csrf_token %}
+                  <button class="btn" type="submit">Remove</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="row" style="justify-content:flex-end; gap:8px; margin-top:12px;">
+        <form method="post" action="{% url 'cart:checkout' %}">
+          {% csrf_token %}
+          <button class="btn primary" type="submit">Checkout</button>
+        </form>
+      </div>
+    {% else %}
+      <p>Your cart is empty.</p>
+    {% endif %}
+  </div>
 {% endblock %}
