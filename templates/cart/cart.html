@@ -22,7 +22,7 @@
         <tbody>
           {% for row in rows %}
             <tr>
-              <td>{{ row.item.vehicle }}</td>
+              <td>{{ row.item.vehicle_display }}</td>
               <td>{{ row.item.start_date|date:"Y-m-d" }}</td>
               <td>{{ row.item.end_date|date:"Y-m-d" }}</td>
               <td style="text-align:right;">{{ row.days }}</td>

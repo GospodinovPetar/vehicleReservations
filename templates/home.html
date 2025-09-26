@@ -73,7 +73,7 @@
       <div class="card">
         <div class="row">
           <div>
-            <strong>{{ r.vehicle.name }}</strong><br>
+            <strong>{{ r.vehicle }}</strong><br>
             {{ r.vehicle.car_type|title }} • {{ r.vehicle.engine_type|title }} •
             {% if r.vehicle.unlimited_seats %}∞ seats{% else %}{{ r.vehicle.seats }} seats{% endif %}
           </div>
@@ -214,7 +214,7 @@
       <div class="card">
         <div class="row">
           <div>
-            <strong>{{ row.vehicle.name }}</strong><br>
+            <strong>{{ row.vehicle }}</strong><br>
             {{ row.vehicle.car_type|title }} • {{ row.vehicle.engine_type|title }} •
             {% if row.vehicle.unlimited_seats %}∞ seats{% else %}{{ row.vehicle.seats }} seats{% endif %}
           </div>

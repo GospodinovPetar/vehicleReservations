@@ -56,10 +56,10 @@ class ReservationGroup(models.Model):
         )
         for item in items:
             v = item.vehicle
-            # One-and-only pick-up becomes last drop-off.
+            if v is None:
+                continue
             if item.return_location_id:
                 v.available_pickup_locations.set([item.return_location_id])
-            # Last pick-up becomes an allowed drop-off.
             if item.pickup_location_id:
                 v.available_return_locations.add(item.pickup_location_id)
 
@@ -90,7 +90,6 @@ class ReservationGroup(models.Model):
         result = super().save(*args, **kwargs)
 
         if old_status != self.status and self.status == ReservationStatus.COMPLETED:
-            # Apply immediately so the change is visible in the same request.
             self.apply_vehicle_location_flip()
 
         return result
@@ -103,15 +102,33 @@ class VehicleReservation(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reservations"
     )
+
     vehicle = models.ForeignKey(
-        "inventory.Vehicle", on_delete=models.PROTECT, related_name="reservations"
+        "inventory.Vehicle",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reservations",
     )
+    vehicle_name_snapshot = models.CharField(max_length=200, blank=True)
+
     pickup_location = models.ForeignKey(
-        "inventory.Location", on_delete=models.PROTECT, related_name="+"
+        "inventory.Location",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
     )
     return_location = models.ForeignKey(
-        "inventory.Location", on_delete=models.PROTECT, related_name="+"
+        "inventory.Location",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
     )
+    pickup_location_snapshot = models.CharField(max_length=200, blank=True)
+    return_location_snapshot = models.CharField(max_length=200, blank=True)
+
     start_date = models.DateField()
     end_date = models.DateField()
     total_price = models.DecimalField(
@@ -124,6 +141,29 @@ class VehicleReservation(models.Model):
         blank=True,
         related_name="reservations",
     )
+
+    @property
+    def vehicle_display(self) -> str:
+        """
+        Prefer the current vehicle's name while FK exists; else fall back to the snapshot;
+        else show a placeholder. Use this in templates: {{ reservation.vehicle_display }}.
+        """
+        name = ""
+        if self.vehicle_id and self.vehicle is not None:
+            name = getattr(self.vehicle, "name", "") or str(self.vehicle) or ""
+        return name or self.vehicle_name_snapshot or "(deleted vehicle)"
+
+    @property
+    def pickup_location_display(self) -> str:
+        if self.pickup_location_id and self.pickup_location is not None:
+            return self.pickup_location.name
+        return self.pickup_location_snapshot or "(deleted location)"
+
+    @property
+    def return_location_display(self) -> str:
+        if self.return_location_id and self.return_location is not None:
+            return self.return_location.name
+        return self.return_location_snapshot or "(deleted location)"
 
     def clean(self):
         super().clean()
@@ -234,7 +274,18 @@ class VehicleReservation(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         self.total_price = self._compute_total_price()
+
+        if self.vehicle_id and self.vehicle is not None:
+            name = getattr(self.vehicle, "name", "") or str(self.vehicle) or ""
+            if name:
+                self.vehicle_name_snapshot = name
+
+        if self.pickup_location_id and self.pickup_location is not None:
+            self.pickup_location_snapshot = self.pickup_location.name
+        if self.return_location_id and self.return_location is not None:
+            self.return_location_snapshot = self.return_location.name
+
         return super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.vehicle} ({self.start_date} -> {self.end_date})"
+        return f"{self.vehicle_display} ({self.start_date} -> {self.end_date})"
