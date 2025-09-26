@@ -53,7 +53,7 @@
                 <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
                 <td>{{ r.total_price|floatformat:2 }} EUR</td>
                 <td>
-<<<<<<< HEAD
+
             {% if group.status == "COMPLETED" or group.status == "REJECTED" or group.status == "CANCELED" %}
                 <button class="btn" disabled>Actions Disabled</button>
             {% else %}
@@ -67,7 +67,7 @@
                 <button class="btn" disabled title="Cannot remove the only vehicle">Delete</button>
             {% endif %}
              {% endif %}
-=======
+
                   {% if group.status == "COMPLETED" or group.status == "REJECTED" or group.status == "CANCELED" %}
                     <button class="btn" disabled>Actions Disabled</button>
                   {% else %}
@@ -81,7 +81,7 @@
                       <button class="btn" disabled title="Cannot remove the only vehicle">Delete</button>
                     {% endif %}
                   {% endif %}
->>>>>>> fb90949f6a45421b04bc07db2f72d0123b4de528
+
                 </td>
               </tr>
             {% empty %}
