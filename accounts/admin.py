@@ -18,6 +18,7 @@ class CustomUserAdmin(UserAdmin):
         "first_name",
         "last_name",
         "role",
+        "profile_link",
         "is_blocked_display",
         "is_active",
         "date_joined",
@@ -35,6 +36,10 @@ class CustomUserAdmin(UserAdmin):
             {"fields": ("role", "phone", "email", "first_name", "last_name")},
         ),
     )
+
+    def profile_link(self, obj):
+        return format_html('<a href="/accounts/profile/{}/">View Profile</a>', obj.id)
+    profile_link.short_description = "Profile"
 
     def is_blocked_display(self, obj):
         return format_html(

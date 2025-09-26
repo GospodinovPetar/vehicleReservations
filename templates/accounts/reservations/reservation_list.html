@@ -53,7 +53,7 @@
                 <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
                 <td>{{ r.total_price|floatformat:2 }} EUR</td>
                 <td>
-            {% if group.status in "COMPLETED,REJECTED,CANCELED" %}
+            {% if group.status == "COMPLETED" or group.status == "REJECTED" or group.status == "CANCELED" %}
                 <button class="btn" disabled>Actions Disabled</button>
             {% else %}
                 <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>

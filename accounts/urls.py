@@ -155,4 +155,10 @@ urlpatterns = [
     ),
     # User’s own reservations
     path("reservations/", views.user_reservations, name="user-reservations"),
+    path(
+        "reservations/<int:pk>/complete/",
+        views.reservation_complete,
+        name="reservation-complete",
+    ),
+
 ]
