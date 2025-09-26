@@ -47,7 +47,7 @@
           {% with active_count=group.reservations.all|length %}
             {% for r in group.reservations.all %}
               <tr>
-                <td>{{ r.user.username }}</td>
+                <td><a href="{% url 'accounts:profile' r.user.id %}">{{ r.user.username }}</a></td>
                 <td>{{ r.vehicle.name }}</td>
                 <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                 <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
@@ -109,7 +109,7 @@
         <tbody>
           {% for r in group.reservations.all %}
             <tr>
-              <td>{{ r.user.username }}</td>
+              <td><a href="{% url 'accounts:profile' r.user.id %}">{{ r.user.username }}</a></td>
               <td>{{ r.vehicle.name }}</td>
               <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
               <td>{{ r.pickup_location }} → {{ r.return_location }}</td>
