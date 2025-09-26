@@ -9,10 +9,11 @@ from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.models.vehicle import Vehicle
 from inventory.models.reservation import VehicleReservation, Location
 from .schemas import (
-    VehicleOut, ReservationOut, AvailabilityItem, AvailabilityOut,
+    VehicleOut, ReservationOut, ReservationCreate, AvailabilityItem, AvailabilityOut,
     RegisterIn, UserOut, LoginIn, LoginOut, LogoutOut,
     LocationOut, CancelResponse
 )
+
 
 User = get_user_model()
 
