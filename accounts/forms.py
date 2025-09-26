@@ -17,16 +17,31 @@ CustomUser = get_user_model()
 class CustomUserCreationForm(UserCreationForm):
     """Form for user self-registration (default role = user)."""
 
+    first_name = forms.CharField(required=True, label="First Name")
+    last_name = forms.CharField(required=True, label="Last Name")
+    phone = forms.CharField(required=True, label="Phone")
+
     class Meta(UserCreationForm.Meta):
         model = CustomUser
-        fields = ("username", "email", "password1", "password2")
+        fields = ("username", "email", "first_name", "last_name", "phone", "password1", "password2")
 
     def save(self, commit=True):
         user = super().save(commit=False)
         user.role = "user"  # default role for self-registrations
+        user.first_name = self.cleaned_data["first_name"]
+        user.last_name = self.cleaned_data["last_name"]
+        user.phone = self.cleaned_data["phone"]
         if commit:
             user.save()
         return user
+
+
+class UserProfileForm(forms.ModelForm):
+    """Form for users to update their profile (not role/blocked fields)."""
+
+    class Meta:
+        model = CustomUser
+        fields = ["first_name", "last_name", "email", "phone"]
 
 
 class UserEditForm(forms.ModelForm):

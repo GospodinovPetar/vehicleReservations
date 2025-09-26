@@ -27,8 +27,7 @@ class ReservationStatus(models.TextChoices):
 
     @classmethod
     def blocking(cls):
-        # Single source of truth for blocking statuses
-        return [cls.RESERVED, cls.PENDING]
+        return [cls.RESERVED, cls.PENDING, cls.AWAITING_PAYMENT]
 
 
 class ReservationGroup(models.Model):

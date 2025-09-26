@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card">
+    <h2>Profile: {{ user.username }}</h2>
+
+    <p><strong>Full Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Phone:</strong> {{ user.phone|default:"(not set)" }}</p>
+    <p><strong>Role:</strong> {{ user.get_role_display }}</p>
+    <p><strong>Joined:</strong> {{ user.date_joined|date:"Y-m-d H:i" }}</p>
+    <p><strong>Last Updated:</strong> {{ user.updated_at|date:"Y-m-d H:i" }}</p>
+
+    <div style="margin-top: 1em;">
+      <a href="{% url 'accounts:profile_edit' user.id %}" class="btn">Edit Profile</a>
+      <a href="{% url 'password_change' %}" class="btn">Change Password</a>
+      <a href="{% url 'accounts:user-reservations' %}" class="btn">My Reservations</a>
+    </div>
+  </div>
+{% endblock %}
