@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 
@@ -35,10 +36,23 @@ def add_to_cart(request):
 
     try:
         item.full_clean()
-        item.save()
-    except Exception as e:
-        messages.error(request, f"Could not add to cart: {e}")
-        return redirect(request.META.get("HTTP_REFERER", "/"))
 
-    messages.success(request, f"Added {vehicle} to cart.")
-    return redirect("inventory:view_cart")
+        merged = CartItem.merge_or_create(
+            cart=cart,
+            vehicle=vehicle,
+            start_date=start_date,
+            end_date=end_date,
+            pickup_location=pickup,
+            return_location=return_loc,
+        )
+
+        messages.success(
+            request,
+            f"Added {vehicle} to cart. Period now {merged.start_date} → {merged.end_date}."
+        )
+        return redirect("cart:view_cart")
+
+    except ValidationError as ve:
+        msg = "; ".join(getattr(ve, "messages", []) or [str(ve)])
+        messages.error(request, msg or "Could not add this item to your cart.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))

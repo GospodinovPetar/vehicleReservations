@@ -72,13 +72,13 @@ def checkout(request):
         )
 
         for it in items:
-            if not VehicleReservation.is_vehicle_available(
+            blocking_exists = VehicleReservation.objects.filter(
                 vehicle=it.vehicle,
-                start_date=it.start_date,
-                end_date=it.end_date,
-                pickup=it.pickup_location,
-                ret=it.return_location,
-            ):
+                group__status__in=ReservationStatus.blocking(),
+                start_date__lt=it.end_date,
+                end_date__gt=it.start_date,
+            ).exists()
+            if blocking_exists:
                 messages.error(
                     request,
                     f"{it.vehicle} is no longer available for {it.start_date} → {it.end_date}.",
