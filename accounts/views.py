@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.db import models
 from django.http import HttpResponseForbidden
 from django.contrib.auth import login, logout, get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -361,9 +362,13 @@ def vehicle_edit(request, pk):
     return render(request, "accounts/vehicles/vehicle_form.html", {"form": form})
 
 
-@manager_required
 def vehicle_delete(request, pk):
     vehicle = get_object_or_404(Vehicle, pk=pk)
+
+    if vehicle.reservations.filter(group__status__in=ReservationStatus.blocking()).exists():
+        messages.error(request, "This vehicle is part of an ongoing reservation and cannot be deleted.")
+        return redirect("accounts:vehicle-list")
+
     vehicle.delete()
     messages.success(request, "Vehicle deleted successfully.")
     return redirect("accounts:vehicle-list")
@@ -596,10 +601,21 @@ def location_edit(request, pk):
 @manager_required
 def location_delete(request, pk):
     loc = get_object_or_404(Location, pk=pk)
-    if request.method == "POST":
-        loc.delete()
-        messages.success(request, "Location deleted.")
+
+    from inventory.models.reservation import VehicleReservation
+    has_blocking = VehicleReservation.objects.filter(
+        group__status__in=ReservationStatus.blocking()
+    ).filter(
+        models.Q(pickup_location=loc) | models.Q(return_location=loc)
+    ).exists()
+
+    if has_blocking:
+        messages.error(
+            request,
+            "This location is used by an ongoing reservation and cannot be deleted."
+        )
         return redirect("accounts:location-list")
-    return render(
-        request, "accounts/locations/location_confirm_delete.html", {"location": loc}
-    )
+
+    loc.delete()
+    messages.success(request, "Location deleted successfully.")
+    return redirect("accounts:location-list")
