@@ -18,4 +18,9 @@ urlpatterns = [
         views.reservation_update,
         name="reservation-update",
     ),
+    path(
+        "reservations/group/<int:pk>/complete/",
+        views.reservation_group_complete,
+        name="reservation-group-complete",
+    ),
 ]

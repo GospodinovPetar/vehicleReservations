@@ -2,11 +2,16 @@
 {% block content %}
   <h2>Update Reservation #{{ reservation.id }}</h2>
 
+  {% if group.status == "COMPLETED" %}
+  <p>This reservation group is completed and cannot be edited.</p>
+  <a class="btn" href="{% url 'accounts:reservation-list' %}">Back</a>
+{% else %}
   <form method="post">
     {% csrf_token %}
     {{ form.as_p }}
-
     <button class="btn primary" type="submit">Save</button>
     <a class="btn" href="{% url 'accounts:reservation-list' %}">Back to Reservations</a>
   </form>
+{% endif %}
+
 {% endblock %}

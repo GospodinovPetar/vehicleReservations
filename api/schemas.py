@@ -23,8 +23,17 @@ class ReservationOut(Schema):
     return_location: int
     start_date: str
     end_date: str
-    status: str
+    group_id: int | None = None
+    group_status: str
     total_price: float
+
+
+class ReservationCreate(Schema):
+    vehicle_id: int
+    pickup_location_id: int
+    return_location_id: int
+    start_date: str
+    end_date: str
 
 
 class AvailabilityParams(Schema):
@@ -59,3 +68,41 @@ class AvailabilityQuery(BaseModel):
         if self.end_date < today:
             raise ValueError("Return date cannot be in the past.")
         return self
+
+
+class LocationOut(Schema):
+    id: int
+    name: str
+
+
+class CancelResponse(Schema):
+    success: bool
+    message: str
+
+
+# --- Auth ---
+class RegisterIn(Schema):
+    username: str
+    email: str
+    password: str
+
+
+class UserOut(Schema):
+    id: int
+    username: str
+    email: str
+    role: str
+
+
+class LoginIn(Schema):
+    username: str
+    password: str
+
+
+class LoginOut(Schema):
+    message: str
+    role: str
+
+
+class LogoutOut(Schema):
+    message: str
