@@ -107,19 +107,34 @@ admin.site.register(CustomUser, CustomUserAdmin)
 
 class ManagerSafeAdmin(admin.ModelAdmin):
     def has_module_permission(self, request):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
     def has_view_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
     def has_add_permission(self, request):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
     def has_change_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
     def has_delete_permission(self, request, obj=None):
-        return request.user.is_authenticated and request.user.role in ["admin", "manager"]
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "manager",
+        ]
 
 
 def wrap_with_restrictions(modeladmin_cls, safeadmin_cls):

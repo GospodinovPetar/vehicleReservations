@@ -24,7 +24,7 @@ INSTALLED_APPS = [
     "accounts",
     "api",
     "cart",
-    "mockpay.apps.MockpayConfig"
+    "mockpay.apps.MockpayConfig",
 ]
 
 MIDDLEWARE = [

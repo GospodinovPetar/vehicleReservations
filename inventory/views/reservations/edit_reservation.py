@@ -6,7 +6,6 @@ from inventory.models.reservation import (
     Location,
     VehicleReservation,
     ReservationStatus,
-    BLOCKING_STATUSES,
 )
 from inventory.models.vehicle import Vehicle
 from django.utils import timezone
@@ -40,7 +39,6 @@ def edit_reservation(request, pk):
             original_start = reservation.start_date
             original_end = reservation.end_date
 
-            # basic validation
             if not new_start or not new_end:
                 form.add_error(None, "Please provide both pickup and return dates.")
             else:
@@ -57,17 +55,25 @@ def edit_reservation(request, pk):
                 selected_vehicle
                 and selected_pickup
                 and selected_vehicle.available_pickup_locations.exists()
-                and not selected_vehicle.available_pickup_locations.filter(pk=selected_pickup.pk).exists()
+                and not selected_vehicle.available_pickup_locations.filter(
+                    pk=selected_pickup.pk
+                ).exists()
             ):
-                form.add_error("pickup_location", "Pickup location not allowed for this vehicle.")
+                form.add_error(
+                    "pickup_location", "Pickup location not allowed for this vehicle."
+                )
 
             if (
                 selected_vehicle
                 and selected_return
                 and selected_vehicle.available_return_locations.exists()
-                and not selected_vehicle.available_return_locations.filter(pk=selected_return.pk).exists()
+                and not selected_vehicle.available_return_locations.filter(
+                    pk=selected_return.pk
+                ).exists()
             ):
-                form.add_error("return_location", "Return location not allowed for this vehicle.")
+                form.add_error(
+                    "return_location", "Return location not allowed for this vehicle."
+                )
 
             if form.errors:
                 return render(
@@ -82,17 +88,17 @@ def edit_reservation(request, pk):
                 )
 
             # availability check (ignore this same reservation)
-            overlaps = (
-                VehicleReservation.objects.filter(
-                    vehicle_id=selected_vehicle.pk,
-                    group__status__in=BLOCKING_STATUSES,
-                    start_date__lt=new_end,
-                    end_date__gt=new_start,
-                )
-                .exclude(pk=reservation.pk)
-            )
+            overlaps = VehicleReservation.objects.filter(
+                vehicle_id=selected_vehicle.pk,
+                group__status__in=ReservationStatus.blocking(),
+                start_date__lt=new_end,
+                end_date__gt=new_start,
+            ).exclude(pk=reservation.pk)
             if overlaps.exists():
-                form.add_error("start_date", "This vehicle is not available in the selected period.")
+                form.add_error(
+                    "start_date",
+                    "This vehicle is not available in the selected period.",
+                )
                 return render(
                     request,
                     "inventory/edit_reservation.html",
@@ -120,7 +126,13 @@ def edit_reservation(request, pk):
                     instance.save()
 
                     # what changed?
-                    important_fields = {"vehicle", "pickup_location", "return_location", "start_date", "end_date"}
+                    important_fields = {
+                        "vehicle",
+                        "pickup_location",
+                        "return_location",
+                        "start_date",
+                        "end_date",
+                    }
                     changed_fields = set(form.changed_data) & important_fields
                     important_changed = bool(changed_fields)
                     dates_changed = bool({"start_date", "end_date"} & changed_fields)
@@ -154,8 +166,18 @@ def edit_reservation(request, pk):
                             return str(val) if val is not None else "-"
 
                         changes = [
-                            {"label": label_map[f], "before": fmt(before[f], f), "after": fmt(after[f], f)}
-                            for f in ["vehicle", "pickup_location", "return_location", "start_date", "end_date"]
+                            {
+                                "label": label_map[f],
+                                "before": fmt(before[f], f),
+                                "after": fmt(after[f], f),
+                            }
+                            for f in [
+                                "vehicle",
+                                "pickup_location",
+                                "return_location",
+                                "start_date",
+                                "end_date",
+                            ]
                             if f in changed_fields
                         ]
 
@@ -163,19 +185,28 @@ def edit_reservation(request, pk):
                         ctx = {
                             "reservation": instance,
                             "group": group,
-                            "reference": (getattr(group, "reference", None) or f"#{group.pk}") if group else f"#{instance.pk}",
+                            "reference": (
+                                (getattr(group, "reference", None) or f"#{group.pk}")
+                                if group
+                                else f"#{instance.pk}"
+                            ),
                             "status": group.get_status_display() if group else "",
                             "changes": changes,
                             "total_price": instance.total_price,
                         }
 
                         subject = f"Reservation updated: {ctx['reference']}"
-                        text_body = render_to_string("emails/reservation_edited/reservation_edited.txt", ctx)
-                        html_body = render_to_string("emails/reservation_edited/reservation_edited.html", ctx)
+                        text_body = render_to_string(
+                            "emails/reservation_edited/reservation_edited.txt", ctx
+                        )
+                        html_body = render_to_string(
+                            "emails/reservation_edited/reservation_edited.html", ctx
+                        )
                         send_mail(
                             subject=subject,
                             message=text_body,
-                            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None) or "no-reply@example.com",
+                            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None)
+                            or "no-reply@example.com",
                             recipient_list=[instance.user.email],
                             html_message=html_body,
                             fail_silently=True,
@@ -183,7 +214,12 @@ def edit_reservation(request, pk):
 
                 messages.success(
                     request,
-                    "Reservation updated." + (" Status set to PENDING for re-approval." if important_changed else ""),
+                    "Reservation updated."
+                    + (
+                        " Status set to PENDING for re-approval."
+                        if important_changed
+                        else ""
+                    ),
                 )
                 return redirect("inventory:reservations")
 

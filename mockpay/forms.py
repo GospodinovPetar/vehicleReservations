@@ -10,8 +10,10 @@ OUTCOME_CHOICES = [
     ("challenge", "Force 3-D Secure challenge"),
 ]
 
+
 def digits_only(text: str) -> str:
     return "".join(ch for ch in text if ch.isdigit())
+
 
 def luhn_is_valid(card_number_digits: str) -> bool:
     total, should_double = 0, False
@@ -27,6 +29,7 @@ def luhn_is_valid(card_number_digits: str) -> bool:
         should_double = not should_double
     return (total % 10) == 0
 
+
 class CheckoutForm(forms.Form):
     card_number = forms.CharField(max_length=19)
     exp_month = forms.CharField(max_length=2)
@@ -36,7 +39,8 @@ class CheckoutForm(forms.Form):
     billing_country = forms.CharField(max_length=2, required=False)
     billing_postal = forms.CharField(max_length=12, required=False)
     outcome = forms.ChoiceField(
-        choices=[("auto", "Auto"), ("success", "Force success"), ("fail", "Force fail")])
+        choices=[("auto", "Auto"), ("success", "Force success"), ("fail", "Force fail")]
+    )
 
     def clean_card_number(self) -> str:
         raw = self.cleaned_data["card_number"]

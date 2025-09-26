@@ -1,21 +1,23 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
-from django.db import transaction
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import redirect
+from django.views.decorators.http import require_http_methods
 
-from inventory.models.reservation import ReservationGroup, VehicleReservation, ReservationStatus
+from inventory.views.services.status_switch import transition_group, TransitionError
+
 
 @user_passes_test(lambda u: u.is_staff)
-@transaction.atomic
+@require_http_methods(["POST"])
 def approve_group(request, group_id: int):
-    group = get_object_or_404(ReservationGroup.objects.select_for_update(), pk=group_id)
-
-    if group.status != ReservationStatus.PENDING:
-        messages.info(request, "Group is not pending.")
-        return redirect("inventory:reservations")
-
-    group.status = ReservationStatus.AWAITING_PAYMENT
-    group.save(update_fields=["status"])
-    
-    messages.success(request, f"Reservation {group.reference} approved. Awaiting payment.")
+    try:
+        grp = transition_group(group_id=group_id, action="approve", actor=request.user)
+    except TransitionError as e:
+        messages.info(request, str(e))
+    except Exception as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(
+            request,
+            f"Reservation {grp.reference} approved. Awaiting payment.",
+        )
     return redirect("inventory:reservations")

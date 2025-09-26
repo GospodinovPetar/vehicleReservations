@@ -1,19 +1,20 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect
-from django.db import transaction
+from django.shortcuts import redirect
+from django.views.decorators.http import require_http_methods
 
-from inventory.models.reservation import ReservationGroup, VehicleReservation, ReservationStatus
+from inventory.views.services.status_switch import transition_group, TransitionError
+
 
 @login_required
-@transaction.atomic
+@require_http_methods(["POST"])
 def cancel_reservation(request, group_id: int):
-    group = get_object_or_404(ReservationGroup, pk=group_id, user=request.user)
-    if request.method != "POST":
-        return redirect("inventory:reservations")
-
-    group.status = ReservationStatus.CANCELED
-    group.save(update_fields=["status"])
-
-    messages.info(request, f"Reservation {group.reference} canceled.")
+    try:
+        grp = transition_group(group_id=group_id, action="cancel", actor=request.user)
+    except TransitionError as e:
+        messages.info(request, str(e))
+    except Exception as e:
+        messages.error(request, str(e))
+    else:
+        messages.info(request, f"Reservation {grp.reference} canceled.")
     return redirect("inventory:reservations")

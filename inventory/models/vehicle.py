@@ -52,7 +52,7 @@ def _is_golf_mk2(name: str) -> bool:
 
 
 class Vehicle(models.Model):
-    
+
     name = models.CharField(max_length=120)
     plate_number = models.CharField(max_length=20, unique=True)
     car_type = models.CharField(

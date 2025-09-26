@@ -28,15 +28,23 @@ urlpatterns = [
         "reservations/<int:pk>/reject/", reject_reservation, name="reject_reservation"
     ),
     path(
-        "reservations/group/<int:group_id>/cancel/", cancel_reservation, name="cancel_group"
+        "reservations/group/<int:group_id>/cancel/",
+        cancel_reservation,
+        name="cancel_group",
     ),
-    path(
-        "reservations/group/<int:group_id>/add/", add_vehicle, name="add_vehicle"
-    ),
+    path("reservations/group/<int:group_id>/add/", add_vehicle, name="add_vehicle"),
     path("reservations/<int:pk>/edit/", edit_reservation, name="edit_reservation"),
     path(
         "reservations/<int:pk>/delete/", delete_reservation, name="delete_reservation"
     ),
-    path("reservations/group/<int:group_id>/approve/", approve_group, name="approve_group"),
-    path("reservations/group/<int:group_id>/pay/", create_payment_intent, name="create_payment_intent"),
+    path(
+        "reservations/group/<int:group_id>/approve/",
+        approve_group,
+        name="approve_group",
+    ),
+    path(
+        "reservations/group/<int:group_id>/pay/",
+        create_payment_intent,
+        name="create_payment_intent",
+    ),
 ]

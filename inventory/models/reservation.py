@@ -28,7 +28,7 @@ class ReservationStatus(models.TextChoices):
     @classmethod
     def blocking(cls):
         # Single source of truth for blocking statuses
-        return cls.RESERVED, cls.PENDING
+        return [cls.RESERVED, cls.PENDING]
 
 
 class ReservationGroup(models.Model):
@@ -52,10 +52,8 @@ class ReservationGroup(models.Model):
           - The last drop-off becomes the one-and-only allowed pick-up location.
           - The last pick-up is added to the allowed drop-off locations.
         """
-        items = (
-            VehicleReservation.objects
-            .filter(group=self)
-            .select_related("vehicle", "pickup_location", "return_location")
+        items = VehicleReservation.objects.filter(group=self).select_related(
+            "vehicle", "pickup_location", "return_location"
         )
         for item in items:
             v = item.vehicle
@@ -163,7 +161,9 @@ class VehicleReservation(models.Model):
             if self.pk:
                 overlapping = overlapping.exclude(pk=self.pk)
             if overlapping.exists():
-                errors["start_date"] = "Vehicle is not available in the selected period."
+                errors["start_date"] = (
+                    "Vehicle is not available in the selected period."
+                )
 
         if errors:
             raise ValidationError(errors)

@@ -1,51 +1,20 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.db import transaction
-from django.shortcuts import get_object_or_404, redirect
+from django.contrib.auth.decorators import user_passes_test
+from django.shortcuts import redirect
 from django.views.decorators.http import require_http_methods
 
-from inventory.models.reservation import (
-    VehicleReservation,
-    ReservationStatus,
-    ReservationGroup,
-)
-from mockpay.models import PaymentIntent, PaymentIntentStatus
+from inventory.views.services.status_switch import transition_group, TransitionError
 
 
-@login_required
+@user_passes_test(lambda u: u.is_staff)
 @require_http_methods(["POST"])
-@transaction.atomic
-def reject_reservation(request, pk):
-    reservation = get_object_or_404(
-        VehicleReservation.objects.select_related("group"),
-        pk=pk,
-        user=request.user,
-    )
-
-    group = reservation.group
-    if group is None:
-        messages.error(request, "Reservation group not found.")
-        return redirect("inventory:reservations")
-
-    ReservationGroup.objects.select_for_update().filter(pk=group.pk).exists()
-
-    canceled_value = getattr(ReservationStatus, "CANCELED", "CANCELED")
-    non_active_statuses = [ReservationStatus.REJECTED, canceled_value]
-
-    active_in_group = VehicleReservation.objects.filter(group=group).count()
-
-    if active_in_group <= 1:
-        messages.error(request, "You cannot reject the only active vehicle in this reservation.")
-        return redirect("inventory:reservations")
-
-    for intent in (
-        PaymentIntent.objects.select_for_update()
-        .filter(reservation_group=group,
-                group__status__in=[PaymentIntentStatus.REQUIRES_CONFIRMATION,
-                            PaymentIntentStatus.PROCESSING])
-    ):
-        intent.status = PaymentIntentStatus.CANCELED
-        intent.save(update_fields=["status"])
-
-    messages.success(request, "Reservation rejected.")
+def reject_reservation(request, group_id: int):
+    try:
+        grp = transition_group(group_id=group_id, action="reject", actor=request.user)
+    except TransitionError as e:
+        messages.info(request, str(e))
+    except Exception as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, f"Reservation {grp.reference} rejected.")
     return redirect("inventory:reservations")

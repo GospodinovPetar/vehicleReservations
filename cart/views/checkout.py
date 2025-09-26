@@ -89,7 +89,10 @@ def checkout(request):
             ReservationGroup.objects.select_for_update()
             .filter(
                 user=request.user,
-                status__in=[ReservationStatus.PENDING, ReservationStatus.AWAITING_PAYMENT],
+                status__in=[
+                    ReservationStatus.PENDING,
+                    ReservationStatus.AWAITING_PAYMENT,
+                ],
             )
             .order_by("-created_at")
             .first()
@@ -140,6 +143,8 @@ def checkout(request):
 
         amount_cents += _cents(total_dec)
 
-    messages.success(request, f"Reservation submitted. Ref: {group.reference} (status: Pending)")
+    messages.success(
+        request, f"Reservation submitted. Ref: {group.reference} (status: Pending)"
+    )
 
     return redirect("inventory:reservations")

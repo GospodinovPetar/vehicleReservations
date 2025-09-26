@@ -50,5 +50,6 @@ class VehicleReservationAdmin(admin.ModelAdmin):
 
     def group_status(self, obj):
         return getattr(obj.group, "status", "-")
+
     group_status.short_description = "Status"
     group_status.admin_order_field = "group__status"

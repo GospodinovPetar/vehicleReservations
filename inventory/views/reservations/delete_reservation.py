@@ -23,13 +23,19 @@ def delete_reservation(request, pk: int):
     )
     group = reservation.group
     if group is None:
-        messages.error(request, "You cannot remove the only vehicle in this reservation.")
+        messages.error(
+            request, "You cannot remove the only vehicle in this reservation."
+        )
         return redirect("inventory:reservations")
 
     group = ReservationGroup.objects.select_for_update().get(pk=group.pk)
 
     canceled_value = getattr(ReservationStatus, "CANCELED", "CANCELED")
-    non_editable_statuses = [ReservationStatus.REJECTED, canceled_value, ReservationStatus.RESERVED]
+    non_editable_statuses = [
+        ReservationStatus.REJECTED,
+        canceled_value,
+        ReservationStatus.RESERVED,
+    ]
 
     if group.status in non_editable_statuses:
         messages.error(request, "This reservation cannot be modified.")
@@ -37,20 +43,19 @@ def delete_reservation(request, pk: int):
 
     total_in_group = VehicleReservation.objects.filter(group=group).count()
     if total_in_group <= 1:
-        messages.error(request, "You cannot remove the only vehicle in this reservation.")
+        messages.error(
+            request, "You cannot remove the only vehicle in this reservation."
+        )
         return redirect("inventory:reservations")
 
     reservation.delete()
 
-    intents_qs = (
-        PaymentIntent.objects.select_for_update()
-        .filter(
-            reservation_group=group,
-            status__in=[
-                PaymentIntentStatus.REQUIRES_CONFIRMATION,
-                PaymentIntentStatus.PROCESSING,
-            ],
-        )
+    intents_qs = PaymentIntent.objects.select_for_update().filter(
+        reservation_group=group,
+        status__in=[
+            PaymentIntentStatus.REQUIRES_CONFIRMATION,
+            PaymentIntentStatus.PROCESSING,
+        ],
     )
     for intent in intents_qs:
         intent.status = PaymentIntentStatus.CANCELED

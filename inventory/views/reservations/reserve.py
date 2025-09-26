@@ -30,25 +30,35 @@ def reserve(request):
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     if form_data.get("pickup_location"):
-        pickup_location = get_object_or_404(Location, pk=form_data.get("pickup_location"))
+        pickup_location = get_object_or_404(
+            Location, pk=form_data.get("pickup_location")
+        )
     else:
         pickup_location = vehicle.available_pickup_locations.first()
 
     if form_data.get("return_location"):
-        return_location = get_object_or_404(Location, pk=form_data.get("return_location"))
+        return_location = get_object_or_404(
+            Location, pk=form_data.get("return_location")
+        )
     else:
         return_location = vehicle.available_return_locations.first()
 
     if pickup_location is None or return_location is None:
-        messages.error(request, "This vehicle has no configured pickup/return locations.")
+        messages.error(
+            request, "This vehicle has no configured pickup/return locations."
+        )
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     if not vehicle.available_pickup_locations.filter(pk=pickup_location.pk).exists():
-        messages.error(request, "Selected pickup location is not available for this vehicle.")
+        messages.error(
+            request, "Selected pickup location is not available for this vehicle."
+        )
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     if not vehicle.available_return_locations.filter(pk=return_location.pk).exists():
-        messages.error(request, "Selected return location is not available for this vehicle.")
+        messages.error(
+            request, "Selected return location is not available for this vehicle."
+        )
         return redirect_back_to_search(form_data.get("start"), form_data.get("end"))
 
     try:
@@ -89,7 +99,9 @@ def reserve(request):
                     )
                     .update(status=PaymentIntentStatus.CANCELED)
                 )
-                ReservationGroup.objects.filter(pk=group.pk).update(status=ReservationStatus.PENDING)
+                ReservationGroup.objects.filter(pk=group.pk).update(
+                    status=ReservationStatus.PENDING
+                )
                 group.refresh_from_db(fields=["status"])
 
             reservation = VehicleReservation(
@@ -105,7 +117,9 @@ def reserve(request):
             reservation.full_clean()
             reservation.save()
 
-            ReservationGroup.objects.filter(pk=group.pk).update(status=ReservationStatus.PENDING)
+            ReservationGroup.objects.filter(pk=group.pk).update(
+                status=ReservationStatus.PENDING
+            )
             group.refresh_from_db(fields=["status"])
 
     except Exception as exc:

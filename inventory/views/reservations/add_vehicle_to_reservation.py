@@ -26,7 +26,9 @@ def add_vehicle(request, group_id: int):
                 group.save(update_fields=["status"])
                 rv.save()
 
-            messages.success(request, "Vehicle added. The reservation is now pending review.")
+            messages.success(
+                request, "Vehicle added. The reservation is now pending review."
+            )
             return redirect("inventory:reservations")
     else:
         form = ReservationEditForm()

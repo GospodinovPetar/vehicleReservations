@@ -8,5 +8,5 @@ urlpatterns = [
     path("manager/", include("accounts.manager_urls")),
     path("api/", include("api.urls")),
     path("cart/", include(("cart.urls", "cart"), namespace="cart")),
-    path("mockpay/", include("mockpay.urls", namespace="mockpay"))
+    path("mockpay/", include("mockpay.urls", namespace="mockpay")),
 ]

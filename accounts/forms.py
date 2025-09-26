@@ -4,7 +4,12 @@ from django.contrib.auth import get_user_model
 
 # Imports from inventory app
 from inventory.models.vehicle import Vehicle, VehicleType, EngineType
-from inventory.models.reservation import VehicleReservation, ReservationStatus, Location, ReservationGroup
+from inventory.models.reservation import (
+    VehicleReservation,
+    ReservationStatus,
+    Location,
+    ReservationGroup,
+)
 
 CustomUser = get_user_model()
 
@@ -76,7 +81,8 @@ class VehicleForm(forms.ModelForm):
             "price_per_day",
             "available_pickup_locations",
             "available_return_locations",
-            'plate_number',]
+            "plate_number",
+        ]
 
 
 class ReservationStatusForm(forms.ModelForm):

@@ -9,19 +9,20 @@ from django.shortcuts import get_object_or_404, redirect
 from inventory.models.reservation import ReservationGroup, ReservationStatus
 from mockpay.models import PaymentIntent, PaymentIntentStatus
 
+
 def _q2(dec: Decimal) -> Decimal:
     return (dec or Decimal("0")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+
 def _to_cents(dec: Decimal) -> int:
     return int((_q2(dec) * 100).to_integral_value(rounding=ROUND_HALF_UP))
+
 
 @login_required
 @transaction.atomic
 def create_payment_intent(request, group_id: int):
     group = get_object_or_404(
-        ReservationGroup.objects.select_for_update(),
-        pk=group_id,
-        user=request.user
+        ReservationGroup.objects.select_for_update(), pk=group_id, user=request.user
     )
 
     if group.status != ReservationStatus.AWAITING_PAYMENT:
@@ -31,10 +32,6 @@ def create_payment_intent(request, group_id: int):
     amount_cents = 0
     items = group.reservations.select_related("vehicle").all()
     for r in items:
-        # if r.total_price is None, ensure your model saves it on create; otherwise compute here:
-        # days = (r.end_date - r.start_date).days or 1
-        # r.total_price = _q2(Decimal(days) * r.vehicle.price_per_day)
-        # r.save(update_fields=["total_price"])
         amount_cents += _to_cents(r.total_price or Decimal("0"))
 
     if amount_cents <= 0:

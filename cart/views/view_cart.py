@@ -5,6 +5,7 @@ from django.shortcuts import render
 from inventory.helpers.pricing import RateTable, quote_total
 from cart.models.cart import Cart, CartItem
 
+
 @login_required
 def view_cart(request):
     cart = Cart.get_or_create_active(request.user)

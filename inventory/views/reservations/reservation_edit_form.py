@@ -1,6 +1,7 @@
 from django import forms
 from inventory.models.reservation import VehicleReservation
 
+
 class ReservationEditForm(forms.ModelForm):
     class Meta:
         model = VehicleReservation

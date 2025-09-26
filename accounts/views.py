@@ -8,7 +8,12 @@ from django.views.decorators.http import require_http_methods
 
 # Inventory models
 from inventory.models.vehicle import Vehicle
-from inventory.models.reservation import VehicleReservation, ReservationStatus, Location, ReservationGroup
+from inventory.models.reservation import (
+    VehicleReservation,
+    ReservationStatus,
+    Location,
+    ReservationGroup,
+)
 
 from .forms import (
     CustomUserCreationForm,
@@ -36,7 +41,9 @@ def register(request):
         messages.error(request, "Please correct the errors below.")
     else:
         form = CustomUserCreationForm()
-    return render(request, "accounts/auth/auth.html", {"form": form, "title": "Register"})
+    return render(
+        request, "accounts/auth/auth.html", {"form": form, "title": "Register"}
+    )
 
 
 @require_http_methods(["GET", "POST"])
@@ -178,7 +185,9 @@ def create_user(request):
     else:
         form = CustomUserCreationForm()
     return render(
-        request, "accounts/admin/admin_user_form.html", {"form": form, "title": "Create User"}
+        request,
+        "accounts/admin/admin_user_form.html",
+        {"form": form, "title": "Create User"},
     )
 
 
@@ -217,7 +226,9 @@ def delete_user(request, pk):
         user.delete()
         messages.success(request, "User deleted successfully.")
         return redirect("accounts:admin-dashboard")
-    return render(request, "accounts/admin/admin_user_confirm_delete.html", {"user": user})
+    return render(
+        request, "accounts/admin/admin_user_confirm_delete.html", {"user": user}
+    )
 
 
 # ----------- Manager decorators / views -----------
@@ -236,7 +247,9 @@ def manager_dashboard(request):
 @manager_required
 def manager_vehicles(request):
     vehicles = Vehicle.objects.all()
-    return render(request, "accounts/manager/manager_vehicles.html", {"vehicles": vehicles})
+    return render(
+        request, "accounts/manager/manager_vehicles.html", {"vehicles": vehicles}
+    )
 
 
 @manager_required
@@ -246,7 +259,9 @@ def manager_reservations(request):
         "user", "vehicle", "pickup_location", "return_location"
     )
     return render(
-        request, "accounts/reservations/reservation_list.html", {"reservations": reservations}
+        request,
+        "accounts/reservations/reservation_list.html",
+        {"reservations": reservations},
     )
 
 
@@ -254,7 +269,9 @@ def manager_reservations(request):
 @manager_required
 def vehicle_list(request):
     vehicles = Vehicle.objects.all()
-    return render(request, "accounts/vehicles/vehicle_list.html", {"vehicles": vehicles})
+    return render(
+        request, "accounts/vehicles/vehicle_list.html", {"vehicles": vehicles}
+    )
 
 
 @manager_required
@@ -301,23 +318,25 @@ def reservation_list(request):
     - archived: COMPLETED, REJECTED, CANCELED
     """
     ongoing = (
-        ReservationGroup.objects
-        .filter(status__in=[
-            ReservationStatus.PENDING,
-            ReservationStatus.AWAITING_PAYMENT,
-            ReservationStatus.RESERVED,
-        ])
+        ReservationGroup.objects.filter(
+            status__in=[
+                ReservationStatus.PENDING,
+                ReservationStatus.AWAITING_PAYMENT,
+                ReservationStatus.RESERVED,
+            ]
+        )
         .prefetch_related("reservations__vehicle", "reservations__user")
         .order_by("-created_at")
     )
 
     archived = (
-        ReservationGroup.objects
-        .filter(status__in=[
-            ReservationStatus.COMPLETED,
-            ReservationStatus.REJECTED,
-            ReservationStatus.CANCELED,
-        ])
+        ReservationGroup.objects.filter(
+            status__in=[
+                ReservationStatus.COMPLETED,
+                ReservationStatus.REJECTED,
+                ReservationStatus.CANCELED,
+            ]
+        )
         .prefetch_related("reservations__vehicle", "reservations__user")
         .order_by("-created_at")
     )
@@ -345,8 +364,13 @@ def reservation_group_approve(request, pk):
 @manager_required
 def reservation_group_reject(request, pk):
     group = get_object_or_404(ReservationGroup, pk=pk)
-    if group.status not in (ReservationStatus.PENDING, ReservationStatus.AWAITING_PAYMENT):
-        return HttpResponseForbidden("Only pending/awaiting-payment groups can be rejected.")
+    if group.status not in (
+        ReservationStatus.PENDING,
+        ReservationStatus.AWAITING_PAYMENT,
+    ):
+        return HttpResponseForbidden(
+            "Only pending/awaiting-payment groups can be rejected."
+        )
 
     group.status = ReservationStatus.REJECTED
     group.save(update_fields=["status"])
@@ -396,8 +420,13 @@ def reservation_approve(request, pk):
 def reservation_reject(request, pk):
     r = get_object_or_404(VehicleReservation, pk=pk)
     grp = r.group
-    if not grp or grp.status not in (ReservationStatus.PENDING, ReservationStatus.AWAITING_PAYMENT):
-        return HttpResponseForbidden("Only pending/awaiting-payment reservation groups can be rejected.")
+    if not grp or grp.status not in (
+        ReservationStatus.PENDING,
+        ReservationStatus.AWAITING_PAYMENT,
+    ):
+        return HttpResponseForbidden(
+            "Only pending/awaiting-payment reservation groups can be rejected."
+        )
 
     grp.status = ReservationStatus.REJECTED
     grp.save(update_fields=["status"])
@@ -411,7 +440,9 @@ def reservation_cancel(request, pk):
     r = get_object_or_404(VehicleReservation, pk=pk)
     grp = r.group
     if not grp or grp.status != ReservationStatus.RESERVED:
-        return HttpResponseForbidden("Only reserved reservation groups can be canceled.")
+        return HttpResponseForbidden(
+            "Only reserved reservation groups can be canceled."
+        )
 
     grp.status = ReservationStatus.CANCELED
     grp.save(update_fields=["status"])
@@ -429,7 +460,9 @@ def user_reservations(request):
         .all()
     )
     return render(
-        request, "accounts/reservations/reservation_list_user.html", {"reservations": reservations}
+        request,
+        "accounts/reservations/reservation_list_user.html",
+        {"reservations": reservations},
     )
 
 
@@ -437,7 +470,9 @@ def user_reservations(request):
 @manager_required
 def location_list(request):
     locations = Location.objects.all()
-    return render(request, "accounts/locations/location_list.html", {"locations": locations})
+    return render(
+        request, "accounts/locations/location_list.html", {"locations": locations}
+    )
 
 
 @manager_required
@@ -449,7 +484,9 @@ def location_create(request):
             messages.success(request, "Location created.")
             return redirect("accounts:location-list")
         messages.error(request, "Please provide a name.")
-    return render(request, "accounts/locations/location_form.html", {"title": "Create location"})
+    return render(
+        request, "accounts/locations/location_form.html", {"title": "Create location"}
+    )
 
 
 @manager_required
@@ -477,4 +514,6 @@ def location_delete(request, pk):
         loc.delete()
         messages.success(request, "Location deleted.")
         return redirect("accounts:location-list")
-    return render(request, "accounts/locations/location_confirm_delete.html", {"location": loc})
+    return render(
+        request, "accounts/locations/location_confirm_delete.html", {"location": loc}
+    )

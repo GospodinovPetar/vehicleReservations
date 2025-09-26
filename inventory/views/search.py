@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from cart.models.cart import CartItem
 from inventory.helpers.intervals import free_slices
-from inventory.models.reservation import Location, VehicleReservation, BLOCKING_STATUSES
+from inventory.models.reservation import Location, VehicleReservation, ReservationStatus
 from inventory.models.vehicle import Vehicle
 from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.helpers.pricing import RateTable, quote_total
@@ -98,7 +98,7 @@ def search(request):
 
     conflicts_qs = VehicleReservation.objects.filter(
         vehicle_id__in=partial_candidates_qs.values_list("id", flat=True),
-        group__status__in=BLOCKING_STATUSES,
+        group__status__in=ReservationStatus.blocking(),
         start_date__lt=end_date,
         end_date__gt=start_date,
     ).values("vehicle_id", "start_date", "end_date")

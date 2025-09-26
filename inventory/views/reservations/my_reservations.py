@@ -5,7 +5,7 @@ from django.shortcuts import render
 from inventory.models.reservation import (
     VehicleReservation,
     ReservationStatus,
-    ReservationGroup
+    ReservationGroup,
 )
 
 
@@ -21,16 +21,14 @@ def my_reservations(request):
     )
 
     groups = (
-        ReservationGroup.objects
-        .filter(user=request.user)
+        ReservationGroup.objects.filter(user=request.user)
         .exclude(status__in=archived_statuses)
         .prefetch_related(items_prefetch)
         .order_by("-created_at")
     )
 
     archived = (
-        ReservationGroup.objects
-        .filter(user=request.user, status__in=archived_statuses)
+        ReservationGroup.objects.filter(user=request.user, status__in=archived_statuses)
         .prefetch_related(items_prefetch)
         .order_by("-created_at")
     )

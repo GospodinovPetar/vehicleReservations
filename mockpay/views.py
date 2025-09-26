@@ -9,7 +9,9 @@ from inventory.models.reservation import ReservationStatus, VehicleReservation
 
 
 def _brand(digits: str) -> str | None:
-    if digits.startswith(("51", "52", "53", "54", "55")) or (digits[:2].isdigit() and 22 <= int(digits[:2]) <= 27):
+    if digits.startswith(("51", "52", "53", "54", "55")) or (
+        digits[:2].isdigit() and 22 <= int(digits[:2]) <= 27
+    ):
         return "mastercard"
     if digits.startswith("4"):
         return "visa"
@@ -71,7 +73,7 @@ def checkout_page(request, client_secret: str):
             status=400,
         )
 
-    pan: str = (_cd(form.cleaned_data, "card_number", "cc_number").replace(" ", ""))
+    pan: str = _cd(form.cleaned_data, "card_number", "cc_number").replace(" ", "")
     chosen = _cd(form.cleaned_data, "outcome", default="auto")
 
     if chosen == "auto":
@@ -96,7 +98,9 @@ def checkout_page(request, client_secret: str):
             grp.save(update_fields=["status"])
 
             messages.success(request, "Payment successful.")
-            return redirect("mockpay:checkout_success", client_secret=intent.client_secret)
+            return redirect(
+                "mockpay:checkout_success", client_secret=intent.client_secret
+            )
 
         if outcome == "fail":
             intent.status = PaymentIntentStatus.FAILED

@@ -32,7 +32,9 @@ def _render_pair(base_name: str, context: dict) -> tuple[str, Optional[str]]:
     return text_body, html_body
 
 
-def _send(subject: str, recipients: Sequence[str], text_body: str, html_body: Optional[str]):
+def _send(
+    subject: str, recipients: Sequence[str], text_body: str, html_body: Optional[str]
+):
     if not recipients:
         return
     send_mail(
@@ -70,6 +72,7 @@ def send_group_status_changed_email(group, old_status, new_status):
     def _display(value):
         try:
             from inventory.models.reservation import ReservationStatus
+
             return ReservationStatus(value).label if value is not None else ""
         except Exception:
             return str(value or "")
