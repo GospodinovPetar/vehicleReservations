@@ -4,16 +4,17 @@ from django.utils.html import format_html
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.urls import reverse
+from .models import CustomUser
 
 from inventory.models.vehicle import Vehicle
 from inventory.models.reservation import VehicleReservation, ReservationStatus, Location
 from inventory.admin import VehicleAdmin, ReservationGroupAdmin, VehicleReservationAdmin
 
-CustomUser = get_user_model()
 
-
+@admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
     list_display = [
+        "id",
         "username",
         "email",
         "first_name",
@@ -38,16 +39,12 @@ class CustomUserAdmin(UserAdmin):
         ),
     )
 
-    @admin.register(User)
-    class CustomUserAdmin(UserAdmin):
-        list_display = ("username", "email", "first_name", "last_name", "profile_link", "is_staff", "is_active")
-        search_fields = ("username", "email", "first_name", "last_name")
+    def profile_link(self, obj):
+        """Return a link to the user’s profile page."""
+        url = reverse("accounts:profile-detail", kwargs={"pk": obj.pk})
+        return format_html('<a href="{}">View Profile</a>', url)
 
-        def profile_link(self, obj):
-            url = reverse("accounts:profile-detail", kwargs={"pk": obj.pk})
-            return format_html('<a href="{}">View Profile</a>', url)
-
-        profile_link.short_description = "Profile"
+    profile_link.short_description = "Profile"
 
     def is_blocked_display(self, obj):
         return format_html(
