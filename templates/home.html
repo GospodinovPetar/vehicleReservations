@@ -18,17 +18,15 @@
           </label>
         </div>
         <div>
-          <label>
-            Pickup location
-            <select name="pickup_location">
-              <option value="">Any</option>
-              {% for l in locations %}
-                <option value="{{ l.id }}" {% if l.id|stringformat:"s" == pickup_location %}selected{% endif %}>
-                  {{ l.name }}
-                </option>
-              {% endfor %}
-            </select>
-          </label>
+        <label>
+          Pickup location
+          <select name="pickup_location">
+            <option value="">Any</option>
+            {% for l in locations %}
+            <option value="{{ l.id }}" {% if l.id|stringformat:"s" == pickup_location %}selected{% endif %}> {{ l.name }} </option>
+            {% endfor %}
+          </select>
+        </label>
         </div>
         <div>
           <label>
@@ -47,7 +45,6 @@
       <p><button class="btn primary" type="submit">Search</button></p>
     </form>
 
-    <!-- Pricing notice (simple, no-JS, no new files) -->
     <div class="card" aria-live="polite" style="display:flex; gap:12px; align-items:flex-start; background:#f8fafc; border-color:#cbd5e1; margin-top:8px;">
       <div aria-hidden="true" style="font-size:18px; line-height:1.2;">💡</div>
       <div>
@@ -70,6 +67,9 @@
     </p>
 
     {% for r in results %}
+      {% with pk_loc=r.vehicle.pickup_location|default_if_none:'' %}
+      {% with pk_loc_first=r.vehicle.available_pickup_locations.all.0 %}
+      {% with pickup=pk_loc|default:pk_loc_first %}
       <div class="card">
         <div class="row">
           <div>
@@ -164,16 +164,15 @@
                 <input type="hidden" name="end" value="{{ end }}">
 
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                  <label>
-                    Pickup:
-                    <select name="pickup_location" required>
-                      {% for loc in r.vehicle.available_pickup_locations.all %}
-                        <option value="{{ loc.id }}">{{ loc.name }}</option>
-                      {% empty %}
-                        <option value="">No pickup locations configured</option>
-                      {% endfor %}
-                    </select>
-                  </label>
+                  <div>
+                    <strong>Pickup:</strong>
+                    {% if pickup %}
+                      {{ pickup.name }}
+                      <input type="hidden" name="pickup_location" value="{{ pickup.id }}">
+                    {% else %}
+                      <em>No pickup location configured</em>
+                    {% endif %}
+                  </div>
 
                   <label>
                     Return:
@@ -186,10 +185,10 @@
                     </select>
                   </label>
 
-                  {% if r.vehicle.available_pickup_locations.all|length and r.vehicle.available_return_locations.all|length %}
+                  {% if pickup and r.vehicle.available_return_locations.all|length %}
                     <button class="btn primary" type="submit">Add to cart</button>
                   {% else %}
-                    <span style="font-size:0.9em;">This vehicle has no configured pickup/return locations.</span>
+                    <span style="font-size:0.9em;">This vehicle has incomplete location settings.</span>
                   {% endif %}
                 </div>
               </form>
@@ -202,6 +201,9 @@
           </div>
         </div>
       </div>
+      {% endwith %}
+      {% endwith %}
+      {% endwith %}
     {% empty %}
       <p>No vehicles available for that period.</p>
     {% endfor %}
@@ -211,6 +213,9 @@
     <h3>Partially available during your dates</h3>
 
     {% for row in partial_results %}
+      {% with pk_loc=row.vehicle.pickup_location|default_if_none:'' %}
+      {% with pk_loc_first=row.vehicle.available_pickup_locations.all.0 %}
+      {% with pickup=pk_loc|default:pk_loc_first %}
       <div class="card">
         <div class="row">
           <div>
@@ -220,7 +225,9 @@
           </div>
 
           <div style="flex:1;">
+            {# pricing slices unchanged #}
             {% for s in row.slices %}
+              {# ... existing pricing snippet unchanged ... #}
               {% if s.quote.days > 6 %}
                 {% if row.vehicle.price_per_day %}
                   <div style="margin:.25rem 0;">
@@ -309,16 +316,15 @@
                   <input type="hidden" name="end" value="{{ s.end|date:'Y-m-d' }}">
 
                   <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                    <label>
-                      Pickup:
-                      <select name="pickup_location" required>
-                        {% for loc in row.vehicle.available_pickup_locations.all %}
-                          <option value="{{ loc.id }}">{{ loc.name }}</option>
-                        {% empty %}
-                          <option value="">No pickup locations configured</option>
-                        {% endfor %}
-                      </select>
-                    </label>
+                    <div>
+                      <strong>Pickup:</strong>
+                      {% if pickup %}
+                        {{ pickup.name }}
+                        <input type="hidden" name="pickup_location" value="{{ pickup.id }}">
+                      {% else %}
+                        <em>No pickup location configured</em>
+                      {% endif %}
+                    </div>
 
                     <label>
                       Return:
@@ -331,10 +337,10 @@
                       </select>
                     </label>
 
-                    {% if row.vehicle.available_pickup_locations.all|length and row.vehicle.available_return_locations.all|length %}
+                    {% if pickup and row.vehicle.available_return_locations.all|length %}
                       <button class="btn" type="submit">Reserve {{ s.start }} → {{ s.end }}</button>
                     {% else %}
-                      <span style="font-size:0.9em;">This vehicle has no configured pickup/return locations.</span>
+                      <span style="font-size:0.9em;">This vehicle has incomplete location settings.</span>
                     {% endif %}
                   </div>
                 </form>
@@ -348,6 +354,9 @@
           </div>
         </div>
       </div>
+      {% endwith %}
+      {% endwith %}
+      {% endwith %}
     {% endfor %}
   {% endif %}
 {% endblock %}

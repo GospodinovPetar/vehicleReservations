@@ -53,9 +53,7 @@
               <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
               <td>{{ r.total_price|floatformat:2 }} EUR</td>
               <td>
-                {% if group.status == "COMPLETED" or group.status == "REJECTED" or group.status == "CANCELED" %}
-                  <button class="btn" disabled>Actions Disabled</button>
-                {% else %}
+                {% if group.status == "PENDING" or group.status == "AWAITING_PAYMENT" %}
                   <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
                   <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
                     {% csrf_token %}
