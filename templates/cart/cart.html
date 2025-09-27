@@ -22,7 +22,16 @@
         <tbody>
           {% for row in rows %}
             <tr>
-              <td>{{ row.item.vehicle_display }}</td>
+              <td>
+                {% with v=row.item.vehicle %}
+                  {% if v %}
+                    {% if v.display_name %}{{ v.display_name }}
+                    {% elif v.name %}{{ v.name }}
+                    {% elif v.make or v.model %}{{ v.make }}{% if v.make and v.model %} {% endif %}{{ v.model }}
+                    {% else %}{{ v }}{% endif %}
+                  {% else %}—{% endif %}
+                {% endwith %}
+              </td>
               <td>{{ row.item.start_date|date:"Y-m-d" }}</td>
               <td>{{ row.item.end_date|date:"Y-m-d" }}</td>
               <td style="text-align:right;">{{ row.days }}</td>
