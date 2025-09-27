@@ -2,6 +2,11 @@
 {% block content %}
   <h2>Manage Vehicles</h2>
   <a class="btn primary" href="{% url 'manager:vehicle-create' %}">+ Add Vehicle</a>
+    {% if request.user.role == "admin" %}
+        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+    {% else %}
+        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+    {% endif %}
   <ul>
     {% for v in vehicles %}
       <li>
@@ -16,10 +21,5 @@
       <li>No vehicles found.</li>
     {% endfor %}
   </ul>
-    {% if request.user.role == "admin" %}
-        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% else %}
-        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% endif %}
 
 {% endblock %}

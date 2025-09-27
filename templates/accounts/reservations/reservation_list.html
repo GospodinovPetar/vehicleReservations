@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Ongoing Reservations</h2>
+        {% if request.user.role == "admin" %}
+            <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+        {% else %}
+            <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+        {% endif %}
 
 {% if ongoing %}
   {% for group in ongoing %}
@@ -24,7 +29,7 @@
             <span class="badge">Awaiting Payment</span>
             <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject Entire Group</a>
 
-        {% if group.status == "RESERVED" %}
+        {% elif group.status == "RESERVED" %}
             <form method="post" action="{% url 'accounts:reservation_group_complete' group.id %}" style="display:inline;">
         {% csrf_token %}
             <button class="btn btn-success" type="submit">Mark as Completed</button>
@@ -34,7 +39,6 @@
         </div>
 
       </div>
-
       <table>
         <thead>
           <tr>
@@ -129,11 +133,5 @@
   {% endfor %}
 {% else %}
   <p>No archived reservations.</p>
-{% endif %}
-
-{% if request.user.role == "admin" %}
-  <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-{% else %}
-  <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
 {% endif %}
 {% endblock %}
