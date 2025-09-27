@@ -2,6 +2,11 @@
 {% block content %}
   <h2>Locations</h2>
   <a class="btn" href="{% url 'accounts:location-create' %}">+ Add Location</a>
+    {% if request.user.role == "admin" %}
+        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+    {% else %}
+        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+    {% endif %}
   <table>
     <tr><th>Name</th><th>Actions</th></tr>
     {% for loc in locations %}
@@ -16,10 +21,5 @@
       <tr><td colspan="2">No locations.</td></tr>
     {% endfor %}
   </table>
-    {% if request.user.role == "admin" %}
-        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% else %}
-        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% endif %}
 
 {% endblock %}
