@@ -67,23 +67,26 @@ class VehicleForm(forms.ModelForm):
     """
     Vehicle form:
     - car_type & engine_type use TextChoices from the model
-    - available pickup/dropoff locations required (ModelMultipleChoice)
+    - available pickup: single location
+    - available return: multiple, managed by UI
     """
 
     car_type = forms.ChoiceField(choices=VehicleType.choices, label="Car Type")
     engine_type = forms.ChoiceField(choices=EngineType.choices, label="Engine Type")
 
-    available_pickup_locations = forms.ModelMultipleChoiceField(
+    # Single selection for pick-up
+    available_pickup_locations = forms.ModelChoiceField(
         queryset=Location.objects.all(),
         required=True,
-        widget=forms.SelectMultiple,
-        label="Pick-up Location",
+        label="Pick-up Location"
     )
+
+    # Multiple selection for drop-off
     available_return_locations = forms.ModelMultipleChoiceField(
         queryset=Location.objects.all(),
         required=True,
-        widget=forms.SelectMultiple,
-        label="Drop-off Location",
+        label="Drop-off Locations",
+        widget=forms.CheckboxSelectMultiple  # or leave default for multi-select dropdown
     )
 
     class Meta:
@@ -98,6 +101,9 @@ class VehicleForm(forms.ModelForm):
             "available_return_locations",
             "plate_number",
         ]
+        widgets = {
+            "available_return_locations": forms.CheckboxSelectMultiple,
+        }
 
 
 class ReservationStatusForm(forms.ModelForm):

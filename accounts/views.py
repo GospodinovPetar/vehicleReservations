@@ -641,9 +641,21 @@ def vehicle_create(request):
     if request.method == "POST":
         form = VehicleForm(request.POST)
         if form.is_valid():
-            vehicle = form.save()
+            vehicle = form.save(commit=False)
+            vehicle.save()
+
+            # Set pick-up and drop-off locations
+            pickup = form.cleaned_data.get("available_pickup_locations")
+            if pickup:
+                vehicle.available_pickup_locations.set([pickup])
+            dropoffs = form.cleaned_data.get("available_return_locations")
+            if dropoffs:
+                vehicle.available_return_locations.set(dropoffs)
+
             messages.success(request, "Vehicle created successfully.")
             return redirect("accounts:vehicle-list")
+        else:
+            print(form.errors)  # Debug invalid form
     else:
         form = VehicleForm()
     return render(request, "accounts/vehicles/vehicle_form.html", {"form": form})
@@ -651,17 +663,42 @@ def vehicle_create(request):
 
 @manager_required
 def vehicle_edit(request, pk):
-    vehicle = get_object_or_404(Vehicle, pk=pk)
+    vehicle = Vehicle.objects.get(pk=pk)
+
     if request.method == "POST":
         form = VehicleForm(request.POST, instance=vehicle)
         if form.is_valid():
-            form.save()
+            vehicle = form.save(commit=False)
+            vehicle.save()
+
+            # Pick-up (single)
+            pickup = form.cleaned_data.get("available_pickup_locations")
+            if pickup:
+                vehicle.available_pickup_locations.set([pickup[0]])
+            else:
+                vehicle.available_pickup_locations.clear()
+
+            # Drop-offs (multiple)
+            dropoffs = form.cleaned_data.get("available_return_locations")
+            if dropoffs:
+                vehicle.available_return_locations.set(dropoffs)
+            else:
+                vehicle.available_return_locations.clear()
+
             messages.success(request, "Vehicle updated successfully.")
             return redirect("accounts:vehicle-list")
     else:
         form = VehicleForm(instance=vehicle)
-    return render(request, "accounts/vehicles/vehicle_form.html", {"form": form})
 
+        # Pre-select single pick-up as a list
+        if vehicle.available_pickup_locations.exists():
+            form.fields["available_pickup_locations"].initial = [
+                vehicle.available_pickup_locations.first().id
+            ]
+
+    return render(
+        request, "accounts/vehicles/vehicle_form.html", {"form": form}
+    )
 
 def vehicle_delete(request, pk):
     vehicle = get_object_or_404(Vehicle, pk=pk)

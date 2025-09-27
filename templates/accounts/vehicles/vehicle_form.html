@@ -12,17 +12,75 @@
       {% if form.seats.errors %}<div class="error">{{ form.seats.errors|striptags }}</div>{% endif %}
       </div>
       <p>{{ form.price_per_day.label_tag }} {{ form.price_per_day }}</p>
+<p>{{ form.available_pickup_locations.label_tag }} {{ form.available_pickup_locations }}</p>
 
-    <p>{{ form.available_pickup_locations.label_tag }} {{ form.available_pickup_locations }}</p>
-    <p>{{ form.available_return_locations.label_tag }} {{ form.available_return_locations }}</p>
+
+    <!-- Drop-off with add/remove buttons -->
+    <p>{{ form.available_return_locations.label_tag }}</p>
+    <div id="dropoff-container">
+      <select id="dropoff-select">
+        {% for loc in form.available_return_locations.field.queryset %}
+          <option value="{{ loc.id }}">{{ loc.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" id="add-dropoff">Add</button>
+    </div>
+
+    <ul id="dropoff-list"></ul>
+
+    <!-- Hidden inputs will be injected here -->
+    <div id="dropoff-hidden"></div>
 
     <button class="btn primary" type="submit">Save</button>
     <a class="btn" href="{% url 'accounts:vehicle-list' %}">Cancel</a>
   </form>
-    {% if request.user.role == "admin" %}
-        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% else %}
-        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% endif %}
 
+  {% if request.user.role == "admin" %}
+      <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% else %}
+      <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% endif %}
+
+  <script>
+    const select = document.getElementById("dropoff-select");
+    const addBtn = document.getElementById("add-dropoff");
+    const list = document.getElementById("dropoff-list");
+    const hiddenDiv = document.getElementById("dropoff-hidden");
+
+    let selected = [];
+
+    addBtn.addEventListener("click", () => {
+      const val = select.value;
+      if (!selected.includes(val)) {
+        selected.push(val);
+        updateList();
+      }
+    });
+
+    function updateList() {
+      list.innerHTML = "";
+      hiddenDiv.innerHTML = "";
+      selected.forEach((id) => {
+        const li = document.createElement("li");
+        li.textContent = select.querySelector(`[value='${id}']`).text;
+
+        const btn = document.createElement("button");
+        btn.textContent = "Remove";
+        btn.type = "button";
+        btn.onclick = () => {
+          selected = selected.filter((x) => x !== id);
+          updateList();
+        };
+        li.appendChild(btn);
+        list.appendChild(li);
+
+        // generate hidden input for Django
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "available_return_locations";
+        hidden.value = id;
+        hiddenDiv.appendChild(hidden);
+      });
+    }
+  </script>
 {% endblock %}
