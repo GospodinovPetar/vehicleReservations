@@ -4,16 +4,17 @@ from django.utils.html import format_html
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.urls import reverse
+from .models import CustomUser
 
 from inventory.models.vehicle import Vehicle
 from inventory.models.reservation import VehicleReservation, ReservationStatus, Location
 from inventory.admin import VehicleAdmin, ReservationGroupAdmin, VehicleReservationAdmin
 
-CustomUser = get_user_model()
 
-
+@admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
     list_display = [
+        "id",
         "username",
         "email",
         "first_name",
@@ -38,8 +39,8 @@ class CustomUserAdmin(UserAdmin):
         ),
     )
 
-    # Provide the list_display column here (fixes admin.E108)
     def profile_link(self, obj):
+        """Return a link to the user’s profile page."""
         url = reverse("accounts:profile-detail", kwargs={"pk": obj.pk})
         return format_html('<a href="{}">View Profile</a>', url)
 
@@ -90,21 +91,21 @@ class CustomUserAdmin(UserAdmin):
 
     # Only admins can manage users (but admin rows are read-only)
     def has_view_permission(self, request, obj=None):
-        return request.user.is_authenticated and getattr(request.user, "role", None) == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_change_permission(self, request, obj=None):
         # Admin rows are not changeable
         if obj and getattr(obj, "role", None) == "admin":
             return False
-        return request.user.is_authenticated and getattr(request.user, "role", None) == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_delete_permission(self, request, obj=None):
         if obj and getattr(obj, "role", None) == "admin":
             return False
-        return request.user.is_authenticated and getattr(request.user, "role", None) == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_add_permission(self, request):
-        return request.user.is_authenticated and getattr(request.user, "role", None) == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
 
 try:
@@ -116,31 +117,31 @@ admin.site.register(CustomUser, CustomUserAdmin)
 
 class ManagerSafeAdmin(admin.ModelAdmin):
     def has_module_permission(self, request):
-        return request.user.is_authenticated and getattr(request.user, "role", None) in [
+        return request.user.is_authenticated and request.user.role in [
             "admin",
             "manager",
         ]
 
     def has_view_permission(self, request, obj=None):
-        return request.user.is_authenticated and getattr(request.user, "role", None) in [
+        return request.user.is_authenticated and request.user.role in [
             "admin",
             "manager",
         ]
 
     def has_add_permission(self, request):
-        return request.user.is_authenticated and getattr(request.user, "role", None) in [
+        return request.user.is_authenticated and request.user.role in [
             "admin",
             "manager",
         ]
 
     def has_change_permission(self, request, obj=None):
-        return request.user.is_authenticated and getattr(request.user, "role", None) in [
+        return request.user.is_authenticated and request.user.role in [
             "admin",
             "manager",
         ]
 
     def has_delete_permission(self, request, obj=None):
-        return request.user.is_authenticated and getattr(request.user, "role", None) in [
+        return request.user.is_authenticated and request.user.role in [
             "admin",
             "manager",
         ]
@@ -151,27 +152,27 @@ def wrap_with_restrictions(modeladmin_cls, safeadmin_cls):
         search_fields = getattr(modeladmin_cls, "search_fields", ["id"])
 
         def has_module_permission(self, request):
-            if getattr(request.user, "role", None) == "manager":
+            if request.user.role == "manager":
                 return safeadmin_cls.has_module_permission(self, request)
             return modeladmin_cls.has_module_permission(self, request)
 
         def has_view_permission(self, request, obj=None):
-            if getattr(request.user, "role", None) == "manager":
+            if request.user.role == "manager":
                 return safeadmin_cls.has_view_permission(self, request, obj)
             return modeladmin_cls.has_view_permission(self, request, obj)
 
         def has_add_permission(self, request):
-            if getattr(request.user, "role", None) == "manager":
+            if request.user.role == "manager":
                 return safeadmin_cls.has_add_permission(self, request)
             return modeladmin_cls.has_add_permission(self, request)
 
         def has_change_permission(self, request, obj=None):
-            if getattr(request.user, "role", None) == "manager":
+            if request.user.role == "manager":
                 return safeadmin_cls.has_change_permission(self, request, obj)
             return modeladmin_cls.has_change_permission(self, request, obj)
 
         def has_delete_permission(self, request, obj=None):
-            if getattr(request.user, "role", None) == "manager":
+            if request.user.role == "manager":
                 return safeadmin_cls.has_delete_permission(self, request, obj)
             return modeladmin_cls.has_delete_permission(self, request, obj)
 
@@ -193,19 +194,19 @@ class AdminOnlyAdmin(admin.ModelAdmin):
     search_fields = ["name"]
 
     def has_module_permission(self, request):
-        return request.user.is_authenticated and getattr(request.user, "role", None) == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_view_permission(self, request, obj=None):
-        return request.user.is_authenticated and getattr(request.user, "role", None) == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_add_permission(self, request):
-        return request.user.is_authenticated and getattr(request.user, "role", None) == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_change_permission(self, request, obj=None):
-        return request.user.is_authenticated and getattr(request.user, "role", None) == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
     def has_delete_permission(self, request, obj=None):
-        return request.user.is_authenticated and getattr(request.user, "role", None) == "admin"
+        return request.user.is_authenticated and request.user.role == "admin"
 
 
 try:
@@ -216,7 +217,7 @@ admin.site.register(Location, AdminOnlyAdmin)
 
 
 def custom_has_permission(request):
-    return request.user.is_active and getattr(request.user, "role", None) == "admin"
+    return request.user.is_active and request.user.role == "admin"
 
 
 admin.site.has_permission = custom_has_permission
