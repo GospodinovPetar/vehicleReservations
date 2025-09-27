@@ -677,14 +677,12 @@ def vehicle_edit(request, pk):
             vehicle = form.save(commit=False)
             vehicle.save()
 
-            # Pick-up (single)
             pickup = form.cleaned_data.get("available_pickup_locations")
             if pickup:
-                vehicle.available_pickup_locations.set([pickup[0]])
+                vehicle.available_pickup_locations.set([pickup])
             else:
                 vehicle.available_pickup_locations.clear()
 
-            # Drop-offs (multiple)
             dropoffs = form.cleaned_data.get("available_return_locations")
             if dropoffs:
                 vehicle.available_return_locations.set(dropoffs)
@@ -696,14 +694,10 @@ def vehicle_edit(request, pk):
     else:
         form = VehicleForm(instance=vehicle)
 
-        # Pre-select single pick-up as a list
-        if vehicle.available_pickup_locations.exists():
-            form.fields["available_pickup_locations"].initial = [
-                vehicle.available_pickup_locations.first().id
-            ]
-
     return render(
-        request, "accounts/vehicles/vehicle_form.html", {"form": form}
+        request,
+        "accounts/vehicles/vehicle_form.html",
+        {"form": form},
     )
 
 

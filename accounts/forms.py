@@ -67,18 +67,19 @@ class VehicleForm(forms.ModelForm):
     """
     Vehicle form:
     - car_type & engine_type use TextChoices from the model
-    - available pickup: single location
-    - available return: multiple, managed by UI
+    - available pickup: single location (stored as the first/only M2M)
+    - available return: multiple locations
     """
 
     car_type = forms.ChoiceField(choices=VehicleType.choices, label="Car Type")
     engine_type = forms.ChoiceField(choices=EngineType.choices, label="Engine Type")
 
-    # Single selection for pick-up
+    # Single selection for pick-up (we'll map this to the M2M in the view)
     available_pickup_locations = forms.ModelChoiceField(
         queryset=Location.objects.all(),
         required=True,
-        label="Pick-up Location"
+        label="Pick-up Location",
+        widget=forms.Select,
     )
 
     # Multiple selection for drop-off
@@ -86,7 +87,7 @@ class VehicleForm(forms.ModelForm):
         queryset=Location.objects.all(),
         required=True,
         label="Drop-off Locations",
-        widget=forms.CheckboxSelectMultiple  # or leave default for multi-select dropdown
+        widget=forms.CheckboxSelectMultiple,  # swap to SelectMultiple if you prefer
     )
 
     class Meta:
@@ -104,6 +105,22 @@ class VehicleForm(forms.ModelForm):
         widgets = {
             "available_return_locations": forms.CheckboxSelectMultiple,
         }
+
+    def __init__(self, *args, **kwargs):
+        instance: Vehicle | None = kwargs.get("instance")
+        super().__init__(*args, **kwargs)
+
+        self.fields["available_pickup_locations"].queryset = Location.objects.all().order_by("name")
+        self.fields["available_return_locations"].queryset = Location.objects.all().order_by("name")
+
+        if instance and instance.pk:
+            first_pickup = instance.available_pickup_locations.first()
+            if first_pickup:
+                self.fields["available_pickup_locations"].initial = first_pickup.pk
+
+            self.fields["available_return_locations"].initial = list(
+                instance.available_return_locations.values_list("pk", flat=True)
+            )
 
 
 class ReservationStatusForm(forms.ModelForm):
