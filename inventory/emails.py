@@ -113,6 +113,12 @@ def send_group_status_changed_email(group, old_status, new_status):
 
 def send_vehicle_added_email(reservation):
     group = reservation.group
+    if not group:
+        return
+    had_items_before = group.reservations.exclude(pk=reservation.pk).exists()
+    if not had_items_before:
+        return
+
     recipients = _recipients_for_group(group)
     ctx = {
         "group": group,

@@ -14,13 +14,13 @@
                 &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
               </div>
 
-              <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
-                {% csrf_token %}
-                {% if g.status == 'AWAITING_PAYMENT' %}
-                  <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
-                {% endif %}
-                <button class="btn" type="submit">Cancel</button>
-              </form>
+                <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
+                  {% csrf_token %}
+                  {% if g.status == 'AWAITING_PAYMENT' %}
+                    <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
+                  {% endif %}
+                  <button class="btn" type="submit">Cancel</button>
+                </form>
             </div>
 
             <table>
@@ -60,6 +60,18 @@
                   {% endfor %}
                 {% endwith %}
               </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4" style="text-align:right;"><strong>Overall total:</strong></td>
+                  <td colspan="2">
+                    {% if g.total_price is not None %}
+                      <strong>{{ g.total_price|floatformat:2 }} EUR</strong>
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         {% endif %}
@@ -106,6 +118,19 @@
                 <tr><td colspan="5">This group has no reservations.</td></tr>
               {% endfor %}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3"></td>
+                <td style="text-align:right;"><strong>Overall total:</strong></td>
+                <td>
+                  {% if g.total_price is not None %}
+                    <strong>{{ g.total_price|floatformat:2 }} EUR</strong>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       {% endfor %}
@@ -145,6 +170,19 @@
                 <tr><td colspan="5">This group has no reservations.</td></tr>
               {% endfor %}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3"></td>
+                <td style="text-align:right;"><strong>Overall total:</strong></td>
+                <td>
+                  {% if g.total_price is not None %}
+                    <strong>{{ g.total_price|floatformat:2 }} EUR</strong>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       {% endif %}
