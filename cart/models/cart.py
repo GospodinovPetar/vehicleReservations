@@ -2,6 +2,16 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.apps import apps
 from django.db import models, transaction
+from datetime import timedelta
+
+
+def _max_rental_days() -> int:
+    """
+    Global cap for a single rental length.
+    Configure via settings.MAX_RENTAL_DAYS (default: 60).
+    """
+    return int(getattr(settings, "MAX_RENTAL_DAYS", 60))
+
 
 class Cart(models.Model):
     user = models.ForeignKey(
@@ -14,9 +24,9 @@ class Cart(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["user"],
+                fields=["user", "is_checked_out"],
+                name="unique_active_cart_per_user",
                 condition=models.Q(is_checked_out=False),
-                name="one_active_cart_per_user",
             )
         ]
 
@@ -30,106 +40,144 @@ class Cart(models.Model):
         return obj
 
     def clear(self):
-        apps.get_model("inventory", "CartItem").objects.filter(cart=self).delete()
+        """
+        Atomically remove all items from this cart.
+        Uses a short row lock to serialize with concurrent checkout/cleanup.
+        """
+        CartItem = apps.get_model("cart", "CartItem")
+        with transaction.atomic():
+            list(
+                CartItem.objects.select_for_update()
+                .filter(cart=self)
+                .values_list("id", flat=True)
+            )
+            CartItem.objects.filter(cart=self).delete()
+
 
 class CartItem(models.Model):
     cart = models.ForeignKey("Cart", on_delete=models.CASCADE, related_name="items")
     vehicle = models.ForeignKey("inventory.Vehicle", on_delete=models.CASCADE)
     start_date = models.DateField()
-    end_date = models.DateField()
+    end_date = models.DateField()  # half-open interval: [start_date, end_date)
     pickup_location = models.ForeignKey(
-        "inventory.Location", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+        "inventory.Location",
+        on_delete=models.PROTECT,
+        related_name="pickup_cart_items",
     )
     return_location = models.ForeignKey(
-        "inventory.Location", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+        "inventory.Location",
+        on_delete=models.PROTECT,
+        related_name="return_cart_items",
     )
-    total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["start_date", "vehicle_id"]
+        constraints = [
+            # DB-level guard to ensure end > start (portable & cheap)
+            models.CheckConstraint(
+                check=models.Q(end_date__gt=models.F("start_date")),
+                name="cartitem_end_after_start",
+            ),
+            models.UniqueConstraint(
+                fields=[
+                    "cart",
+                    "vehicle",
+                    "start_date",
+                    "end_date",
+                    "pickup_location",
+                    "return_location",
+                ],
+                name="unique_exact_cart_item_range",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "cart",
+                    "vehicle",
+                    "pickup_location",
+                    "return_location",
+                    "start_date",
+                    "end_date",
+                ]
+            )
+        ]
 
     def clean(self):
         """
-        Cart is non-blocking for inventory. We only validate:
-        - basic dates/locations
-        - NO conflicts across users or reservations
-        - DO prevent the SAME USER from adding the SAME VEHICLE for overlapping dates in their own cart
+        App-level validation for cases the DB cannot express:
+        - end_date must be strictly after start_date (friendly error message)
+        - rental length must not exceed MAX_RENTAL_DAYS
         """
-        errors = {}
+        if self.end_date <= self.start_date:
+            raise ValidationError("End date must be after start date.")
 
-        if not self.start_date or not self.end_date:
-            errors["start_date"] = "Start and end dates are required."
-        elif self.start_date >= self.end_date:
-            errors["start_date"] = "Start date must be before end date."
+        max_days = _max_rental_days()
+        # Number of chargeable days in the half-open window
+        rental_days = (self.end_date - self.start_date).days
+        if rental_days > max_days:
+            raise ValidationError(
+                f"Rental length is too long: {rental_days} days (max {max_days})."
+            )
 
-        if bool(self.pickup_location) ^ bool(self.return_location):
-            errors["pickup_location"] = "Pickup and return locations should both be set or both empty."
-
-        if errors:
-            raise ValidationError(errors)
-
-        if self.cart_id and self.vehicle_id and self.start_date and self.end_date:
-            overlap_exists = CartItem.objects.filter(
-                cart_id=self.cart_id,
-                vehicle_id=self.vehicle_id,
-                start_date__lt=self.end_date,
-                end_date__gt=self.start_date,
-            ).exclude(pk=self.pk).exists()
-
-            if overlap_exists:
-                raise ValidationError({
-                    "__all__": "This vehicle is already in your cart for overlapping dates."
-                })
-
-    @classmethod
+    @staticmethod
     @transaction.atomic
-    def merge_or_create(cls, *, cart, vehicle, start_date, end_date, pickup_location=None, return_location=None):
-        """
-        Upsert-like helper:
-        - Find all existing items for (cart, vehicle, pickup_location, return_location)
-          that overlap OR touch the [start_date, end_date) interval.
-        - If any found, merge them all (including the new range) into one continuous interval,
-          repeating until no further expansion (handles chained touches).
-        - Delete the old items and persist a single merged CartItem.
-        - Returns the merged/created CartItem instance.
-        """
-        # normalize the working window
+    def upsert_merge(
+        *,
+        cart: Cart,
+        vehicle,
+        start_date,
+        end_date,
+        pickup_location,
+        return_location,
+    ):
+        if end_date <= start_date:
+            raise ValidationError("End date must be after start date.")
+        max_days = _max_rental_days()
+        rental_days = (end_date - start_date).days
+        if rental_days > max_days:
+            raise ValidationError(
+                f"Rental length is too long: {rental_days} days (max {max_days})."
+            )
+
+        CartItem = apps.get_model("cart", "CartItem")
+
         merged_start = start_date
         merged_end = end_date
 
         while True:
-            touching_qs = cls.objects.select_for_update().filter(
-                cart=cart,
-                vehicle=vehicle,
-                pickup_location=pickup_location,
-                return_location=return_location,
-                start_date__lte=merged_end,  # touches or overlaps on the right
-                end_date__gte=merged_start,  # touches or overlaps on the left
-            ).order_by("start_date")
-
-            found = list(touching_qs)
-            if not found:
+            touching_qs = (
+                CartItem.objects.select_for_update()
+                .filter(
+                    cart=cart,
+                    vehicle=vehicle,
+                    pickup_location=pickup_location,
+                    return_location=return_location,
+                    start_date__lt=merged_end,
+                    end_date__gt=merged_start,
+                )
+                .order_by("start_date")
+            )
+            existing = list(touching_qs)
+            if not existing:
                 break
 
-            # Expand window to cover all touching/overlapping items
-            new_start = min([merged_start] + [i.start_date for i in found])
-            new_end = max([merged_end] + [i.end_date for i in found])
+            for it in existing:
+                if it.start_date < merged_start:
+                    merged_start = it.start_date
+                if it.end_date > merged_end:
+                    merged_end = it.end_date
 
-            if new_start == merged_start and new_end == merged_end:
-                break
+            touching_qs.delete()
 
-            merged_start, merged_end = new_start, new_end
+        # Final guard after merging (in case chained ranges push past max)
+        final_days = (merged_end - merged_start).days
+        if final_days > max_days:
+            raise ValidationError(
+                f"Combined rental length is too long after merge: {final_days} days (max {max_days})."
+            )
 
-        cls.objects.filter(
-            cart=cart,
-            vehicle=vehicle,
-            pickup_location=pickup_location,
-            return_location=return_location,
-            start_date__lte=merged_end,
-            end_date__gte=merged_start,
-        ).delete()
-
-        merged = cls.objects.create(
+        merged = CartItem.objects.create(
             cart=cart,
             vehicle=vehicle,
             start_date=merged_start,
@@ -139,5 +187,24 @@ class CartItem(models.Model):
         )
         return merged
 
+    @staticmethod
+    @transaction.atomic
+    def merge_or_create(
+        cart,
+        vehicle,
+        start_date,
+        end_date,
+        pickup_location,
+        return_location,
+    ):
+        return CartItem.upsert_merge(
+            cart=cart,
+            vehicle=vehicle,
+            start_date=start_date,
+            end_date=end_date,
+            pickup_location=pickup_location,
+            return_location=return_location,
+        )
+
     def __str__(self):
-        return f"{self.vehicle} ({self.start_date} -> {self.end_date})"
+        return f"{self.vehicle} ({self.start_date} → {self.end_date})"
