@@ -44,19 +44,26 @@ def checkout_page(request, client_secret: str):
     """
     GET: render the card form.
     POST: process card -> success / fail / cancel. (No 3DS simulation.)
+
+    Hardening added:
+    - Use row-level lock on PaymentIntent during POST to serialize double-submits.
+    - Reject expired intents before charging.
+    - Only allow success if the reservation group is in a payable state.
+    - Idempotent: if already not REQUIRES_CONFIRMATION, redirect to result.
     """
     intent = get_object_or_404(PaymentIntent, client_secret=client_secret)
 
     if intent.is_expired():
-        intent.status = PaymentIntentStatus.EXPIRED
-        intent.save(update_fields=["status"])
+        if intent.status != PaymentIntentStatus.EXPIRED:
+            intent.status = PaymentIntentStatus.EXPIRED
+            intent.save(update_fields=["status"])
         messages.error(request, "Payment session expired. Please try again.")
         return redirect("mockpay:result", client_secret=client_secret)
 
-    if intent.status != PaymentIntentStatus.REQUIRES_CONFIRMATION:
-        return redirect("mockpay:result", client_secret=client_secret)
-
     if request.method == "GET":
+        # If someone navigates back after completion, keep it idempotent
+        if intent.status != PaymentIntentStatus.REQUIRES_CONFIRMATION:
+            return redirect("mockpay:result", client_secret=client_secret)
         form = CheckoutForm()
         return render(
             request,
@@ -64,6 +71,7 @@ def checkout_page(request, client_secret: str):
             {"intent": intent, "form": form, "amount_eur": _eur_amount(intent)},
         )
 
+    # POST
     form = CheckoutForm(request.POST)
     if not form.is_valid():
         return render(
@@ -73,7 +81,7 @@ def checkout_page(request, client_secret: str):
             status=400,
         )
 
-    pan: str = _cd(form.cleaned_data, "card_number", "cc_number").replace(" ", "")
+    pan = _cd(form.cleaned_data, "card_number", "cc_number").replace(" ", "")
     chosen = _cd(form.cleaned_data, "outcome", default="auto")
 
     if chosen == "auto":
@@ -87,20 +95,45 @@ def checkout_page(request, client_secret: str):
         outcome = chosen
 
     with transaction.atomic():
-        intent.refresh_from_db()
+        intent = (
+            PaymentIntent.objects.select_for_update()
+            .select_related("reservation_group")
+            .get(pk=intent.pk)
+        )
+
+        if intent.status != PaymentIntentStatus.REQUIRES_CONFIRMATION:
+            return redirect("mockpay:result", client_secret=client_secret)
+
+        if intent.is_expired():
+            intent.status = PaymentIntentStatus.EXPIRED
+            intent.save(update_fields=["status"])
+            messages.error(request, "Payment session expired. Please try again.")
+            return redirect("mockpay:result", client_secret=client_secret)
+
+        grp = intent.reservation_group
+
+        payable_states = {
+            ReservationStatus.PENDING,
+            ReservationStatus.AWAITING_PAYMENT,
+        }
+        if grp.status not in payable_states:
+            messages.error(request, "This reservation is no longer payable.")
+            return redirect("mockpay:result", client_secret=client_secret)
+
+        has_lines = grp.reservations.exists()
+        if not has_lines:
+            messages.error(request, "Your reservation items are no longer available.")
+            return redirect("mockpay:result", client_secret=client_secret)
 
         if outcome == "success":
             intent.status = PaymentIntentStatus.SUCCEEDED
             intent.save(update_fields=["status"])
 
-            grp = intent.reservation_group
             grp.status = ReservationStatus.RESERVED
             grp.save(update_fields=["status"])
 
             messages.success(request, "Payment successful.")
-            return redirect(
-                "mockpay:checkout_success", client_secret=intent.client_secret
-            )
+            return redirect("mockpay:checkout_success", client_secret=intent.client_secret)
 
         if outcome == "fail":
             intent.status = PaymentIntentStatus.FAILED
@@ -113,7 +146,6 @@ def checkout_page(request, client_secret: str):
 
     return redirect("mockpay:result", client_secret=client_secret)
 
-
 @require_http_methods(["GET"])
 def checkout_success(request, client_secret: str):
     """Dedicated success page (separate from generic result)."""
@@ -123,7 +155,6 @@ def checkout_success(request, client_secret: str):
         "mockpay/result.html",
         {"intent": intent, "amount_eur": _eur_amount(intent)},
     )
-
 
 @require_http_methods(["GET"])
 def result(request, client_secret: str):

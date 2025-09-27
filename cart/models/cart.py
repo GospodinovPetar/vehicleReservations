@@ -51,19 +51,18 @@ class CartItem(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
 
-    # IMPORTANT: Cascade so deleting a Location removes any CartItems that reference it
     pickup_location = models.ForeignKey(
         "inventory.Location",
-        on_delete=models.CASCADE,   # was PROTECT/SET_NULL
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
+        null=False,
+        blank=False,
         related_name="+",
     )
     return_location = models.ForeignKey(
         "inventory.Location",
-        on_delete=models.CASCADE,   # was PROTECT/SET_NULL
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
+        null=False,
+        blank=False,
         related_name="+",
     )
 
@@ -99,9 +98,8 @@ class CartItem(models.Model):
             msg = e.messages[0] if getattr(e, "messages", None) else str(e)
             errors["start_date"] = msg
 
-        # keep invariant: both locations set or both empty
-        if bool(self.pickup_location) ^ bool(self.return_location):
-            errors["pickup_location"] = "Pickup and return locations should both be set or both empty."
+        if not self.pickup_location or not self.return_location:
+            errors["pickup_location"] = "Select both pickup and return locations."
 
         if errors:
             raise ValidationError(errors)
@@ -121,9 +119,12 @@ class CartItem(models.Model):
     @classmethod
     @transaction.atomic
     def merge_or_create(
-        cls, *, cart, vehicle, start_date, end_date, pickup_location=None, return_location=None
+        cls, *, cart, vehicle, start_date, end_date, pickup_location, return_location
     ):
+        if not pickup_location or not return_location:
+            raise ValidationError("Select both pickup and return locations.")
         cls._validate_dates(start_date, end_date)
+
         merged_start, merged_end = start_date, end_date
 
         while True:
