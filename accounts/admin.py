@@ -179,6 +179,7 @@ def wrap_with_restrictions(modeladmin_cls, safeadmin_cls):
     return WrappedAdmin
 
 
+# Register Vehicle and VehicleReservation using wrapped admin
 for model, admin_cls in [
     (Vehicle, VehicleAdmin),
     (VehicleReservation, VehicleReservationAdmin),
