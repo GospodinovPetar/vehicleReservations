@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_protect  # ← added
 
 from inventory.helpers.parse_iso_date import parse_iso_date
 from cart.models.cart import Cart, CartItem
@@ -12,6 +13,7 @@ from inventory.models.vehicle import Vehicle
 
 @login_required
 @require_http_methods(["POST"])
+@csrf_protect
 def add_to_cart(request):
     vehicle = get_object_or_404(Vehicle, pk=request.POST.get("vehicle"))
 
@@ -21,8 +23,17 @@ def add_to_cart(request):
         messages.error(request, "Start and end dates are required.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
-    pickup = Location.objects.filter(pk=request.POST.get("pickup_location")).first()
-    return_loc = Location.objects.filter(pk=request.POST.get("return_location")).first()
+    pickup_id = request.POST.get("pickup_location")
+    return_id = request.POST.get("return_location")
+    if not pickup_id or not return_id:
+        messages.error(request, "Please select both pickup and return locations.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
+
+    pickup = Location.objects.filter(pk=pickup_id).first()
+    return_loc = Location.objects.filter(pk=return_id).first()
+    if not pickup or not return_loc:
+        messages.error(request, "Selected pickup/return location was not found.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
 
     cart = Cart.get_or_create_active(request.user)
     item = CartItem(

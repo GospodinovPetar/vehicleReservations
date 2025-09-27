@@ -21,6 +21,11 @@ class PaymentIntent(models.Model):
     reservation_group = models.ForeignKey(
         ReservationGroup, on_delete=models.PROTECT, related_name="payment_intents"
     )
+
+    idempotency_key = models.CharField(
+        max_length=64, unique=True, null=True, blank=True, db_index=True
+    )
+
     amount = models.PositiveIntegerField(
         help_text="Amount in the smallest currency unit (e.g. cents)"
     )
