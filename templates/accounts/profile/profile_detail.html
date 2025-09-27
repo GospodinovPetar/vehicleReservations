@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
   <div class="card">
-    <h2>Profile: {{ user.username }}</h2>
+    <h2>Profile: {{ profile_user.username }}</h2>
 
-    <p><strong>Full Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
-    <p><strong>Email:</strong> {{ user.email }}</p>
-    <p><strong>Phone:</strong> {{ user.phone|default:"(not set)" }}</p>
-    <p><strong>Role:</strong> {{ user.get_role_display }}</p>
-    <p><strong>Joined:</strong> {{ user.date_joined|date:"Y-m-d H:i" }}</p>
-    <p><strong>Last Updated:</strong> {{ user.updated_at|date:"Y-m-d H:i" }}</p>
+    <p><strong>Full Name:</strong> {{ profile_user.first_name }} {{ profile_user.last_name }}</p>
+    <p><strong>Email:</strong> {{ profile_user.email }}</p>
+    <p><strong>Phone:</strong> {{ profile_user.phone|default:"(not set)" }}</p>
+    <p><strong>Role:</strong> {{ profile_user.get_role_display }}</p>
+    <p><strong>Joined:</strong> {{ profile_user.date_joined|date:"Y-m-d H:i" }}</p>
+    <p><strong>Last Updated:</strong> {{ profile_user.updated_at|date:"Y-m-d H:i" }}</p>
 
     <div style="margin-top: 1em;">
       <a href="{% url 'accounts:profile-edit' %}" class="btn">Edit Profile</a>
