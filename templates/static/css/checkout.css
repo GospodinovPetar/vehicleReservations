@@ -1,0 +1,87 @@
+/* Payment / Checkout styles */
+.pay-card {
+  max-width: 540px;
+  margin: 24px auto;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.pay-card .row {
+  display: flex;
+  gap: 12px;
+}
+
+.pay-card .row > * {
+  flex: 1;
+}
+
+.pay-card .field {
+  margin-bottom: 14px;
+}
+
+.pay-card .field label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #374151;
+}
+
+.pay-card .input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.pay-card .input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.pay-card .err {
+  color: #b91c1c;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.pay-card .btn {
+  display: inline-block;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: none;
+  background: #111827;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pay-card .btn.secondary {
+  background: #6b7280;
+}
+
+.pay-card .amount {
+  font-weight: 700;
+}
+
+.pay-card .hint {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.pay-card .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pay-card .badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 12px;
+}

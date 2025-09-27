@@ -105,9 +105,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-STATIC_URL = "static/"
-# Za napred kato opravim static directoryto
-# STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_URL = "/static/"
+
+STATICFILES_DIRS = [
+    BASE_DIR / "templates" / "static",
+]
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"

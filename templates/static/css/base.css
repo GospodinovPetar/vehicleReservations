@@ -1,0 +1,82 @@
+/* Base layout */
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  padding: 24px;
+}
+
+header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+nav ul {
+  display: flex;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Cards */
+.card {
+  border: 1px solid #ddd;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+}
+
+/* Grid rows */
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  text-decoration: none;
+  background: #f9f9f9;
+  color: #111;
+}
+
+.btn.primary {
+  background: #111;
+  color: #fff;
+}
+
+.btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+/* Forms */
+form .row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+/* Push auth links to the right in the nav */
+nav ul li.push-right {
+  margin-left: auto;
+}

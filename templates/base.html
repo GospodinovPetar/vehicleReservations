@@ -1,23 +1,13 @@
 <!doctype html>
 <html>
   <head>
+    {% load static %}
     <meta charset='utf-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <title>Vehicle Rental</title>
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/modern-css-reset/dist/reset.min.css'>
-    <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 24px; }
-      header { display:flex; gap:16px; align-items:center; margin-bottom:20px; }
-      nav ul { display:flex; gap:12px; list-style:none; margin:0; padding:0; }
-      .card { border:1px solid #ddd; padding:16px; border-radius:12px; margin-bottom:12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-      .row { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-      .btn { display:inline-block; padding:8px 12px; border-radius:8px; border:1px solid #333; text-decoration:none; background:#f9f9f9; color:#111; }
-      .btn.primary { background:#111; color:#fff; }
-      .btn:hover { background:#333; color:#fff; }
-      form .row > div { display:flex; flex-direction:column; gap:6px; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 8px; border-bottom: 1px solid #eee; text-align:left; }
-    </style>
+    
+      <link rel='stylesheet' href="{% static 'css/base.css' %}">
   </head>
   <body>
     <header>
@@ -28,7 +18,7 @@
 
           {% if user.is_authenticated %}
             <!-- Links for everyone logged in -->
-            <li><a href="{% url 'accounts:logout' %}" class="btn">Logout</a></li>
+            <li class="push-right"><a href="{% url 'accounts:logout' %}" class="btn">Logout</a></li>
             <li><a href="/reservations/" class="btn">My Reservations</a></li>
             <li><a class="btn" href="{% url 'cart:view_cart' %}">Cart</a></li>
             <li><a href="{% url 'accounts:profile' %}" class="btn">Profile</a></li>
@@ -42,7 +32,7 @@
 
           {% else %}
             <!-- Links for guests -->
-            <li><a href="{% url 'accounts:login' %}" class="btn">Login</a></li>
+            <li class="push-right"><a href="{% url 'accounts:login' %}" class="btn">Login</a></li>
             <li><a href="{% url 'accounts:register' %}" class="btn">Register</a></li>
           {% endif %}
         </ul>
