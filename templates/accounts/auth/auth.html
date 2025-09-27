@@ -2,10 +2,21 @@
 {% block content %}
   <div class='card'>
     <h3>{{ title }}</h3>
+
     <form method='post'>
       {% csrf_token %}
       {{ form.as_p }}
+
       <p><button class='btn primary' type='submit'>{{ title }}</button></p>
+
+      {# Show extra links only on the Login page #}
+      {% if title == "Login" %}
+        <div class="mt-4 text-sm">
+          <a href="{% url 'accounts:forgot-password-start' %}" class="text-blue-600 hover:underline">
+            Forgot your password?
+          </a>
+        </div>
+      {% endif %}
     </form>
   </div>
 {% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:500px">
+  <h2>Verify your email</h2>
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="mb-3">
+      <label for="id_email" class="form-label">Email</label>
+      {{ form.email|add_class:"form-control" }}
+      {% for e in form.email.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+    </div>
+    <div class="mb-3">
+      <label for="id_code" class="form-label">Verification code</label>
+      {{ form.code|add_class:"form-control" }}
+      <div class="form-text">Enter the 8-character code we emailed you.</div>
+      {% for e in form.code.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+    </div>
+    <button class="btn btn-primary" type="submit">Verify</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
   <h2>{% if form.instance.pk %}Edit Vehicle{% else %}Add Vehicle{% endif %}</h2>
-
   <form method="post">
     {% csrf_token %}
       <p>{{ form.name.label_tag }} {{ form.name }}</p>
       <p>{{ form.plate_number.label_tag }} {{ form.plate_number }}</p>
       <p>{{ form.car_type.label_tag }} {{ form.car_type }}</p>
       <p>{{ form.engine_type.label_tag }} {{ form.engine_type }}</p>
-      <p>{{ form.seats.label_tag }} {{ form.seats }}</p>
+    <div>
+      {{ form.seats.label_tag }} {{ form.seats }}
+      {% if form.seats.errors %}<div class="error">{{ form.seats.errors|striptags }}</div>{% endif %}
+      </div>
       <p>{{ form.price_per_day.label_tag }} {{ form.price_per_day }}</p>
 
     <p>{{ form.available_pickup_locations.label_tag }} {{ form.available_pickup_locations }}</p>

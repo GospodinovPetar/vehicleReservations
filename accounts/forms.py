@@ -108,3 +108,24 @@ class ReservationStatusForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["status"].choices = ReservationStatus.choices
+
+class EmailCodeForm(forms.Form):
+    email = forms.EmailField()
+    code = forms.CharField(max_length=32, label="Code")
+
+
+class EmailOnlyForm(forms.Form):
+    email = forms.EmailField()
+
+
+class PasswordResetConfirmForm(forms.Form):
+    email = forms.EmailField(label="Email")
+    code = forms.CharField(max_length=32, label="Code from email")
+    new_password = forms.CharField(widget=forms.PasswordInput(), min_length=8, label="New password")
+    new_password_confirm = forms.CharField(widget=forms.PasswordInput(), min_length=8, label="Confirm new password")
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("new_password") != cleaned.get("new_password_confirm"):
+            raise forms.ValidationError("Passwords do not match.")
+        return cleaned
