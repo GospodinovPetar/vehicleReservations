@@ -43,28 +43,29 @@
       <th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th>
     </tr>
     {% for u in users %}
-      <tr>
-        <td>{{ u.username }}</td>
-        <td>{{ u.email }}</td>
-        <td>{{ u.role }}</td>
-        <td>{% if u.is_blocked %}Blocked{% else %}Active{% endif %}</td>
-        <td>
-          <a href="{% url 'accounts:admin-edit-user' u.id %}">Edit</a> |
-          {% if u.is_blocked %}
-            <a href="{% url 'accounts:admin-unblock-user' u.id %}">Unblock</a>
-          {% else %}
-            <a href="{% url 'accounts:admin-block-user' u.id %}">Block</a>
-          {% endif %}
-          {% if u.role != 'admin' %}
-            | <a href="{% url 'accounts:admin-promote-manager' u.id %}">Promote</a>
-            | <a href="{% url 'accounts:admin-demote-user' u.id %}">Demote</a>
-            | <a href="{% url 'accounts:admin-delete-user' u.id %}">Delete</a>
-          {% else %}
-            <!-- No actions on admins -->
-            | <span style="color:#999">admin (protected)</span>
-          {% endif %}
-        </td>
-      </tr>
+  <tr>
+    <td>
+        <a href="{% url 'accounts:profile-detail' u.pk %}">{{ u.username }}</a>
+    </td>
+    <td>{{ u.email }}</td>
+    <td>{{ u.role }}</td>
+    <td>{% if u.is_blocked %}Blocked{% else %}Active{% endif %}</td>
+    <td>
+      <a href="{% url 'accounts:admin-edit-user' u.id %}">Edit</a> |
+      {% if u.is_blocked %}
+        <a href="{% url 'accounts:admin-unblock-user' u.id %}">Unblock</a>
+      {% else %}
+        <a href="{% url 'accounts:admin-block-user' u.id %}">Block</a>
+      {% endif %}
+      {% if u.role != 'admin' %}
+        | <a href="{% url 'accounts:admin-promote-manager' u.id %}">Promote</a>
+        | <a href="{% url 'accounts:admin-demote-user' u.id %}">Demote</a>
+        | <a href="{% url 'accounts:admin-delete-user' u.id %}">Delete</a>
+      {% else %}
+        | <span style="color:#999">admin (protected)</span>
+      {% endif %}
+    </td>
+  </tr>
     {% empty %}
       <tr><td colspan="5">No users found.</td></tr>
     {% endfor %}

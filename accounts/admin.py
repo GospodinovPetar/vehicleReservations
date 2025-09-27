@@ -15,12 +15,11 @@ from inventory.admin import VehicleAdmin, ReservationGroupAdmin, VehicleReservat
 class CustomUserAdmin(UserAdmin):
     list_display = [
         "id",
-        "username",
+        "username_link",
         "email",
         "first_name",
         "last_name",
         "role",
-        "profile_link",
         "is_blocked_display",
         "is_active",
         "date_joined",
@@ -39,12 +38,11 @@ class CustomUserAdmin(UserAdmin):
         ),
     )
 
-    def profile_link(self, obj):
-        """Return a link to the user’s profile page."""
+    def username_link(self, obj):
         url = reverse("accounts:profile-detail", kwargs={"pk": obj.pk})
-        return format_html('<a href="{}">View Profile</a>', url)
+        return format_html('<a href="{}">{}</a>', url, obj.username)
 
-    profile_link.short_description = "Profile"
+    username_link.short_description = "Username"
 
     def is_blocked_display(self, obj):
         return format_html(

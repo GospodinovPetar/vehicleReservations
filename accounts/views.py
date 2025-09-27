@@ -89,35 +89,41 @@ def logout_view(request):
 
 
 @login_required
-def my_profile(request):
-    return redirect("accounts:profile-detail", pk=request.user.pk)
+def profile_detail(request, pk):
+    user = get_object_or_404(CustomUser, pk=pk)
+    return render(request, "accounts/profile_detail.html", {"user": user})
 
 
 @login_required
 def profile_view(request, pk=None):
     """
-    User profile page.
-    - Users can only see their own profile.
-    - Admin/Manager can view others' profiles.
+    Show user profile.
+    - /profile/ → always show the logged-in user
+    - /profile/<pk>/ →
+        * if pk == request.user.pk → show own profile
+        * if admin/manager → show target user's profile
+        * else → forbidden
     """
-    if pk:
-        if pk == request.user.pk:  # allow self
-            user = request.user
-        elif request.user.role in ["admin", "manager"]:  # managers/admins can see all
-            user = get_object_or_404(User, pk=pk)
+    if pk is None:
+        # No pk provided → always current user
+        profile_user = request.user
+    else:
+        if pk == request.user.pk:
+            profile_user = request.user
+        elif request.user.role in ["admin", "manager"]:
+            profile_user = get_object_or_404(User, pk=pk)
         else:
             return HttpResponseForbidden("You cannot view other users’ profiles.")
-    else:
-        user = request.user
 
-    reservations = VehicleReservation.objects.filter(user=user).select_related(
+    # Fetch reservations for this profile
+    reservations = VehicleReservation.objects.filter(user=profile_user).select_related(
         "vehicle", "pickup_location", "return_location"
     )
 
     return render(
         request,
         "accounts/profile/profile_detail.html",
-        {"profile_user": user, "reservations": reservations},
+        {"profile_user": profile_user, "reservations": reservations},
     )
 
 
@@ -406,6 +412,7 @@ def vehicle_edit(request, pk):
     return render(
         request, "accounts/vehicles/vehicle_form.html", {"form": form}
     )
+
 
 def vehicle_delete(request, pk):
     vehicle = get_object_or_404(Vehicle, pk=pk)
