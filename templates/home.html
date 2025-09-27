@@ -205,10 +205,8 @@
     {% endwith %}
     {% endwith %}
   {% empty %}
-    <p style="margin-top:.5rem; color:#6b7280;">No fully available vehicles for that period.</p>
   {% endfor %}
 
-  {# -------- PARTIAL RESULTS -------- #}
   {% if partial_results %}
     <h3>Partially available during your dates</h3>
     {# ... existing partial results block unchanged ... #}
