@@ -56,7 +56,6 @@ def _free_slices(search_start: date, search_end: date, blocks: List[tuple]):
     return free
 
 
-@login_required
 def search(request):
     start_str = request.GET.get("start")
     end_str = request.GET.get("end")

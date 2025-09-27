@@ -4,11 +4,31 @@ body {
   padding: 24px;
 }
 
+.disclosure summary {
+  cursor: pointer;
+  color: #1d4ed8;
+  font-weight: 600;
+  list-style: none;
+}
+.disclosure summary::-webkit-details-marker { display: none; }
+.disclosure summary::after {
+  content: " ▾";
+  font-weight: 400;
+}
+.disclosure[open] summary { margin-bottom: 6px; }
+.disclosure .muted { color: #6b7280; font-size: 0.9em; }
+
+/* Header & nav */
 header {
   display: flex;
   gap: 16px;
   align-items: center;
   margin-bottom: 20px;
+}
+
+/* Make the nav fill remaining space */
+header nav {
+  flex: 1;
 }
 
 nav ul {
@@ -17,6 +37,11 @@ nav ul {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+/* This spacer pushes items after it to the right */
+nav ul li.flex-spacer {
+  margin-left: auto;
 }
 
 /* Cards */
@@ -74,9 +99,4 @@ td {
   padding: 8px;
   border-bottom: 1px solid #eee;
   text-align: left;
-}
-
-/* Push auth links to the right in the nav */
-nav ul li.push-right {
-  margin-left: auto;
 }
