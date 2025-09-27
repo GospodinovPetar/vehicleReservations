@@ -15,24 +15,22 @@
         </div>
 
         <div>
-        {% if group.status == "PENDING" %}
+          {% if group.status == "PENDING" %}
             <a class="btn btn-success" href="{% url 'accounts:reservation-group-approve' group.id %}">Approve Entire Group</a>
             <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject Entire Group</a>
             <a class="btn" href="{% url 'accounts:reservation-update' group.id %}">Edit Group</a>
 
-        {% elif group.status == "AWAITING_PAYMENT" %}
+          {% elif group.status == "AWAITING_PAYMENT" %}
             <span class="badge">Awaiting Payment</span>
             <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject Entire Group</a>
 
-        {% if group.status == "RESERVED" %}
+          {% elif group.status == "RESERVED" %}
             <form method="post" action="{% url 'accounts:reservation_group_complete' group.id %}" style="display:inline;">
-        {% csrf_token %}
-            <button class="btn btn-success" type="submit">Mark as Completed</button>
+              {% csrf_token %}
+              <button class="btn btn-success" type="submit">Mark as Completed</button>
             </form>
-        {% endif %}
-
+          {% endif %}
         </div>
-
       </div>
 
       <table>
@@ -47,37 +45,32 @@
           </tr>
         </thead>
         <tbody>
-          {% with active_count=group.reservations.all|length %}
-            {% for r in group.reservations.all %}
-              <tr>
-                <td><a href="{% url 'accounts:profile' r.user.id %}">{{ r.user.username }}</a></td>
-                <td>{{ r.vehicle_display }}</td>
-                <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
-                <td>{{ r.total_price|floatformat:2 }} EUR</td>
-                <td>
-
-                <td>
+          {% for r in group.reservations.all %}
+            <tr>
+              <td><a href="{% url 'accounts:profile-detail' r.user.id %}">{{ r.user.username }}</a></td>
+              <td>{{ r.vehicle_display }}</td>
+              <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+              <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
+              <td>{{ r.total_price|floatformat:2 }} EUR</td>
+              <td>
                 {% if group.status == "COMPLETED" or group.status == "REJECTED" or group.status == "CANCELED" %}
-                 <button class="btn" disabled>Actions Disabled</button>
+                  <button class="btn" disabled>Actions Disabled</button>
                 {% else %}
-                    <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
-                    <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
-                {% csrf_token %}
+                  <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
+                  <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
+                    {% csrf_token %}
                     <button class="btn" type="submit">Delete</button>
-                    </form>
-                    <form method="post" action="{% url 'accounts:reservation_group_cancel' group.id %}" style="display:inline;">
-                {% csrf_token %}
+                  </form>
+                  <form method="post" action="{% url 'accounts:reservation_group_cancel' group.id %}" style="display:inline;">
+                    {% csrf_token %}
                     <button class="btn" type="submit">Cancel</button>
-                    </form>
+                  </form>
                 {% endif %}
-                </td>
-
-              </tr>
-            {% empty %}
-              <tr><td colspan="6">No items in this group.</td></tr>
-            {% endfor %}
-          {% endwith %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No items in this group.</td></tr>
+          {% endfor %}
         </tbody>
       </table>
     </div>
@@ -114,7 +107,7 @@
         <tbody>
           {% for r in group.reservations.all %}
             <tr>
-              <td><a href="{% url 'accounts:profile' r.user.id %}">{{ r.user.username }}</a></td>
+              <td><a href="{% url 'accounts:profile-detail' r.user.id %}">{{ r.user.username }}</a></td>
               <td>{{ r.vehicle_display }}</td>
               <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
               <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>

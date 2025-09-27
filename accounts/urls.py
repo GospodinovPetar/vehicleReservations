@@ -62,6 +62,8 @@ urlpatterns = [
         views.reservation_group_reject,
         name="reservation-group-reject",
     ),
+    path("reservation/group/<int:pk>/complete", views.reservation_group_complete, name="reservation_group_complete"),
+    path("reservation/group/<int:pk>/cancel", views.reservation_cancel, name="reservation_group_cancel"),
     path(
         "reservations/group/<int:pk>/update/",
         views.reservation_update,
@@ -83,6 +85,7 @@ urlpatterns = [
         views.reservation_cancel,
         name="reservation-cancel",
     ),
+    path("reservation/<int:pk>/complete", views.reservation_complete, name="reservation-complete"),
     # User reservations
     path("my-reservations/", views.user_reservations, name="user-reservations"),
     # Locations
