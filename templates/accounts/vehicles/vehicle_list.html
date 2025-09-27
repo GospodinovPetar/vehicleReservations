@@ -2,6 +2,11 @@
 {% block content %}
   <h2>Vehicles</h2>
   <a class="btn primary" href="{% url 'accounts:vehicle-create' %}">+ Add Vehicle</a>
+    {% if request.user.role == "admin" %}
+        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+    {% else %}
+        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+    {% endif %}
   <table>
     <tr>
       <th>Name</th><th>Car Type</th><th>Seats</th><th>Price/Day</th>
@@ -24,9 +29,4 @@
       <tr><td colspan="7">No vehicles available.</td></tr>
     {% endfor %}
   </table>
-    {% if request.user.role == "admin" %}
-        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% else %}
-        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% endif %}
 {% endblock %}
