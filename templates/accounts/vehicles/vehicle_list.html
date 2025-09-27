@@ -1,32 +1,48 @@
 {% extends "base.html" %}
+
 {% block content %}
-  <h2>Vehicles</h2>
+  <h1>Manage Vehicles</h1>
   <a class="btn primary" href="{% url 'accounts:vehicle-create' %}">+ Add Vehicle</a>
-    {% if request.user.role == "admin" %}
-        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% else %}
-        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% endif %}
-  <table>
-    <tr>
-      <th>Name</th><th>Car Type</th><th>Seats</th><th>Price/Day</th>
-      <th>Pick-up Location</th><th>Drop-off Location</th><th>Actions</th>
-    </tr>
+
+  {% if request.user.role == "admin" %}
+      <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% else %}
+      <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% endif %}
+
+  {% if vehicles %}
     {% for v in vehicles %}
-      <tr>
-        <td>{{ v.name }}</td>
-        <td>{{ v.car_type }}</td>
-        <td>{{ v.seats }}</td>
-        <td>{{ v.price_per_day }}</td>
-        <td>{{ v.available_pickup_locations.all|join:", " }}</td>
-        <td>{{ v.available_return_locations.all|join:", " }}</td>
-        <td>
-          <a href="{% url 'accounts:vehicle-edit' v.id %}">Edit</a> |
-          <a href="{% url 'accounts:vehicle-delete' v.id %}">Delete</a>
-        </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="7">No vehicles available.</td></tr>
+      <div style="border-bottom:1px solid #ccc; padding:10px 0;">
+        <h2>{{ v.name }}</h2>
+        <p><strong>Plate number:</strong> {{ v.plate_number }}</p>
+        <p><strong>Type:</strong> {{ v.car_type }}</p>
+        <p><strong>Engine:</strong> {{ v.engine_type }}</p>
+        <p><strong>Seats:</strong> {{ v.seats }}</p>
+        <p><strong>Price per day:</strong> ${{ v.price_per_day }}</p>
+
+        <p><strong>Pickup Locations:</strong>
+          {% if v.available_pickup_locations.all %}
+            {{ v.available_pickup_locations.all|join:", " }}
+          {% else %}
+            None
+          {% endif %}
+        </p>
+
+        <p><strong>Return Locations:</strong>
+          {% if v.available_return_locations.all %}
+            {{ v.available_return_locations.all|join:", " }}
+          {% else %}
+            None
+          {% endif %}
+        </p>
+
+        <p>
+          <a href="{% url 'accounts:vehicle-edit' v.id %}" class="btn">Edit</a>
+          <a href="{% url 'accounts:vehicle-delete' v.id %}" class="btn btn-danger">Delete</a>
+        </p>
+      </div>
     {% endfor %}
-  </table>
+  {% else %}
+    <p>No vehicles available.</p>
+  {% endif %}
 {% endblock %}

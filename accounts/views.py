@@ -637,9 +637,7 @@ def manager_reservations(request):
 @manager_required
 def vehicle_list(request):
     vehicles = Vehicle.objects.all()
-    return render(
-        request, "accounts/vehicles/vehicle_list.html", {"vehicles": vehicles}
-    )
+    return render(request, "accounts/vehicle_list.html", {"vehicles": vehicles})
 
 
 @manager_required
