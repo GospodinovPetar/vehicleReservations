@@ -24,10 +24,13 @@
             <span class="badge">Awaiting Payment</span>
             <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject Entire Group</a>
 
-        {% elif group.status == "RESERVED" %}
-            <span class="badge">Reserved</span>
-            <a class="btn btn-primary" href="{% url 'accounts:reservation-group-complete' group.id %}">Mark as Completed</a>
+        {% if group.status == "RESERVED" %}
+            <form method="post" action="{% url 'accounts:reservation_group_complete' group.id %}" style="display:inline;">
+        {% csrf_token %}
+            <button class="btn btn-success" type="submit">Mark as Completed</button>
+            </form>
         {% endif %}
+
         </div>
 
       </div>
@@ -54,35 +57,22 @@
                 <td>{{ r.total_price|floatformat:2 }} EUR</td>
                 <td>
 
-            {% if group.status == "COMPLETED" or group.status == "REJECTED" or group.status == "CANCELED" %}
-                <button class="btn" disabled>Actions Disabled</button>
-            {% else %}
-                <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
-            {% if active_count > 1 %}
-                <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
-            {% csrf_token %}
-                <button class="btn" type="submit">Delete</button>
-                </form>
-            {% else %}
-                <button class="btn" disabled title="Cannot remove the only vehicle">Delete</button>
-            {% endif %}
-             {% endif %}
-
-                  {% if group.status == "COMPLETED" or group.status == "REJECTED" or group.status == "CANCELED" %}
-                    <button class="btn" disabled>Actions Disabled</button>
-                  {% else %}
+                <td>
+                {% if group.status == "COMPLETED" or group.status == "REJECTED" or group.status == "CANCELED" %}
+                 <button class="btn" disabled>Actions Disabled</button>
+                {% else %}
                     <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
-                    {% if active_count > 1 %}
-                      <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
-                        {% csrf_token %}
-                        <button class="btn" type="submit">Delete</button>
-                      </form>
-                    {% else %}
-                      <button class="btn" disabled title="Cannot remove the only vehicle">Delete</button>
-                    {% endif %}
-                  {% endif %}
-
+                    <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
+                {% csrf_token %}
+                    <button class="btn" type="submit">Delete</button>
+                    </form>
+                    <form method="post" action="{% url 'accounts:reservation_group_cancel' group.id %}" style="display:inline;">
+                {% csrf_token %}
+                    <button class="btn" type="submit">Cancel</button>
+                    </form>
+                {% endif %}
                 </td>
+
               </tr>
             {% empty %}
               <tr><td colspan="6">No items in this group.</td></tr>
