@@ -1,14 +1,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from .models import CustomUser
 
 from inventory.models.vehicle import Vehicle
-from inventory.models.reservation import VehicleReservation, ReservationStatus, Location
-from inventory.admin import VehicleAdmin, ReservationGroupAdmin, VehicleReservationAdmin
+from inventory.models.reservation import VehicleReservation, Location
+from inventory.admin import VehicleAdmin, VehicleReservationAdmin
 
 
 @admin.register(CustomUser)

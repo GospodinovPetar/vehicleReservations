@@ -1,14 +1,8 @@
-# ---------------
-# Users
-# ---------------
-
-from django.conf import settings
 from django.core.exceptions import ValidationError
-from decimal import Decimal
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.db.models import Q
 import re
+from django.utils import timezone
 
 
 class CustomUserManager(BaseUserManager):
@@ -77,3 +71,45 @@ class CustomUser(AbstractUser):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+class PendingRegistration(models.Model):
+    """
+    Temporarily stores registration data so we don't create a CustomUser
+    until the email is verified.
+    """
+    username = models.CharField(max_length=150, db_index=True)
+    email = models.EmailField(db_index=True)
+    first_name = models.CharField(max_length=150, blank=True, default="")
+    last_name = models.CharField(max_length=150, blank=True, default="")
+    phone = models.CharField(max_length=15, blank=True, null=True)
+    password_hash = models.CharField(max_length=255)
+    role = models.CharField(max_length=10, default="user")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["email"]),
+            models.Index(fields=["username"]),
+        ]
+
+    def is_expired(self) -> bool:
+        return timezone.now() > self.expires_at
+
+    @classmethod
+    def start(cls, *, username, email, first_name, last_name, phone, password_hash, ttl_hours: int = 24):
+        """
+        Upsert semantics: keep one active pending registration per email/username.
+        """
+        cls.objects.filter(email=email).delete()
+        cls.objects.filter(username=username).delete()
+        return cls.objects.create(
+            username=username,
+            email=email,
+            first_name=first_name or "",
+            last_name=last_name or "",
+            phone=phone or None,
+            password_hash=password_hash,
+            role="user",
+            expires_at=timezone.now() + timezone.timedelta(hours=ttl_hours),
+        )

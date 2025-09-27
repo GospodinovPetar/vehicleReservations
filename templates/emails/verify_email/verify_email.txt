@@ -1,0 +1,9 @@
+Hi,
+
+Use this code to verify your email for {{ site_name }}:
+
+{{ code }}
+
+It expires in {{ ttl_minutes }} minutes.
+
+If you didn’t request this, you can ignore this email.
