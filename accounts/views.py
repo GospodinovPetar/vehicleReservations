@@ -21,6 +21,7 @@ from .forms import (
     UserEditForm,
     VehicleForm,
     ReservationStatusForm,
+    UserProfileForm,
 )
 
 User = get_user_model()
@@ -100,7 +101,9 @@ def profile_view(request, pk=None):
     - Admin/Manager can view others' profiles.
     """
     if pk:
-        if request.user.role in ["admin", "manager"]:
+        if pk == request.user.pk:  # allow self
+            user = request.user
+        elif request.user.role in ["admin", "manager"]:  # managers/admins can see all
             user = get_object_or_404(User, pk=pk)
         else:
             return HttpResponseForbidden("You cannot view other users’ profiles.")
@@ -127,7 +130,7 @@ def profile_edit(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Your profile has been updated.")
-            return redirect("accounts:profile")
+            return redirect("accounts:profile-detail", pk=user.id)
     else:
         form = UserProfileForm(instance=user)
 
