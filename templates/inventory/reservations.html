@@ -3,76 +3,74 @@
   <h3>My Reservations</h3>
 
   <div class="card">
-    {% if groups %}
+    {% with any_active=False %}
       {% for g in groups %}
-        <div style="margin: .5rem 0;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
-            <div>
-              <strong>Reference:</strong> {{ g.reference }}
-              <em>({{ g.created_at }})</em>
-              &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
+        {% if g.status != 'COMPLETED' and g.status != 'REJECTED' and g.status != 'CANCELED' %}
+          <div style="margin: .5rem 0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+              <div>
+                <strong>Reference:</strong> {{ g.reference }}
+                <em>({{ g.created_at }})</em>
+                &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
+              </div>
+
+              <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
+                {% csrf_token %}
+                {% if g.status == 'AWAITING_PAYMENT' %}
+                  <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
+                {% endif %}
+                <button class="btn" type="submit">Cancel</button>
+              </form>
             </div>
 
-            <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
-              {% csrf_token %}
-
-              {% if g.status == 'AWAITING_PAYMENT' %}
-                <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
-              {% endif %}
-
-              <button class="btn" type="submit">Cancel</button>
-            </form>
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Vehicle</th>
+                  <th>Dates</th>
+                  <th>Pickup → Return</th>
+                  <th>Total</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% with active_count=g.reservations.all|length %}
+                  {% for r in g.reservations.all %}
+                    <tr>
+                      <td>{{ r.user }}</td>
+                      <td>{{ r.vehicle_display }}</td>
+                      <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+                      <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
+                      <td>{{ r.total_price|floatformat:2 }} EUR</td>
+                      <td>
+                        <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
+                        {% if active_count > 1 %}
+                          <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button class="btn" type="submit">Delete</button>
+                          </form>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="6">This group has no active reservations.</td>
+                    </tr>
+                  {% endfor %}
+                {% endwith %}
+              </tbody>
+            </table>
           </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Vehicle</th>
-                <th>Dates</th>
-                <th>Pickup → Return</th>
-                <th>Total</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% with active_count=g.reservations.all|length %}
-                {% for r in g.reservations.all %}
-                  <tr>
-                    <td>{{ r.user }}</td>
-                    <td>{{ r.vehicle_display }}</td>
-                    <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                    <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
-                    <td>{{ r.total_price|floatformat:2 }} EUR</td>
-                    <td>
-                      <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
-                      {% if active_count > 1 %}
-                        <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
-                          {% csrf_token %}
-                          <button class="btn" type="submit">Delete</button>
-                        </form>
-                      {% else %}
-                        <button class="btn" disabled title="Cannot remove the only vehicle">Delete</button>
-                      {% endif %}
-                    </td>
-                  </tr>
-                {% empty %}
-                  <tr>
-                    <td colspan="6">This group has no active reservations.</td>
-                  </tr>
-                {% endfor %}
-              {% endwith %}
-            </tbody>
-          </table>
-        </div>
+        {% endif %}
+      {% empty %}
+        <p>No reservations have been made yet.</p>
       {% endfor %}
-    {% else %}
-      <p>No reservations have been made yet.</p>
-    {% endif %}
+    {% endwith %}
   </div>
 
   <div class="card" style="margin-top:1rem;">
-    <h4>Rejected / Canceled</h4>
+    <h4>Archived</h4>
 
     {% if archived %}
       {% for g in archived %}
@@ -111,8 +109,45 @@
           </table>
         </div>
       {% endfor %}
-    {% else %}
-      <p>No rejected/canceled reservations.</p>
     {% endif %}
+
+    {% for g in groups %}
+      {% if g.status == 'COMPLETED' %}
+        <div style="margin:.5rem 0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+            <div>
+              <strong>Reference:</strong> {{ g.reference }}
+              <em>({{ g.created_at }})</em>
+              &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Vehicle</th>
+                <th>Dates</th>
+                <th>Pickup → Return</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in g.reservations.all %}
+                <tr>
+                  <td>{{ r.user }}</td>
+                  <td>{{ r.vehicle_display }}</td>
+                  <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+                  <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
+                  <td>{{ r.total_price|floatformat:2 }} EUR</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5">This group has no reservations.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    {% endfor %}
   </div>
 {% endblock %}
