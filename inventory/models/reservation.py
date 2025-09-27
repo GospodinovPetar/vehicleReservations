@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from inventory.models.vehicle import Vehicle
@@ -62,6 +62,11 @@ class ReservationGroup(models.Model):
                 v.available_pickup_locations.set([item.return_location_id])
             if item.pickup_location_id:
                 v.available_return_locations.add(item.pickup_location_id)
+
+    @property
+    def total_price(self):
+        agg = self.reservations.aggregate(s=Sum("total_price"))
+        return agg["s"] or Decimal("0.00")
 
     def mark_completed(self, save=True):
         """

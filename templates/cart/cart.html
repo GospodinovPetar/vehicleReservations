@@ -35,7 +35,13 @@
               <td>{{ row.item.start_date|date:"Y-m-d" }}</td>
               <td>{{ row.item.end_date|date:"Y-m-d" }}</td>
               <td style="text-align:right;">{{ row.days }}</td>
-              <td style="text-align:right;">{{ row.total|floatformat:2 }} EUR</td>
+              <td style="text-align:right;">
+                {% if row.total is not None %}
+                  {{ row.total|floatformat:2 }} EUR
+                {% else %}
+                  {{ row.item.total_price|default:0|floatformat:2 }} EUR
+                {% endif %}
+              </td>
               <td>
                 <form method="post" action="{% url 'cart:remove_from_cart' row.item.id %}" style="display:inline;">
                   {% csrf_token %}
@@ -45,6 +51,21 @@
             </tr>
           {% endfor %}
         </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="text-align:right;"><strong>Cart total:</strong></td>
+            <td style="text-align:right;">
+              <strong>
+                {% if cart_total is not None %}
+                  {{ cart_total|floatformat:2 }} EUR
+                {% else %}
+                  0.00 EUR
+                {% endif %}
+              </strong>
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
       </table>
 
       <div class="row" style="justify-content:flex-end; gap:8px; margin-top:12px;">

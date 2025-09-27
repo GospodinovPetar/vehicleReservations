@@ -17,11 +17,26 @@ def view_cart(request):
 
     rows = []
     for it in items:
+        day_rate = float(getattr(it.vehicle, "price_per_day", 0) or 0)
         q = quote_total(
             it.start_date,
             it.end_date,
-            RateTable(day=float(it.vehicle.price_per_day), currency="EUR"),
+            RateTable(day=day_rate, currency="EUR"),
         )
-        rows.append({"item": it, "days": q["days"], "total": Decimal(str(q["total"]))})
+        rows.append({
+            "item": it,
+            "days": q["days"],
+            "total": Decimal(str(q["total"])),
+        })
 
-    return render(request, "cart/cart.html", {"cart": cart, "rows": rows})
+    cart_total = sum((row["total"] for row in rows), Decimal("0"))
+
+    return render(
+        request,
+        "cart/cart.html",
+        {
+            "cart": cart,
+            "rows": rows,
+            "cart_total": cart_total
+        },
+    )
