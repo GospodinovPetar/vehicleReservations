@@ -15,4 +15,11 @@
       <a href="{% url 'accounts:profile-change-password' %}" class="btn">Change Password</a>
     </div>
   </div>
+ {% if request.user.role == "admin" %}
+      <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% elif request.user.role == "manager" %}
+      <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% else %}
+      <a href="{% url 'inventory:home' %}" class="btn btn-secondary">← Back to Home</a>
+  {% endif %}
 {% endblock %}
