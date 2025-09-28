@@ -3,4 +3,7 @@ Django==5.2.6
 psycopg2-binary>=2.9
 sqlparse==0.5.3
 python-dotenv>=1.0
-django-ninja
+
+djangorestframework>=3.15,<3.16
+drf-spectacular>=0.27,<0.28
+drf-spectacular-sidecar>=2024.10,<2026.0
