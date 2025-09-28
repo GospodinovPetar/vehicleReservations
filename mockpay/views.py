@@ -5,21 +5,7 @@ from django.db import transaction
 
 from .forms import CheckoutForm
 from .models import PaymentIntent, PaymentIntentStatus
-from inventory.models.reservation import ReservationStatus, VehicleReservation
-
-
-def _brand(digits: str) -> str | None:
-    if digits.startswith(("51", "52", "53", "54", "55")) or (
-        digits[:2].isdigit() and 22 <= int(digits[:2]) <= 27
-    ):
-        return "mastercard"
-    if digits.startswith("4"):
-        return "visa"
-    if digits.startswith(("34", "37")):
-        return "amex"
-    if digits.startswith(("60", "64", "65")):
-        return "discover"
-    return None
+from inventory.models.reservation import ReservationStatus
 
 
 def _eur_amount(intent: PaymentIntent) -> str:

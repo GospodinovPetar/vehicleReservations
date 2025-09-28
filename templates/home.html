@@ -94,22 +94,6 @@
           <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
             ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
           </div>
-
-          {# collapsible discount explanation (only if discounts might apply) #}
-          {% if r.quote.days > 6 %}
-            <details class="disclosure" style="margin-top:.25rem;">
-              <summary class="btn" style="cursor:pointer; display:inline-block;">Learn more</summary>
-              <div class="muted" style="margin-top:.5rem; color:#374151;">
-                <ul style="margin:0; padding-left:18px;">
-                  <li>Reserve <strong>a week</strong> → pay <strong>6</strong> days.</li>
-                  <li>Reserve <strong>2 weeks</strong> → pay <strong>12</strong> days.</li>
-                  <li>Reserve <strong>3 weeks</strong> → pay <strong>18</strong> days.</li>
-                  <li>Reserve <strong>a month</strong> (30 days) → pay <strong>26</strong> days.</li>
-                </ul>
-                <p style="margin:.5rem 0 0;">We automatically apply the best discount for your dates.</p>
-              </div>
-            </details>
-          {% endif %}
         </div>
 
         <div>
@@ -181,28 +165,11 @@
 
           <div style="flex:1;">
             {% for s in row.slices %}
-              {# concise always-visible line for the slice #}
               <div style="margin:.25rem 0;">
                 Available: {{ s.start }} → {{ s.end }}
                 ({{ s.quote.days }} day{{ s.quote.days|pluralize }}, {{ s.quote.total }} {{ s.quote.currency }}
                 • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day)
               </div>
-
-              {# collapsible extra info if discount could apply #}
-              {% if s.quote.days > 6 %}
-                <details class="disclosure" style="margin: 0 0 .25rem;">
-                  <summary class="btn" style="cursor:pointer; display:inline-block;">Learn more</summary>
-                  <div class="muted" style="margin-top:.5rem; color:#374151;">
-                    <ul style="margin:0; padding-left:18px;">
-                      <li>Reserve <strong>a week</strong> → pay <strong>6</strong> days.</li>
-                      <li>Reserve <strong>2 weeks</strong> → pay <strong>12</strong> days.</li>
-                      <li>Reserve <strong>3 weeks</strong> → pay <strong>18</strong> days.</li>
-                      <li>Reserve <strong>a month</strong> (30 days) → pay <strong>26</strong> days.</li>
-                    </ul>
-                    <p style="margin:.5rem 0 0;">We automatically apply the best discount for your dates.</p>
-                  </div>
-                </details>
-              {% endif %}
             {% endfor %}
           </div>
 

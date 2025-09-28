@@ -1,4 +1,88 @@
-<h1>Payment Result</h1>
-<p>Status: {{ intent.get_status_display }}</p>
-<p>Group: {{ intent.reservation_group }}</p>
-<a href="{% url 'inventory:reservations' %}">My reservations</a>
+
+{% load static %}
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Payment Result</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <link rel="stylesheet" href="{% static 'css/result_checkout.css' %}">
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+
+        <div class="head">
+          {% if intent.status|lower in "succeeded,paid,captured" %}
+            <span class="badge is-success"><span class="emoji">✅</span> {{ intent.get_status_display }}</span>
+          {% elif intent.status|lower in "processing,requires_action,requires_confirmation" %}
+            <span class="badge is-info"><span class="emoji">ℹ️</span> {{ intent.get_status_display }}</span>
+          {% elif intent.status|lower in "requires_payment_method,pending" %}
+            <span class="badge is-warn"><span class="emoji">⚠️</span> {{ intent.get_status_display }}</span>
+          {% elif intent.status|lower in "canceled,failed,declined" %}
+            <span class="badge is-error"><span class="emoji">❌</span> {{ intent.get_status_display }}</span>
+          {% else %}
+            <span class="badge is-info"><span class="emoji">ℹ️</span> {{ intent.get_status_display }}</span>
+          {% endif %}
+
+          <h1>Payment Result</h1>
+        </div>
+
+        {% if intent.message %}
+          <p class="sub">{{ intent.message }}</p>
+        {% endif %}
+
+        <div class="row">
+          <div class="kv">
+            <h4>Group</h4>
+            <p>{{ intent.reservation_group }}</p>
+          </div>
+
+          {% if intent.amount %}
+          <div class="kv">
+            <h4>Amount</h4>
+            <p class="amount">
+              {% with cents=intent.amount|stringformat:"d" %}
+                {% if cents|length <= 2 %}
+                  0.{{ cents|stringformat:"02d" }}
+                {% else %}
+                  {{ cents|slice:":-2" }}.{{ cents|slice:"-2:" }}
+                {% endif %}
+              {% endwith %}
+              {% if intent.currency %} {{ intent.currency|upper }}{% endif %}
+            </p>
+          </div>
+          {% endif %}
+
+          {% if intent.payment_method %}
+          <div class="kv">
+            <h4>Payment Method</h4>
+            <p>{{ intent.payment_method }}</p>
+          </div>
+          {% endif %}
+
+          {% if intent.created_at %}
+          <div class="kv">
+            <h4>Created</h4>
+            <p>{{ intent.created_at|date:"Y-m-d H:i" }}</p>
+          </div>
+          {% endif %}
+
+          {% if intent.updated_at %}
+          <div class="kv">
+            <h4>Updated</h4>
+            <p>{{ intent.updated_at|date:"Y-m-d H:i" }}</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="actions">
+          <a class="btn" href="{% url 'inventory:reservations' %}">📅 My reservations</a>
+        </div>
+
+      </div>
+    </div>
+  </body>
+</html>
