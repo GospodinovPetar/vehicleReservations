@@ -1,6 +1,11 @@
 {% extends "base.html" %}
-{% block content %}
+{% load static %}
 
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/checkout.css' %}">
+{% endblock %}
+
+{% block content %}
 
 <div class="pay-card">
   <div class="header">
@@ -16,7 +21,7 @@
     <div class="err">{{ form.non_field_errors }}</div>
   {% endif %}
 
-  <form method="post" novalidate>
+    <form method="post" novalidate>
     {% csrf_token %}
 
     <div class="field">
@@ -37,17 +42,19 @@
         {{ form.exp_year }}
         {% if form.exp_year.errors %}<div class="err">{{ form.exp_year.errors|striptags }}</div>{% endif %}
       </div>
-      <div class="field">
+    </div>
+
+    <div class="row">
+      <div class="field wide">
+        <label for="{{ form.cardholder_name.id_for_label }}">Name on card</label>
+        {{ form.cardholder_name }}
+        {% if form.cardholder_name.errors %}<div class="err">{{ form.cardholder_name.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="field narrow">
         <label for="{{ form.cvc.id_for_label }}">CVC</label>
         {{ form.cvc }}
         {% if form.cvc.errors %}<div class="err">{{ form.cvc.errors|striptags }}</div>{% endif %}
       </div>
-    </div>
-
-    <div class="field">
-      <label for="{{ form.cardholder_name.id_for_label }}">Name on card</label>
-      {{ form.cardholder_name }}
-      {% if form.cardholder_name.errors %}<div class="err">{{ form.cardholder_name.errors|striptags }}</div>{% endif %}
     </div>
 
     <div class="row">

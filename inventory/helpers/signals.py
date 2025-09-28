@@ -4,17 +4,15 @@ from django.db import transaction
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 
+from emails.send_group_created import send_group_created_email
+from emails.send_group_status_changed import send_group_status_changed_email
+from emails.send_reservation_edited import send_reservation_edited_email
+from emails.send_vehicle_added import send_vehicle_added_email
+from emails.send_vehicle_removed import send_vehicle_removed_email
 from inventory.models.reservation import (
     ReservationGroup,
     VehicleReservation,
     ReservationStatus,
-)
-from inventory.emails import (
-    send_group_created_email,
-    send_group_status_changed_email,
-    send_vehicle_added_email,
-    send_vehicle_removed_email,
-    send_reservation_edited_email,
 )
 from mockpay.models import PaymentIntent, PaymentIntentStatus
 
