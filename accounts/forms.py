@@ -21,7 +21,15 @@ class CustomUserCreationForm(UserCreationForm):
 
     class Meta(UserCreationForm.Meta):
         model = CustomUser
-        fields = ("username", "email", "first_name", "last_name", "phone", "password1", "password2")
+        fields = (
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "password1",
+            "password2",
+        )
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -74,7 +82,7 @@ class VehicleForm(forms.ModelForm):
 
     # Single selection for pick-up (mapped to M2M in save())
     available_pickup_locations = forms.ModelChoiceField(
-        queryset=Location.objects.none(),   # set properly in __init__
+        queryset=Location.objects.none(),  # set properly in __init__
         required=True,
         label="Pick-up Location",
         widget=forms.Select,
@@ -82,7 +90,7 @@ class VehicleForm(forms.ModelForm):
 
     # Multiple selection for drop-off
     available_return_locations = forms.ModelMultipleChoiceField(
-        queryset=Location.objects.none(),   # set properly in __init__
+        queryset=Location.objects.none(),  # set properly in __init__
         required=True,
         label="Drop-off Locations",
         widget=forms.CheckboxSelectMultiple,
@@ -110,8 +118,12 @@ class VehicleForm(forms.ModelForm):
 
         super().__init__(*args, **kwargs)
 
-        self.fields["available_pickup_locations"].queryset = Location.objects.all().order_by("name")
-        self.fields["available_return_locations"].queryset = Location.objects.all().order_by("name")
+        self.fields["available_pickup_locations"].queryset = (
+            Location.objects.all().order_by("name")
+        )
+        self.fields["available_return_locations"].queryset = (
+            Location.objects.all().order_by("name")
+        )
 
         self.fields["available_pickup_locations"].empty_label = None
 
@@ -127,7 +139,9 @@ class VehicleForm(forms.ModelForm):
         elif not self.is_bound:
             default_id = None
             if request is not None:
-                default_id = (request.GET.get("pickup") or request.session.get("last_pickup_id"))
+                default_id = request.GET.get("pickup") or request.session.get(
+                    "last_pickup_id"
+                )
 
             fld = self.fields["available_pickup_locations"]
             if default_id and fld.queryset.filter(pk=default_id).exists():
@@ -158,7 +172,9 @@ class VehicleForm(forms.ModelForm):
         def _save_m2m():
             vehicle.available_pickup_locations.set([pickup] if pickup else [])
             # multiple is already an iterable
-            vehicle.available_return_locations.set(returns if returns is not None else [])
+            vehicle.available_return_locations.set(
+                returns if returns is not None else []
+            )
 
         # 5) Execute now or defer (Django pattern when commit=False)
         if commit:
@@ -178,6 +194,7 @@ class ReservationStatusForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["status"].choices = ReservationStatus.choices
 
+
 class EmailCodeForm(forms.Form):
     email = forms.EmailField()
     code = forms.CharField(max_length=32, label="Code")
@@ -190,8 +207,12 @@ class EmailOnlyForm(forms.Form):
 class PasswordResetConfirmForm(forms.Form):
     email = forms.EmailField(label="Email")
     code = forms.CharField(max_length=32, label="Code from email")
-    new_password = forms.CharField(widget=forms.PasswordInput(), min_length=8, label="New password")
-    new_password_confirm = forms.CharField(widget=forms.PasswordInput(), min_length=8, label="Confirm new password")
+    new_password = forms.CharField(
+        widget=forms.PasswordInput(), min_length=8, label="New password"
+    )
+    new_password_confirm = forms.CharField(
+        widget=forms.PasswordInput(), min_length=8, label="Confirm new password"
+    )
 
     def clean(self):
         cleaned = super().clean()

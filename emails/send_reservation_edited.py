@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
 from django.template import TemplateDoesNotExist
 
 from emails.helpers.detect_changes import detect_changes
@@ -6,25 +10,45 @@ from emails.helpers.render_pair import render_pair
 from emails.helpers.send import send
 
 
-def send_reservation_edited_email(before, after):
-    group = after.group
-    recipients = recipients_for_group(group)
-    changes = detect_changes(before, after)
-    ctx = {
-        "group": group,
+def send_reservation_edited_email(before: Any, after: Any) -> None:
+    group_obj: Any = after.group
+    recipients_list: List[str] = recipients_for_group(group_obj)
+
+    changes_list = detect_changes(before, after)
+
+    reference_value: str = getattr(group_obj, "reference", None)
+    if not reference_value:
+        reference_value = f"#{group_obj.pk}"
+
+    status_display_value: str = group_obj.get_status_display()
+
+    total_price_value = getattr(after, "total_price", None)
+
+    context: Dict[str, Any] = {
+        "group": group_obj,
         "reservation": after,
-        "reference": getattr(group, "reference", None) or f"#{group.pk}",
-        "status": group.get_status_display(),
-        "changes": changes,
-        "total_price": getattr(after, "total_price", None),
+        "reference": reference_value,
+        "status": status_display_value,
+        "changes": changes_list,
+        "total_price": total_price_value,
     }
-    subject = f"Reservation updated: {ctx['reference']}"
+
+    subject_value: str = f"Reservation updated: {reference_value}"
+
     try:
-        text_body, html_body = render_pair("reservation_edited", ctx)
+        text_body_value, html_body_value = render_pair("reservation_edited", context)
     except TemplateDoesNotExist:
-        if changes:
-            summary = "; ".join(f"{c.label}: {c.before} → {c.after}" for c in changes)
+        if changes_list:
+            parts: List[str] = []
+            for c in changes_list:
+                label_value = getattr(c, "label", "")
+                before_value = getattr(c, "before", "")
+                after_value = getattr(c, "after", "")
+                parts.append(f"{label_value}: {before_value} → {after_value}")
+            summary_value = "; ".join(parts)
         else:
-            summary = "Reservation details were updated."
-        text_body, html_body = (f"{subject}\n\n{summary}", None)
-    send(subject, recipients, text_body, html_body)
+            summary_value = "Reservation details were updated."
+        text_body_value = f"{subject_value}\n\n{summary_value}"
+        html_body_value = None
+
+    send(subject_value, recipients_list, text_body_value, html_body_value)

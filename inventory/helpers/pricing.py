@@ -1,129 +1,170 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
+
 
 @dataclass
 class RateTable:
     day: Optional[float] = None
-    week: Optional[float] = None   # unused
-    month: Optional[float] = None  # unused
+    week: Optional[float] = None
+    month: Optional[float] = None
     currency: str = "EUR"
 
-def _safe_float(value) -> float:
+
+def _safe_float(value: Any) -> float:
     try:
         return float(value)
     except Exception:
         return 0.0
 
-def _breakdown_to_lines(daily_price: float, months: int, weeks: int, days: int) -> List[Dict[str, object]]:
-    """
-    Build a human-readable cost breakdown with the new tiered week discount:
-      - Weeks: charge (weeks*7 - min(weeks, 3)) days
-      - Months: charge (months*26) days (30-day blocks charged as 26)
-    """
-    lines: List[Dict[str, object]] = []
 
-    if months:
-        lines.append({
-            "period": "month",
-            "units": months,
-            "unit_amount": round(26 * daily_price, 2),
-            "note": "30-day block charged as 26 days",
-            "subtotal": round(months * 26 * daily_price, 2),
-        })
+def _breakdown_to_lines(
+    daily_price: float,
+    months_count: int,
+    weeks_count: int,
+    days_count: int,
+) -> List[Dict[str, Any]]:
+    lines: List[Dict[str, Any]] = []
 
-    if weeks:
-        charged_week_days = weeks * 7 - min(weeks, 3)  # cap freebies at 3 days across the weeks block
-        lines.append({
-            "period": "weeks",
-            "units": weeks,
-            "unit_amount": round(daily_price, 2),  # informational (per-day); subtotal reflects discount
-            "note": f"{weeks}×7 days charged as {charged_week_days} days (tiered week discount)",
-            "subtotal": round(charged_week_days * daily_price, 2),
-        })
+    if months_count > 0:
+        unit_amount_month = round(26.0 * daily_price, 2)
+        subtotal_months = round(months_count * 26.0 * daily_price, 2)
+        lines.append(
+            {
+                "period": "month",
+                "units": months_count,
+                "unit_amount": unit_amount_month,
+                "note": "30-day block charged as 26 days",
+                "subtotal": subtotal_months,
+            }
+        )
 
-    if days:
-        lines.append({
-            "period": "day",
-            "units": days,
-            "unit_amount": round(daily_price, 2),
-            "subtotal": round(days * daily_price, 2),
-        })
+    if weeks_count > 0:
+        free_days_from_weeks = weeks_count
+        if free_days_from_weeks > 3:
+            free_days_from_weeks = 3
+        charged_week_days = weeks_count * 7 - free_days_from_weeks
+        unit_amount_week_info = round(daily_price, 2)
+        subtotal_weeks = round(charged_week_days * daily_price, 2)
+        lines.append(
+            {
+                "period": "weeks",
+                "units": weeks_count,
+                "unit_amount": unit_amount_week_info,
+                "note": f"{weeks_count}×7 days charged as {charged_week_days} days (tiered week discount)",
+                "subtotal": subtotal_weeks,
+            }
+        )
+
+    if days_count > 0:
+        unit_amount_day = round(daily_price, 2)
+        subtotal_days = round(days_count * daily_price, 2)
+        lines.append(
+            {
+                "period": "day",
+                "units": days_count,
+                "unit_amount": unit_amount_day,
+                "subtotal": subtotal_days,
+            }
+        )
 
     return lines
 
-def _cost_for(days_total: int, daily_price: float, month_first: bool) -> Dict[str, object]:
-    """
-    Compute cost by grouping into 30-day 'months' (charged as 26 days) and 7-day 'weeks'
-    with a tiered free-day rule:
-      - 1 week => 1 day free
-      - 2 weeks => 2 days free
-      - 3 weeks => 3 days free
-      - 4+ weeks => still only 3 days total free via the 'weeks' bucket (months handle longer spans)
-    The remainder is charged per-day.
-    """
-    remaining = days_total
-    m = w = d = 0
+
+def _cost_for(days_total: int, daily_price: float, month_first: bool) -> Dict[str, Any]:
+    remaining_days = days_total
+    months_count = 0
+    weeks_count = 0
+    days_count = 0
 
     if month_first:
-        m = remaining // 30
-        remaining -= m * 30
-        w = remaining // 7
-        remaining -= w * 7
-        d = remaining
+        if remaining_days >= 30:
+            months_count = remaining_days // 30
+            remaining_days = remaining_days - months_count * 30
+        if remaining_days >= 7:
+            weeks_count = remaining_days // 7
+            remaining_days = remaining_days - weeks_count * 7
+        days_count = remaining_days
     else:
-        w = remaining // 7
-        remaining -= w * 7
-        m = remaining // 30
-        remaining -= m * 30
-        d = remaining
+        if remaining_days >= 7:
+            weeks_count = remaining_days // 7
+            remaining_days = remaining_days - weeks_count * 7
+        if remaining_days >= 30:
+            months_count = remaining_days // 30
+            remaining_days = remaining_days - months_count * 30
+        days_count = remaining_days
 
-    # Apply pricing rules
-    charged_month_days = m * 26
-    charged_week_days = w * 7 - min(w, 3)  # tiered: up to 3 days free across the weeks chunk
-    charged_days = charged_month_days + charged_week_days + d
+    charged_month_days = months_count * 26
+    free_week_days = weeks_count
+    if free_week_days > 3:
+        free_week_days = 3
+    charged_week_days = weeks_count * 7 - free_week_days
+    charged_days_total = charged_month_days + charged_week_days + days_count
 
-    total = charged_days * daily_price
-    breakdown = _breakdown_to_lines(daily_price, m, w, d)
+    total_amount = round(charged_days_total * daily_price, 2)
+    breakdown_lines = _breakdown_to_lines(
+        daily_price=daily_price,
+        months_count=months_count,
+        weeks_count=weeks_count,
+        days_count=days_count,
+    )
 
     return {
         "days": days_total,
-        "total": round(total, 2),
-        "breakdown": breakdown,
+        "total": total_amount,
+        "breakdown": breakdown_lines,
     }
 
-def quote_total(start_date: date, end_date: date, rate_table: RateTable) -> Dict[str, object]:
-    """
-    Total uses:
-      - Weeks: 1→6 paid, 2→12 paid, 3→18 paid (free days equal to week count, capped at 3)
-      - Months: 30-day blocks charged as 26 days (4 free)
-      - End date exclusive: total_days = (end_date - start_date).days
-    We try both month-first and week-first packings and take the cheaper.
-    """
-    if not start_date or not end_date or end_date <= start_date:
+
+def quote_total(
+    start_date: date, end_date: date, rate_table: RateTable
+) -> Dict[str, Any]:
+    if start_date is None or end_date is None:
         return {
             "days": 0,
             "total": 0.0,
             "breakdown": [],
-            "currency": rate_table.currency if rate_table else "EUR",
+            "currency": rate_table.currency if rate_table is not None else "EUR",
+        }
+    if end_date <= start_date:
+        return {
+            "days": 0,
+            "total": 0.0,
+            "breakdown": [],
+            "currency": rate_table.currency if rate_table is not None else "EUR",
         }
 
-    daily_price = _safe_float(getattr(rate_table, "day", None))
-    if daily_price <= 0:
+    if rate_table is None:
+        currency_value = "EUR"
+        daily_price_value = 0.0
+    else:
+        currency_value = rate_table.currency
+        daily_price_value = _safe_float(getattr(rate_table, "day", None))
+
+    if daily_price_value <= 0.0:
         return {
             "days": 0,
             "total": 0.0,
             "breakdown": [],
-            "currency": rate_table.currency if rate_table else "EUR",
+            "currency": currency_value,
         }
 
     total_days = (end_date - start_date).days
 
-    a = _cost_for(total_days, daily_price, month_first=True)
-    b = _cost_for(total_days, daily_price, month_first=False)
-    best = a if a["total"] <= b["total"] else b
+    month_first_cost = _cost_for(total_days, daily_price_value, month_first=True)
+    week_first_cost = _cost_for(total_days, daily_price_value, month_first=False)
 
-    return {
-        **best,
-        "currency": rate_table.currency if rate_table else "EUR",
+    if month_first_cost["total"] <= week_first_cost["total"]:
+        best_cost = month_first_cost
+    else:
+        best_cost = week_first_cost
+
+    result: Dict[str, Any] = {
+        "days": best_cost["days"],
+        "total": best_cost["total"],
+        "breakdown": best_cost["breakdown"],
+        "currency": currency_value,
     }
+    return result

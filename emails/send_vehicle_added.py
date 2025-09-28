@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
+
 from django.template import TemplateDoesNotExist
 
 from emails.helpers.recipients_for_group import recipients_for_group
@@ -5,27 +9,38 @@ from emails.helpers.render_pair import render_pair
 from emails.helpers.send import send
 
 
-def send_vehicle_added_email(reservation):
-    group = reservation.group
-    if not group:
-        return
-    had_items_before = group.reservations.exclude(pk=reservation.pk).exists()
-    if not had_items_before:
+def send_vehicle_added_email(reservation: Any) -> None:
+    group_obj: Optional[Any] = getattr(reservation, "group", None)
+    if group_obj is None:
         return
 
-    recipients = recipients_for_group(group)
-    ctx = {
-        "group": group,
+    other_items_exist: bool = group_obj.reservations.exclude(
+        pk=getattr(reservation, "pk", None)
+    ).exists()
+    if not other_items_exist:
+        return
+
+    recipients_list: List[str] = recipients_for_group(group_obj)
+
+    reference_value: str = getattr(group_obj, "reference", None)
+    if not reference_value:
+        reference_value = f"#{group_obj.pk}"
+
+    status_display_value: str = group_obj.get_status_display()
+
+    context: Dict[str, Any] = {
+        "group": group_obj,
         "reservation": reservation,
-        "reference": getattr(group, "reference", None) or f"#{group.pk}",
-        "status": group.get_status_display(),
+        "reference": reference_value,
+        "status": status_display_value,
     }
-    subject = f"Vehicle added: {reservation.vehicle}"
+
+    subject_value: str = f"Vehicle added: {getattr(reservation, 'vehicle', '')}"
+
     try:
-        text_body, html_body = render_pair("vehicle_added", ctx)
+        text_body_value, html_body_value = render_pair("vehicle_added", context)
     except TemplateDoesNotExist:
-        text_body, html_body = (
-            f"A vehicle was added to reservation {ctx['reference']}: {reservation.vehicle}.",
-            None,
-        )
-    send(subject, recipients, text_body, html_body)
+        text_body_value = f"A vehicle was added to reservation {reference_value}: {getattr(reservation, 'vehicle', '')}."
+        html_body_value = None
+
+    send(subject_value, recipients_list, text_body_value, html_body_value)

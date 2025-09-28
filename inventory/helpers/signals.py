@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, List, Optional
+
 from django.db import transaction
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
@@ -18,125 +20,150 @@ from mockpay.models import PaymentIntent, PaymentIntentStatus
 
 
 @receiver(pre_save, sender=ReservationGroup)
-def _remember_old_status(sender, instance: ReservationGroup, **kwargs):
+def _remember_old_status(
+    sender: type[ReservationGroup], instance: ReservationGroup, **kwargs: Any
+) -> None:
     if not instance.pk:
         instance._old_status = None
         return
     try:
-        instance._old_status = sender.objects.only("status").get(pk=instance.pk).status
+        previous: ReservationGroup = sender.objects.only("status").get(pk=instance.pk)
+        instance._old_status = previous.status
     except sender.DoesNotExist:
         instance._old_status = None
 
 
 @receiver(post_save, sender=ReservationGroup)
 def _handle_group_post_save(
-    sender, instance: ReservationGroup, created: bool, **kwargs
-):
-    old = getattr(instance, "_old_status", None)
-    status_changed = old is not None and old != instance.status
+    sender: type[ReservationGroup],
+    instance: ReservationGroup,
+    created: bool,
+    **kwargs: Any,
+) -> None:
+    old_status_value = getattr(instance, "_old_status", None)
+    status_changed_flag = (
+        old_status_value is not None and old_status_value != instance.status
+    )
 
-    def _email_side_effects():
+    def perform_email_side_effects() -> None:
         if created:
             send_group_created_email(instance)
-        elif status_changed:
-            send_group_status_changed_email(instance, old, instance.status)
+            return
+        if status_changed_flag:
+            send_group_status_changed_email(instance, old_status_value, instance.status)
 
-    if transaction.get_connection().in_atomic_block:
-        transaction.on_commit(_email_side_effects)
+    connection_in_atomic_block = transaction.get_connection().in_atomic_block
+    if connection_in_atomic_block:
+        transaction.on_commit(perform_email_side_effects)
     else:
-        _email_side_effects()
+        perform_email_side_effects()
 
     if (
-        not created
-        and status_changed
+        (not created)
+        and status_changed_flag
         and instance.status == ReservationStatus.COMPLETED
     ):
-        items = VehicleReservation.objects.filter(group=instance).select_related(
+        items_qs = VehicleReservation.objects.filter(group=instance).select_related(
             "vehicle", "pickup_location", "return_location"
         )
-        for item in items:
-            v = item.vehicle
+        for item in items_qs:
+            vehicle_obj = item.vehicle
             if item.return_location_id:
-                v.available_pickup_locations.set([item.return_location_id])
+                vehicle_obj.available_pickup_locations.set([item.return_location_id])
             if item.pickup_location_id:
-                v.available_return_locations.add(item.pickup_location_id)
+                vehicle_obj.available_return_locations.add(item.pickup_location_id)
 
 
 @receiver(pre_save, sender=VehicleReservation)
-def _capture_reservation_snapshot(sender, instance: VehicleReservation, **kwargs):
+def _capture_reservation_snapshot(
+    sender: type[VehicleReservation], instance: VehicleReservation, **kwargs: Any
+) -> None:
     if not instance.pk:
         instance._before_snapshot = None
         return
     try:
-        before = VehicleReservation.objects.select_related(
+        before_value: VehicleReservation = VehicleReservation.objects.select_related(
             "group", "vehicle", "pickup_location", "return_location"
         ).get(pk=instance.pk)
     except VehicleReservation.DoesNotExist:
-        before = None
-    instance._before_snapshot = before
+        before_value = None
+    instance._before_snapshot = before_value
 
 
 @receiver(post_save, sender=VehicleReservation)
 def _reservation_created_or_edited(
-    sender, instance: VehicleReservation, created, **kwargs
-):
-    def _do():
+    sender: type[VehicleReservation],
+    instance: VehicleReservation,
+    created: bool,
+    **kwargs: Any,
+) -> None:
+    def perform_actions() -> None:
         if created:
             send_vehicle_added_email(instance)
             return
-        before = getattr(instance, "_before_snapshot", None)
-        if before is None:
+        before_snapshot = getattr(instance, "_before_snapshot", None)
+        if before_snapshot is None:
             return
-        tracked_fields = [
+        tracked_fields: List[str] = [
             "start_date",
             "end_date",
             "pickup_location_id",
             "return_location_id",
             "vehicle_id",
         ]
-        changed = any(
-            getattr(before, f, None) != getattr(instance, f, None)
-            for f in tracked_fields
-        )
-        if changed:
-            send_reservation_edited_email(before, instance)
+        has_changed = False
+        for field_name in tracked_fields:
+            before_value = getattr(before_snapshot, field_name, None)
+            current_value = getattr(instance, field_name, None)
+            if before_value != current_value:
+                has_changed = True
+                break
+        if has_changed:
+            send_reservation_edited_email(before_snapshot, instance)
 
-    if transaction.get_connection().in_atomic_block:
-        transaction.on_commit(_do)
+    connection_in_atomic_block = transaction.get_connection().in_atomic_block
+    if connection_in_atomic_block:
+        transaction.on_commit(perform_actions)
     else:
-        _do()
+        perform_actions()
 
 
 @receiver(post_delete, sender=VehicleReservation)
-def _reservation_deleted(sender, instance: VehicleReservation, **kwargs):
-    def _do():
+def _reservation_deleted(
+    sender: type[VehicleReservation], instance: VehicleReservation, **kwargs: Any
+) -> None:
+    def perform_delete_side_effect() -> None:
         send_vehicle_removed_email(instance)
 
-    if transaction.get_connection().in_atomic_block:
-        transaction.on_commit(_do)
+    connection_in_atomic_block = transaction.get_connection().in_atomic_block
+    if connection_in_atomic_block:
+        transaction.on_commit(perform_delete_side_effect)
     else:
-        _do()
+        perform_delete_side_effect()
 
 
 @receiver(post_save, sender=VehicleReservation)
-def _auto_cleanup_payment_on_pending(sender, instance: VehicleReservation, **kwargs):
-    grp = instance.group
-    if not grp or grp.status != ReservationStatus.AWAITING_PAYMENT:
+def _auto_cleanup_payment_on_pending(
+    sender: type[VehicleReservation], instance: VehicleReservation, **kwargs: Any
+) -> None:
+    group_obj: Optional[ReservationGroup] = instance.group
+    if group_obj is None or group_obj.status != ReservationStatus.AWAITING_PAYMENT:
         return
 
-    def _do():
+    def perform_cleanup() -> None:
         PaymentIntent.objects.filter(
-            reservation_group=grp,
+            reservation_group=group_obj,
             status__in=[
                 PaymentIntentStatus.REQUIRES_CONFIRMATION,
                 PaymentIntentStatus.PROCESSING,
             ],
         ).update(status=PaymentIntentStatus.CANCELED)
-        ReservationGroup.objects.filter(pk=grp.pk).update(
+        ReservationGroup.objects.filter(pk=group_obj.pk).update(
             status=ReservationStatus.PENDING
         )
 
-    if transaction.get_connection().in_atomic_block:
-        transaction.on_commit(_do)
+    connection_in_atomic_block = transaction.get_connection().in_atomic_block
+    if connection_in_atomic_block:
+        transaction.on_commit(perform_cleanup)
     else:
-        _do()
+        perform_cleanup()

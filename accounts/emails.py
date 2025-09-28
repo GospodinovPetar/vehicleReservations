@@ -17,13 +17,21 @@ def _render(base_path: str, context: dict):
 
 def send_verification_email(to_email: str, code: str, ttl_minutes: int):
     subject = "Your verification code"
-    ctx = {"code": code, "ttl_minutes": ttl_minutes, "site_name": getattr(settings, "SITE_NAME", "Our Service")}
+    ctx = {
+        "code": code,
+        "ttl_minutes": ttl_minutes,
+        "site_name": getattr(settings, "SITE_NAME", "Our Service"),
+    }
     text, html = _render("emails/verify_email/verify_email", ctx)
     send_mail(subject, text, settings.DEFAULT_FROM_EMAIL, [to_email], html_message=html)
 
 
 def send_reset_password_email(to_email: str, code: str, ttl_minutes: int):
     subject = "Your password reset code"
-    ctx = {"code": code, "ttl_minutes": ttl_minutes, "site_name": getattr(settings, "SITE_NAME", "Our Service")}
+    ctx = {
+        "code": code,
+        "ttl_minutes": ttl_minutes,
+        "site_name": getattr(settings, "SITE_NAME", "Our Service"),
+    }
     text, html = _render("emails/reset_password/reset_password", ctx)
     send_mail(subject, text, settings.DEFAULT_FROM_EMAIL, [to_email], html_message=html)

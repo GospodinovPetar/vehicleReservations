@@ -5,7 +5,7 @@ from django.db import models, transaction
 
 
 def _max_rental_days() -> int:
-    return int(getattr(settings, "MAX_RENTAL_DAYS", 60))
+    return int(getattr(settings, "MAX_RENTAL_DAYS", 60))  # Precaution
 
 
 class Cart(models.Model):
@@ -66,7 +66,9 @@ class CartItem(models.Model):
         related_name="+",
     )
 
-    total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    total_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
 
     class Meta:
         ordering = ["start_date", "vehicle_id"]
@@ -105,16 +107,22 @@ class CartItem(models.Model):
             raise ValidationError(errors)
 
         if self.cart_id and self.vehicle_id and self.start_date and self.end_date:
-            overlap_exists = CartItem.objects.filter(
-                cart_id=self.cart_id,
-                vehicle_id=self.vehicle_id,
-                start_date__lt=self.end_date,
-                end_date__gt=self.start_date,
-            ).exclude(pk=self.pk).exists()
+            overlap_exists = (
+                CartItem.objects.filter(
+                    cart_id=self.cart_id,
+                    vehicle_id=self.vehicle_id,
+                    start_date__lt=self.end_date,
+                    end_date__gt=self.start_date,
+                )
+                .exclude(pk=self.pk)
+                .exists()
+            )
             if overlap_exists:
-                raise ValidationError({
-                    "__all__": "This vehicle is already in your cart for overlapping dates."
-                })
+                raise ValidationError(
+                    {
+                        "__all__": "This vehicle is already in your cart for overlapping dates."
+                    }
+                )
 
     @classmethod
     @transaction.atomic

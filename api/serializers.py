@@ -1,13 +1,10 @@
+from __future__ import annotations
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from inventory.models.vehicle import Vehicle
-from inventory.models.reservation import (
-    VehicleReservation,
-    Location,
-    ReservationGroup,
-    ReservationStatus,
-)
+from inventory.models.reservation import VehicleReservation, Location
 
 User = get_user_model()
 
@@ -15,7 +12,15 @@ User = get_user_model()
 class VehicleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vehicle
-        fields = ["id", "name", "car_type", "engine_type", "seats", "unlimited_seats", "price_per_day"]
+        fields = [
+            "id",
+            "name",
+            "car_type",
+            "engine_type",
+            "seats",
+            "unlimited_seats",
+            "price_per_day",
+        ]
 
 
 class LocationSerializer(serializers.ModelSerializer):
@@ -32,8 +37,16 @@ class ReservationCreateSerializer(serializers.Serializer):
     end_date = serializers.DateField()
 
     def validate(self, attrs):
-        if attrs["end_date"] <= attrs["start_date"]:
-            raise serializers.ValidationError("end_date must be after start_date.")
+        start_date = attrs.get("start_date")
+        end_date = attrs.get("end_date")
+        if start_date is None or end_date is None:
+            raise serializers.ValidationError(
+                {"date_range": ["start_date and end_date are required."]}
+            )
+        if end_date <= start_date:
+            raise serializers.ValidationError(
+                {"date_range": ["end_date must be after start_date."]}
+            )
         return attrs
 
 
@@ -42,20 +55,33 @@ class ReservationSerializer(serializers.ModelSerializer):
     group_status = serializers.SerializerMethodField()
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     group_id = serializers.IntegerField(read_only=True)
-    total_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    total_price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
 
     class Meta:
         model = VehicleReservation
         fields = [
-            "id", "user", "vehicle", "vehicle_name",
-            "pickup_location", "return_location",
-            "start_date", "end_date",
-            "group_id", "group_status", "total_price",
+            "id",
+            "user",
+            "vehicle",
+            "vehicle_name",
+            "pickup_location",
+            "return_location",
+            "start_date",
+            "end_date",
+            "group_id",
+            "group_status",
+            "total_price",
         ]
         read_only_fields = ("user", "group_id", "group_status", "total_price")
 
     def get_vehicle_name(self, obj):
-        return getattr(obj, "vehicle_name_snapshot", "") or (str(obj.vehicle) if obj.vehicle else "")
+        snapshot = getattr(obj, "vehicle_name_snapshot", "")
+        if snapshot:
+            return snapshot
+        vehicle_obj = getattr(obj, "vehicle", None)
+        return str(vehicle_obj) if vehicle_obj is not None else ""
 
     def get_group_status(self, obj):
         grp = getattr(obj, "group", None)
@@ -84,5 +110,24 @@ class AvailabilityVehicleSerializer(serializers.Serializer):
     name = serializers.CharField()
 
 
+class AvailabilityPartialSliceQuoteSerializer(serializers.Serializer):
+    days = serializers.IntegerField()
+    total = serializers.DecimalField(max_digits=10, decimal_places=2)
+    currency = serializers.CharField()
+
+
+class AvailabilityPartialSliceSerializer(serializers.Serializer):
+    start = serializers.DateField()
+    end = serializers.DateField()
+    quote = AvailabilityPartialSliceQuoteSerializer()
+
+
+class AvailabilityPartialVehicleSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    slices = AvailabilityPartialSliceSerializer(many=True)
+
+
 class AvailabilityResponseSerializer(serializers.Serializer):
     vehicles = AvailabilityVehicleSerializer(many=True)
+    partial_vehicles = AvailabilityPartialVehicleSerializer(many=True)

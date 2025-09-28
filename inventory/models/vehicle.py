@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from decimal import Decimal
+from typing import Dict, Optional
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -16,7 +19,7 @@ GOLF_MK2_PATTERNS = (
     "golf ii",
     "golf dvoika",
     "golf dve",
-    "golf2"
+    "golf2",
 )
 
 
@@ -45,46 +48,32 @@ class EngineType(models.TextChoices):
 
 
 def _is_golf_mk2(name: str) -> bool:
-    n = (name or "").strip().casefold()
-    for p in GOLF_MK2_PATTERNS:
-        if p in n:
+    normalized = (name or "").strip().casefold()
+    for pattern in GOLF_MK2_PATTERNS:
+        if pattern in normalized:
             return True
     return False
 
 
 class Vehicle(models.Model):
-
     name = models.CharField(max_length=120)
     plate_number = models.CharField(max_length=20, unique=True)
     car_type = models.CharField(
-        max_length=12,
-        choices=VehicleType.choices,
-        default=VehicleType.CAR,
+        max_length=12, choices=VehicleType.choices, default=VehicleType.CAR
     )
     engine_type = models.CharField(
-        max_length=10,
-        choices=EngineType.choices,
-        default=EngineType.PETROL,
+        max_length=10, choices=EngineType.choices, default=EngineType.PETROL
     )
-
     price_per_day = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=Decimal("0.00"),
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
-
     seats = models.PositiveSmallIntegerField(null=True, blank=True)
     unlimited_seats = models.BooleanField(default=False)
-
     available_pickup_locations = models.ManyToManyField(
-        "Location",
-        related_name="pickup_vehicles",
-        blank=True,
+        "Location", related_name="pickup_vehicles", blank=True
     )
     available_return_locations = models.ManyToManyField(
-        "Location",
-        related_name="return_vehicles",
-        blank=True,
+        "Location", related_name="return_vehicles", blank=True
     )
 
     class Meta:
@@ -143,7 +132,7 @@ class Vehicle(models.Model):
             raise ValidationError({"seats": "Seats must be a positive number."})
 
         bounds = SEAT_BOUNDS.get(self.car_type)
-        if bounds:
+        if bounds is not None:
             low, high = bounds
             if self.seats < low or self.seats > high:
                 raise ValidationError(

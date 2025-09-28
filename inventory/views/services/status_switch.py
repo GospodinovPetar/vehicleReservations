@@ -95,7 +95,9 @@ def transition_group(
 
     if rule.require_staff and not actor.is_staff:
         raise PermissionDenied("Only staff can perform this action.")
-    if rule.require_owner_or_staff and not (actor.is_staff or group.user_id == actor.id):
+    if rule.require_owner_or_staff and not (
+        actor.is_staff or group.user_id == actor.id
+    ):
         raise PermissionDenied("Only the owner or staff can perform this action.")
 
     if group.status not in rule.allowed_from:

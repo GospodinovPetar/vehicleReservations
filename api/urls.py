@@ -21,9 +21,6 @@ urlpatterns = [
     path("register", register_view, name="api-register"),
     path("login", login_view, name="api-login"),
     path("logout", logout_view, name="api-logout"),
-
     path("availability", availability_view, name="api-availability"),
-
-    # Routers
     path("", include(router.urls)),
 ]

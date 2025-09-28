@@ -72,11 +72,13 @@ class CustomUser(AbstractUser):
         self.full_clean()
         super().save(*args, **kwargs)
 
+
 class PendingRegistration(models.Model):
     """
     Temporarily stores registration data so we don't create a CustomUser
     until the email is verified.
     """
+
     username = models.CharField(max_length=150, db_index=True)
     email = models.EmailField(db_index=True)
     first_name = models.CharField(max_length=150, blank=True, default="")
@@ -97,7 +99,17 @@ class PendingRegistration(models.Model):
         return timezone.now() > self.expires_at
 
     @classmethod
-    def start(cls, *, username, email, first_name, last_name, phone, password_hash, ttl_hours: int = 24):
+    def start(
+        cls,
+        *,
+        username,
+        email,
+        first_name,
+        last_name,
+        phone,
+        password_hash,
+        ttl_hours: int = 24,
+    ):
         """
         Upsert semantics: keep one active pending registration per email/username.
         """

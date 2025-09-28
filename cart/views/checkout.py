@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import secrets
 from decimal import Decimal, ROUND_HALF_UP
+from typing import List, Optional
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.views.decorators.http import require_http_methods
-from inventory.helpers.pricing import quote_total, RateTable
 
+from inventory.helpers.pricing import RateTable, quote_total
 from cart.models.cart import Cart, CartItem
 from inventory.models.reservation import (
     VehicleReservation,
@@ -18,74 +22,62 @@ from inventory.models.vehicle import Vehicle
 
 
 def _quantize_money(value: Decimal) -> Decimal:
-    """
-    Force two decimal places using bankers' rounding rules suitable for currency.
-    """
+    if value is None:
+        value = Decimal("0")
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def _cents(dec: Decimal) -> int:
-    """
-    Convert a Decimal money value to integer cents safely.
-    """
-    return int((_quantize_money(dec) * 100).to_integral_value(rounding=ROUND_HALF_UP))
+def _cents(value: Decimal) -> int:
+    amount = _quantize_money(value or Decimal("0"))
+    return int((amount * 100).to_integral_value(rounding=ROUND_HALF_UP))
 
 
 @login_required
 @require_http_methods(["POST"])
-def checkout(request):
-    """
-    Creates a ReservationGroup + VehicleReservations, then a PaymentIntent,
-    and redirects to the hosted mock checkout.
-
-    Guardrails included:
-    - Locks the Cart row to avoid double checkout.
-    - Locks Vehicle rows to prevent overbooking while we confirm availability.
-    - Uses Decimal for money, not float.
-    - Ensures unique human-friendly reference on the group.
-    """
+def checkout(request: HttpRequest) -> HttpResponse:
     with transaction.atomic():
-        cart = (
+        cart_obj: Optional[Cart] = (
             Cart.objects.select_for_update()
             .select_related("user")
             .filter(user=request.user, is_checked_out=False)
             .first()
         )
-        if not cart:
+        if cart_obj is None:
             messages.info(request, "Your cart is empty or already checked out.")
             return redirect("cart:view_cart")
 
-        items = list(
-            CartItem.objects.filter(cart=cart)
+        cart_items: List[CartItem] = list(
+            CartItem.objects.filter(cart=cart_obj)
             .select_related("vehicle", "pickup_location", "return_location")
             .order_by("start_date", "vehicle_id")
         )
-        if not items:
+        if len(cart_items) == 0:
             messages.info(request, "Your cart is empty.")
             return redirect("cart:view_cart")
 
-        vehicle_ids = sorted({it.vehicle_id for it in items})
+        vehicle_ids = sorted({item.vehicle_id for item in cart_items})
         list(
             Vehicle.objects.select_for_update()
             .filter(id__in=vehicle_ids)
             .order_by("id")
         )
 
-        for it in items:
-            blocking_exists = VehicleReservation.objects.filter(
-                vehicle=it.vehicle,
+        for item in cart_items:
+            conflict_exists = VehicleReservation.objects.filter(
+                vehicle=item.vehicle,
                 group__status__in=ReservationStatus.blocking(),
-                start_date__lt=it.end_date,
-                end_date__gt=it.start_date,
+                start_date__lt=item.end_date,
+                end_date__gt=item.start_date,
             ).exists()
-            if blocking_exists:
+            if conflict_exists:
+                vehicle_str = str(item.vehicle)
+                period_str = f"{item.start_date} \u2192 {item.end_date}"
                 messages.error(
-                    request,
-                    f"{it.vehicle} is no longer available for {it.start_date} → {it.end_date}.",
+                    request, f"{vehicle_str} is no longer available for {period_str}."
                 )
                 return redirect("cart:view_cart")
 
-        group = (
+        existing_group = (
             ReservationGroup.objects.select_for_update()
             .filter(
                 user=request.user,
@@ -97,54 +89,62 @@ def checkout(request):
             .order_by("-created_at")
             .first()
         )
-        if group is None:
-            group = ReservationGroup.objects.create(
-                user=request.user,
-                status=ReservationStatus.PENDING,
+        if existing_group is None:
+            group_obj = ReservationGroup.objects.create(
+                user=request.user, status=ReservationStatus.PENDING
             )
+        else:
+            group_obj = existing_group
 
-        if not getattr(group, "reference", None):
-            for _ in range(5):
-                ref = secrets.token_hex(4).upper()
-                exists = ReservationGroup.objects.filter(reference=ref).exists()
-                if not exists:
-                    group.reference = ref
-                    group.save(update_fields=["reference"])
+        if not getattr(group_obj, "reference", None):
+            attempts_remaining = 5
+            while attempts_remaining > 0:
+                candidate = secrets.token_hex(4).upper()
+                already_exists = ReservationGroup.objects.filter(
+                    reference=candidate
+                ).exists()
+                if not already_exists:
+                    group_obj.reference = candidate
+                    group_obj.save(update_fields=["reference"])
                     break
+                attempts_remaining -= 1
 
-        for it in items:
+        for item in cart_items:
             VehicleReservation.objects.create(
                 user=request.user,
-                vehicle=it.vehicle,
-                pickup_location=it.pickup_location,
-                return_location=it.return_location,
-                start_date=it.start_date,
-                end_date=it.end_date,
-                group=group,
+                vehicle=item.vehicle,
+                pickup_location=item.pickup_location,
+                return_location=item.return_location,
+                start_date=item.start_date,
+                end_date=item.end_date,
+                group=group_obj,
             )
 
-        cart.is_checked_out = True
-        cart.save(update_fields=["is_checked_out"])
-        CartItem.objects.filter(cart=cart).delete()
+        cart_obj.is_checked_out = True
+        cart_obj.save(update_fields=["is_checked_out"])
+        CartItem.objects.filter(cart=cart_obj).delete()
 
-    amount_cents = 0
-    reservations = group.reservations.select_related("vehicle").all()
+    total_amount_cents = 0
+    reservations_qs = group_obj.reservations.select_related("vehicle").all()
 
-    for r in reservations:
-        day_rate = Decimal(str(r.vehicle.price_per_day))
-        rt = RateTable(day=float(day_rate), currency="EUR")
-        q = quote_total(r.start_date, r.end_date, rt)
+    for reservation in reservations_qs:
+        vehicle_day_rate = Decimal(
+            str(getattr(reservation.vehicle, "price_per_day", "0"))
+        )
+        rate_table = RateTable(day=float(vehicle_day_rate), currency="EUR")
+        quote_info = quote_total(
+            reservation.start_date, reservation.end_date, rate_table
+        )
 
-        total_dec = Decimal(str(q["total"]))
-        total_dec = _quantize_money(total_dec)
+        total_decimal = Decimal(str(quote_info.get("total", "0")))
+        total_decimal = _quantize_money(total_decimal)
 
-        r.total_price = total_dec
-        r.save(update_fields=["total_price"])
+        reservation.total_price = total_decimal
+        reservation.save(update_fields=["total_price"])
 
-        amount_cents += _cents(total_dec)
+        total_amount_cents += _cents(total_decimal)
 
     messages.success(
-        request, f"Reservation submitted. Ref: {group.reference} (status: Pending)"
+        request, f"Reservation submitted. Ref: {group_obj.reference} (status: Pending)"
     )
-
     return redirect("inventory:reservations")

@@ -171,17 +171,24 @@ def register(request):
             )
 
             # Issue & email code (session only; no DB)
-            code, ttl = _issue_code(request, email=email, purpose=PURPOSE_REGISTER, ttl_minutes=10)
+            code, ttl = _issue_code(
+                request, email=email, purpose=PURPOSE_REGISTER, ttl_minutes=10
+            )
             _send_verification_email(email, code, ttl)
 
             request.session["pending_verify_email"] = email
-            messages.success(request, "We sent a verification code to your email. Complete verification to create your account.")
+            messages.success(
+                request,
+                "We sent a verification code to your email. Complete verification to create your account.",
+            )
             return redirect("accounts:verify-email")
         messages.error(request, "Please correct the errors below.")
     else:
         form = CustomUserCreationForm()
 
-    return render(request, "accounts/auth/auth.html", {"form": form, "title": "Register"})
+    return render(
+        request, "accounts/auth/auth.html", {"form": form, "title": "Register"}
+    )
 
 
 @require_http_methods(["GET", "POST"])
@@ -196,19 +203,30 @@ def verify_email(request):
     if request.method == "GET":
         email = initial.get("email") or ""
         if email:
-            pending = PendingRegistration.objects.filter(email=email).order_by("-created_at").first()
+            pending = (
+                PendingRegistration.objects.filter(email=email)
+                .order_by("-created_at")
+                .first()
+            )
             if pending:
                 if pending.is_expired():
                     pending.delete()
                     request.session.pop("pending_verify_email", None)
-                    messages.error(request, "Your pending registration expired. Please register again.")
+                    messages.error(
+                        request,
+                        "Your pending registration expired. Please register again.",
+                    )
                     return redirect("accounts:register")
                 # Always re-issue a new session code on GET
-                code, ttl = _issue_code(request, email=email, purpose=PURPOSE_REGISTER, ttl_minutes=10)
+                code, ttl = _issue_code(
+                    request, email=email, purpose=PURPOSE_REGISTER, ttl_minutes=10
+                )
                 _send_verification_email(email, code, ttl)
                 messages.info(request, "We emailed you a new verification code.")
         form = EmailCodeForm(initial=initial)
-        return render(request, "accounts/auth/auth.html", {"form": form, "title": "Verify Email"})
+        return render(
+            request, "accounts/auth/auth.html", {"form": form, "title": "Verify Email"}
+        )
 
     # POST
     form = EmailCodeForm(request.POST)
@@ -216,20 +234,38 @@ def verify_email(request):
         email = form.cleaned_data["email"].strip()
         code = form.cleaned_data["code"].strip().upper()
 
-        ok, err = _validate_code(request, email=email, purpose=PURPOSE_REGISTER, submitted_code=code)
+        ok, err = _validate_code(
+            request, email=email, purpose=PURPOSE_REGISTER, submitted_code=code
+        )
         if not ok:
             # auto re-issue a fresh code
-            fresh_code, ttl = _issue_code(request, email=email, purpose=PURPOSE_REGISTER, ttl_minutes=10)
+            fresh_code, ttl = _issue_code(
+                request, email=email, purpose=PURPOSE_REGISTER, ttl_minutes=10
+            )
             _send_verification_email(email, fresh_code, ttl)
             messages.error(request, f"{err} A new code has been sent.")
-            return render(request, "accounts/auth/auth.html", {"form": EmailCodeForm(initial={"email": email}), "title": "Verify Email"})
+            return render(
+                request,
+                "accounts/auth/auth.html",
+                {
+                    "form": EmailCodeForm(initial={"email": email}),
+                    "title": "Verify Email",
+                },
+            )
 
         # Find pending registration
-        pending = PendingRegistration.objects.filter(email=email).order_by("-created_at").first()
+        pending = (
+            PendingRegistration.objects.filter(email=email)
+            .order_by("-created_at")
+            .first()
+        )
         if not pending or pending.is_expired():
             if pending and pending.is_expired():
                 pending.delete()
-            messages.error(request, "No pending registration found or it has expired. Please register again.")
+            messages.error(
+                request,
+                "No pending registration found or it has expired. Please register again.",
+            )
             return redirect("accounts:register")
 
         # Create the actual user
@@ -248,11 +284,16 @@ def verify_email(request):
         # Cleanup & login
         pending.delete()
         request.session.pop("pending_verify_email", None)
-        messages.success(request, "Email verified. Your account has been created and you are now logged in.")
+        messages.success(
+            request,
+            "Email verified. Your account has been created and you are now logged in.",
+        )
         login(request, user)
         return redirect("/")
 
-    return render(request, "accounts/auth/auth.html", {"form": form, "title": "Verify Email"})
+    return render(
+        request, "accounts/auth/auth.html", {"form": form, "title": "Verify Email"}
+    )
 
 
 @require_http_methods(["GET", "POST"])
@@ -290,7 +331,8 @@ def login_view(request):
 
             pending = (
                 PendingRegistration.objects.filter(
-                    models.Q(username=username_or_email) | models.Q(email=username_or_email)
+                    models.Q(username=username_or_email)
+                    | models.Q(email=username_or_email)
                 )
                 .order_by("-created_at")
                 .first()
@@ -298,15 +340,26 @@ def login_view(request):
             if pending:
                 if pending.is_expired():
                     pending.delete()
-                    messages.error(request, "Your pending registration expired. Please register again.")
+                    messages.error(
+                        request,
+                        "Your pending registration expired. Please register again.",
+                    )
                     return redirect("accounts:register")
 
                 if check_password(raw_password, pending.password_hash):
                     request.session["pending_verify_email"] = pending.email
                     # re-issue code immediately so they don't need to reload
-                    code, ttl = _issue_code(request, email=pending.email, purpose=PURPOSE_REGISTER, ttl_minutes=10)
+                    code, ttl = _issue_code(
+                        request,
+                        email=pending.email,
+                        purpose=PURPOSE_REGISTER,
+                        ttl_minutes=10,
+                    )
                     _send_verification_email(pending.email, code, ttl)
-                    messages.info(request, "Finish setting up your account. We’ve emailed you a new verification code.")
+                    messages.info(
+                        request,
+                        "Finish setting up your account. We’ve emailed you a new verification code.",
+                    )
                     return redirect("accounts:verify-email")
 
             messages.error(request, "Invalid username or password.")
@@ -392,7 +445,9 @@ def profile_change_password(request):
     else:
         form = PasswordChangeForm(user=request.user)
 
-    return render(request, "accounts/profile/profile_change_password.html", {"form": form})
+    return render(
+        request, "accounts/profile/profile_change_password.html", {"form": form}
+    )
 
 
 # ----------- Password reset (session code, no DB) -----------
@@ -407,13 +462,17 @@ def forgot_password_start(request):
         if form.is_valid():
             email = form.cleaned_data["email"].strip()
             if User.objects.filter(email=email).exists():
-                code, ttl = _issue_code(request, email=email, purpose=PURPOSE_RESET, ttl_minutes=10)
+                code, ttl = _issue_code(
+                    request, email=email, purpose=PURPOSE_RESET, ttl_minutes=10
+                )
                 _send_reset_email(email, code, ttl)
             messages.info(request, "If that email exists, we’ve sent a code.")
             return redirect("accounts:forgot-password-confirm")
     else:
         form = EmailOnlyForm()
-    return render(request, "accounts/auth/auth.html", {"form": form, "title": "Forgot Password"})
+    return render(
+        request, "accounts/auth/auth.html", {"form": form, "title": "Forgot Password"}
+    )
 
 
 @require_http_methods(["GET", "POST"])
@@ -429,19 +488,31 @@ def forgot_password_confirm(request):
             code = form.cleaned_data["code"].strip().upper()
             new_password = form.cleaned_data["new_password"]
 
-            ok, err = _validate_code(request, email=email, purpose=PURPOSE_RESET, submitted_code=code)
+            ok, err = _validate_code(
+                request, email=email, purpose=PURPOSE_RESET, submitted_code=code
+            )
             if not ok:
                 # auto re-issue
-                fresh, ttl = _issue_code(request, email=email, purpose=PURPOSE_RESET, ttl_minutes=10)
+                fresh, ttl = _issue_code(
+                    request, email=email, purpose=PURPOSE_RESET, ttl_minutes=10
+                )
                 _send_reset_email(email, fresh, ttl)
                 messages.error(request, f"{err} A new code has been sent.")
-                return render(request, "accounts/auth/auth.html", {"form": PasswordResetConfirmForm(), "title": "Reset Password"})
+                return render(
+                    request,
+                    "accounts/auth/auth.html",
+                    {"form": PasswordResetConfirmForm(), "title": "Reset Password"},
+                )
 
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
                 messages.error(request, "No user account found for this email.")
-                return render(request, "accounts/auth/auth.html", {"form": form, "title": "Reset Password"})
+                return render(
+                    request,
+                    "accounts/auth/auth.html",
+                    {"form": form, "title": "Reset Password"},
+                )
 
             user.set_password(new_password)
             user.save(update_fields=["password"])
@@ -451,7 +522,9 @@ def forgot_password_confirm(request):
         # Visiting the page directly: no auto-issue (we don't know email yet).
         form = PasswordResetConfirmForm()
 
-    return render(request, "accounts/auth/auth.html", {"form": form, "title": "Reset Password"})
+    return render(
+        request, "accounts/auth/auth.html", {"form": form, "title": "Reset Password"}
+    )
 
 
 # ----------- Admin decorators / views -----------
@@ -657,7 +730,9 @@ def vehicle_create(request):
     if request.method == "POST":
         if form.is_valid():
             vehicle = form.save()
-            request.session["last_pickup_id"] = form.cleaned_data["available_pickup_locations"].pk
+            request.session["last_pickup_id"] = form.cleaned_data[
+                "available_pickup_locations"
+            ].pk
             messages.success(request, "Vehicle created successfully.")
             return redirect("accounts:vehicle-list")
         else:
@@ -703,8 +778,13 @@ def vehicle_edit(request, pk):
 def vehicle_delete(request, pk):
     vehicle = get_object_or_404(Vehicle, pk=pk)
 
-    if vehicle.reservations.filter(group__status__in=ReservationStatus.blocking()).exists():
-        messages.error(request, "This vehicle is part of an ongoing reservation and cannot be deleted.")
+    if vehicle.reservations.filter(
+        group__status__in=ReservationStatus.blocking()
+    ).exists():
+        messages.error(
+            request,
+            "This vehicle is part of an ongoing reservation and cannot be deleted.",
+        )
         return redirect("accounts:vehicle-list")
 
     vehicle.delete()
@@ -768,8 +848,8 @@ def reservation_group_approve(request, pk):
 def reservation_group_reject(request, pk):
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status not in (
-            ReservationStatus.PENDING,
-            ReservationStatus.AWAITING_PAYMENT,
+        ReservationStatus.PENDING,
+        ReservationStatus.AWAITING_PAYMENT,
     ):
         return HttpResponseForbidden(
             "Only pending/awaiting-payment groups can be rejected."
@@ -824,8 +904,8 @@ def reservation_reject(request, pk):
     r = get_object_or_404(VehicleReservation, pk=pk)
     grp = r.group
     if not grp or grp.status not in (
-            ReservationStatus.PENDING,
-            ReservationStatus.AWAITING_PAYMENT,
+        ReservationStatus.PENDING,
+        ReservationStatus.AWAITING_PAYMENT,
     ):
         return HttpResponseForbidden(
             "Only pending/awaiting-payment reservation groups can be rejected."
@@ -941,16 +1021,17 @@ def location_delete(request, pk):
     loc = get_object_or_404(Location, pk=pk)
 
     from inventory.models.reservation import VehicleReservation as VR
-    has_blocking = VR.objects.filter(
-        group__status__in=ReservationStatus.blocking()
-    ).filter(
-        models.Q(pickup_location=loc) | models.Q(return_location=loc)
-    ).exists()
+
+    has_blocking = (
+        VR.objects.filter(group__status__in=ReservationStatus.blocking())
+        .filter(models.Q(pickup_location=loc) | models.Q(return_location=loc))
+        .exists()
+    )
 
     if has_blocking:
         messages.error(
             request,
-            "This location is used by an ongoing reservation and cannot be deleted."
+            "This location is used by an ongoing reservation and cannot be deleted.",
         )
         return redirect("accounts:location-list")
 
