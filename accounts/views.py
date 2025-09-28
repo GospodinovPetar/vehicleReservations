@@ -640,29 +640,30 @@ def vehicle_list(request):
     return render(request, "accounts/vehicle_list.html", {"vehicles": vehicles})
 
 
-@manager_required
 def vehicle_create(request):
+    pickup_param = request.GET.get("pickup")
+
+    initial = {}
+    if pickup_param:
+        try:
+            loc = Location.objects.filter(pk=int(pickup_param)).only("id").first()
+            if loc:
+                initial["available_pickup_locations"] = loc.pk
+        except (TypeError, ValueError):
+            pass
+
+    form = VehicleForm(request.POST or None, initial=initial, request=request)
+
     if request.method == "POST":
-        form = VehicleForm(request.POST)
         if form.is_valid():
-            vehicle = form.save(commit=False)
-            vehicle.save()
-
-            # Set pick-up and drop-off locations
-            pickup = form.cleaned_data.get("available_pickup_locations")
-            if pickup:
-                vehicle.available_pickup_locations.set([pickup])
-            dropoffs = form.cleaned_data.get("available_return_locations")
-            if dropoffs:
-                vehicle.available_return_locations.set(dropoffs)
-
+            vehicle = form.save()
+            request.session["last_pickup_id"] = form.cleaned_data["available_pickup_locations"].pk
             messages.success(request, "Vehicle created successfully.")
             return redirect("accounts:vehicle-list")
         else:
-            print(form.errors)  # Debug invalid form
-    else:
-        form = VehicleForm()
-    return render(request, "accounts/vehicles/vehicle_form.html", {"form": form})
+            messages.error(request, "Please fix the errors below.")
+
+    return render(request, "accounts/manager/vehicle_form.html", {"form": form})
 
 
 @manager_required

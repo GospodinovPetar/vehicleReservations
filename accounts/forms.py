@@ -2,14 +2,12 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import get_user_model
 
-# Imports from inventory app
-from inventory.models.vehicle import Vehicle, VehicleType, EngineType
 from inventory.models.reservation import (
-    VehicleReservation,
     ReservationStatus,
     Location,
     ReservationGroup,
 )
+from inventory.models.vehicle import Vehicle, VehicleType, EngineType
 
 CustomUser = get_user_model()
 
@@ -67,16 +65,16 @@ class VehicleForm(forms.ModelForm):
     """
     Vehicle form:
     - car_type & engine_type use TextChoices from the model
-    - available pickup: single location (stored as the first/only M2M)
+    - available pickup: single location (we map to the M2M as the first/only value)
     - available return: multiple locations
     """
 
     car_type = forms.ChoiceField(choices=VehicleType.choices, label="Car Type")
     engine_type = forms.ChoiceField(choices=EngineType.choices, label="Engine Type")
 
-    # Single selection for pick-up (we'll map this to the M2M in the view)
+    # Single selection for pick-up (mapped to M2M in save())
     available_pickup_locations = forms.ModelChoiceField(
-        queryset=Location.objects.all(),
+        queryset=Location.objects.none(),   # set properly in __init__
         required=True,
         label="Pick-up Location",
         widget=forms.Select,
@@ -84,10 +82,10 @@ class VehicleForm(forms.ModelForm):
 
     # Multiple selection for drop-off
     available_return_locations = forms.ModelMultipleChoiceField(
-        queryset=Location.objects.all(),
+        queryset=Location.objects.none(),   # set properly in __init__
         required=True,
         label="Drop-off Locations",
-        widget=forms.CheckboxSelectMultiple,  # swap to SelectMultiple if you prefer
+        widget=forms.CheckboxSelectMultiple,
     )
 
     class Meta:
@@ -107,11 +105,15 @@ class VehicleForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        request = kwargs.pop("request", None)
         instance: Vehicle | None = kwargs.get("instance")
+
         super().__init__(*args, **kwargs)
 
         self.fields["available_pickup_locations"].queryset = Location.objects.all().order_by("name")
         self.fields["available_return_locations"].queryset = Location.objects.all().order_by("name")
+
+        self.fields["available_pickup_locations"].empty_label = None
 
         if instance and instance.pk:
             first_pickup = instance.available_pickup_locations.first()
@@ -121,6 +123,39 @@ class VehicleForm(forms.ModelForm):
             self.fields["available_return_locations"].initial = list(
                 instance.available_return_locations.values_list("pk", flat=True)
             )
+
+        elif not self.is_bound:
+            default_id = None
+            if request is not None:
+                default_id = (request.GET.get("pickup") or request.session.get("last_pickup_id"))
+
+            fld = self.fields["available_pickup_locations"]
+            if default_id and fld.queryset.filter(pk=default_id).exists():
+                self.initial.setdefault("available_pickup_locations", int(default_id))
+            else:
+                first = fld.queryset.first()
+                if first:
+                    self.initial.setdefault("available_pickup_locations", first.pk)
+
+    def save(self, commit=True):
+        """
+        Ensure the single pickup selection is stored as the only element
+        of the M2M 'available_pickup_locations'. Also let the normal
+        M2M handling work for 'available_return_locations'.
+        """
+        vehicle = super().save(commit=commit)
+
+        if commit:
+            vehicle.save()
+
+        pickup = self.cleaned_data.get("available_pickup_locations")
+        if pickup:
+            vehicle.available_pickup_locations.set([pickup])
+
+        if hasattr(self, "save_m2m"):
+            self.save_m2m()
+
+        return vehicle
 
 
 class ReservationStatusForm(forms.ModelForm):

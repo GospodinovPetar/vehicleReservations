@@ -1,34 +1,108 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/add_vehicle.css' %}">
+{% endblock %}
+
 {% block content %}
-  <h2>{% if form.instance.pk %}Edit Vehicle{% else %}Add Vehicle{% endif %}</h2>
-  <form method="post">
-    {% csrf_token %}
+  <h2 class="page-title">
+    {% if form.instance.pk %}Edit Vehicle{% else %}Add Vehicle{% endif %}
+  </h2>
 
-    <p>{{ form.name.label_tag }} {{ form.name }}</p>
-    <p>{{ form.plate_number.label_tag }} {{ form.plate_number }}</p>
-    <p>{{ form.car_type.label_tag }} {{ form.car_type }}</p>
-    <p>{{ form.engine_type.label_tag }} {{ form.engine_type }}</p>
+  <div class="card">
+    <form method="post" novalidate>
+      {% csrf_token %}
 
-    <div>
-      {{ form.seats.label_tag }} {{ form.seats }}
-      {% if form.seats.errors %}<div class="error">{{ form.seats.errors|striptags }}</div>{% endif %}
-    </div>
+      {# Non-field errors at the top #}
+      {% if form.non_field_errors %}
+        <div class="alert error">
+          {{ form.non_field_errors|striptags }}
+        </div>
+      {% endif %}
 
-    <p>{{ form.price_per_day.label_tag }} {{ form.price_per_day }}</p>
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="{{ form.name.id_for_label }}">
+            {{ form.name.label }}
+            {% if form.name.field.required %}<span class="req">*</span>{% endif %}
+          </label>
+          {{ form.name }}
+          {% if form.name.errors %}<div class="field-error">{{ form.name.errors|striptags }}</div>{% endif %}
+          {% if form.name.help_text %}<small class="help">{{ form.name.help_text }}</small>{% endif %}
+        </div>
 
-    {# Single pickup - preselected by the form #}
-    <p>{{ form.available_pickup_locations.label_tag }} {{ form.available_pickup_locations }}</p>
+        <div class="form-field">
+          <label for="{{ form.plate_number.id_for_label }}">
+            {{ form.plate_number.label }}
+            {% if form.plate_number.field.required %}<span class="req">*</span>{% endif %}
+          </label>
+          {{ form.plate_number }}
+          {% if form.plate_number.errors %}<div class="field-error">{{ form.plate_number.errors|striptags }}</div>{% endif %}
+        </div>
 
-    {# Multi drop-offs - preselected by the form #}
-    <p>{{ form.available_return_locations.label_tag }} {{ form.available_return_locations }}</p>
+        <div class="form-field">
+          <label for="{{ form.car_type.id_for_label }}">
+            {{ form.car_type.label }}
+            {% if form.car_type.field.required %}<span class="req">*</span>{% endif %}
+          </label>
+          {{ form.car_type }}
+          {% if form.car_type.errors %}<div class="field-error">{{ form.car_type.errors|striptags }}</div>{% endif %}
+        </div>
 
-    <button class="btn primary" type="submit">Save</button>
-    <a class="btn" href="{% url 'accounts:vehicle-list' %}">Cancel</a>
-  </form>
+        <div class="form-field">
+          <label for="{{ form.engine_type.id_for_label }}">
+            {{ form.engine_type.label }}
+            {% if form.engine_type.field.required %}<span class="req">*</span>{% endif %}
+          </label>
+          {{ form.engine_type }}
+          {% if form.engine_type.errors %}<div class="field-error">{{ form.engine_type.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.seats.id_for_label }}">
+            {{ form.seats.label }}
+          </label>
+          {{ form.seats }}
+          {% if form.seats.errors %}<div class="field-error">{{ form.seats.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.price_per_day.id_for_label }}">
+            {{ form.price_per_day.label }}
+          </label>
+          {{ form.price_per_day }}
+          {% if form.price_per_day.errors %}<div class="field-error">{{ form.price_per_day.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field form-field--full">
+          <label for="{{ form.available_pickup_locations.id_for_label }}">
+            {{ form.available_pickup_locations.label }}
+          </label>
+          {{ form.available_pickup_locations }}
+          {% if form.available_pickup_locations.errors %}<div class="field-error">{{ form.available_pickup_locations.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field form-field--full">
+          <label for="{{ form.available_return_locations.id_for_label }}">
+            {{ form.available_return_locations.label }}
+          </label>
+          {{ form.available_return_locations }}
+          {% if form.available_return_locations.errors %}<div class="field-error">{{ form.available_return_locations.errors|striptags }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a class="btn btn-secondary" href="{% url 'accounts:vehicle-list' %}">Cancel</a>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
 
   {% if request.user.role == "admin" %}
       <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
   {% else %}
       <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
   {% endif %}
+
 {% endblock %}

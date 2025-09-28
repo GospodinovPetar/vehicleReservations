@@ -2,24 +2,42 @@
 {% block content %}
   <h2>Locations</h2>
   <a class="btn" href="{% url 'accounts:location-create' %}">+ Add Location</a>
-    {% if request.user.role == "admin" %}
-        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% else %}
-        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% endif %}
-  <table>
-    <tr><th>Name</th><th>Actions</th></tr>
-    {% for loc in locations %}
-      <tr>
-        <td>{{ loc.name }}</td>
-        <td>
-          <a href="{% url 'accounts:location-edit' loc.id %}">Edit</a> |
-          <a href="{% url 'accounts:location-delete' loc.id %}">Delete</a>
-        </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="2">No locations.</td></tr>
-    {% endfor %}
-  </table>
+  {% if request.user.role == "admin" %}
+      <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% else %}
+      <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% endif %}
 
+  <div style="overflow-x:auto; margin-top:1rem;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th class="actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for loc in locations %}
+          <tr>
+            <td>{{ loc.name }}</td>
+            <td class="actions">
+              <a href="{% url 'accounts:location-edit' loc.id %}" class="btn btn-secondary">Edit</a>
+              <a href="{% url 'accounts:location-delete' loc.id %}" class="btn btn-secondary"
+                 onclick="return confirm('Delete {{ loc.name }}?')">Delete</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="2">No locations.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <style>
+    .table th.actions,
+    .table td.actions { text-align: right; }
+    .table td.actions { white-space: nowrap; }
+    .table td.actions .btn { margin-left: .5rem; }
+    .table td, .table th { vertical-align: middle; }
+  </style>
 {% endblock %}

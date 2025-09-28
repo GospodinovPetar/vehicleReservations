@@ -1,25 +1,93 @@
 {% extends "base.html" %}
 {% block content %}
   <h2>Manage Vehicles</h2>
-  <a class="btn primary" href="{% url 'manager:vehicle-create' %}">+ Add Vehicle</a>
-    {% if request.user.role == "admin" %}
-        <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% else %}
-        <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-    {% endif %}
-  <ul>
-    {% for v in vehicles %}
-      <li>
-        {{ v.name }} ({{ v.car_type }})
-        <a href="{% url 'manager:vehicle-edit' v.id %}">Edit</a> |
-        <form method="post" action="{% url 'manager:vehicle-delete' v.id %}" style="display:inline">
-          {% csrf_token %}
-          <button type="submit">Delete</button>
-        </form>
-      </li>
-    {% empty %}
-      <li>No vehicles found.</li>
-    {% endfor %}
-  </ul>
 
+  <a class="btn primary" href="{% url 'manager:vehicle-create' %}">+ Add Vehicle</a>
+  {% if request.user.role == "admin" %}
+    <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% else %}
+    <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% endif %}
+
+  {% if vehicles %}
+    <div style="overflow-x:auto; margin-top:1rem;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>id</th>
+            <th>Name</th>
+            <th>Plate</th>
+            <th>Type</th>
+            <th>Engine</th>
+            <th>Price/Day</th>
+            <th>Seats</th>
+            <th>Pickup Location</th>
+            <th>Return Locations</th>
+            <th style="min-width:120px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in vehicles %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>{{ v.name }}</td>
+              <td>{{ v.plate_number }}</td>
+              <td>{{ v.get_car_type_display }}</td>
+              <td>{{ v.get_engine_type_display }}</td>
+              <td>
+                {% if v.price_per_day is not None %}
+                  {{ v.price_per_day }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                {% if v.unlimited_seats %}
+                  Unlimited
+                {% elif v.seats %}
+                  {{ v.seats }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                {% with locs=v.available_pickup_locations.all %}
+                  {% if locs %}
+                    {% for loc in locs %}
+                      {{ loc.name }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                  {% else %}—
+                  {% endif %}
+                {% endwith %}
+              </td>
+              <td>
+                {% with locs=v.available_return_locations.all %}
+                  {% if locs %}
+                    {% for loc in locs %}
+                      {{ loc.name }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                  {% else %}—
+                  {% endif %}
+                {% endwith %}
+              </td>
+                <td class="actions">
+                <a href="{% url 'manager:vehicle-edit' v.id %}" class="btn btn-secondary">Edit</a>
+                <form method="post"
+                      action="{% url 'manager:vehicle-delete' v.id %}"
+                      style="display:inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-secondary"
+                          onclick="return confirm('Delete {{ v.name }}?')">
+                    Delete
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="margin-top:1rem;">No vehicles found.</p>
+  {% endif %}
 {% endblock %}
