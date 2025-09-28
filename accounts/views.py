@@ -663,7 +663,7 @@ def vehicle_create(request):
         else:
             messages.error(request, "Please fix the errors below.")
 
-    return render(request, "accounts/manager/vehicle_form.html", {"form": form})
+    return render(request, "accounts/vehicles/vehicle_form.html", {"form": form})
 
 
 @manager_required

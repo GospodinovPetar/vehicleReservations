@@ -139,21 +139,32 @@ class VehicleForm(forms.ModelForm):
 
     def save(self, commit=True):
         """
-        Ensure the single pickup selection is stored as the only element
-        of the M2M 'available_pickup_locations'. Also let the normal
-        M2M handling work for 'available_return_locations'.
+        Save the instance without Django's default M2M handling,
+        then set M2M fields manually:
+          - available_pickup_locations: single -> [single]
+          - available_return_locations: normal multiple
         """
-        vehicle = super().save(commit=commit)
+        # 1) Avoid default _save_m2m by using commit=False
+        vehicle = super().save(commit=False)
 
+        # 2) Save the instance so M2Ms can be set
         if commit:
             vehicle.save()
 
+        # 3) Grab cleaned data
         pickup = self.cleaned_data.get("available_pickup_locations")
-        if pickup:
-            vehicle.available_pickup_locations.set([pickup])
+        returns = self.cleaned_data.get("available_return_locations")
 
-        if hasattr(self, "save_m2m"):
-            self.save_m2m()
+        def _save_m2m():
+            vehicle.available_pickup_locations.set([pickup] if pickup else [])
+            # multiple is already an iterable
+            vehicle.available_return_locations.set(returns if returns is not None else [])
+
+        # 5) Execute now or defer (Django pattern when commit=False)
+        if commit:
+            _save_m2m()
+        else:
+            self._save_m2m = _save_m2m  # caller can run this later
 
         return vehicle
 

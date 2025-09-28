@@ -16,6 +16,7 @@ GOLF_MK2_PATTERNS = (
     "golf ii",
     "golf dvoika",
     "golf dve",
+    "golf2"
 )
 
 
