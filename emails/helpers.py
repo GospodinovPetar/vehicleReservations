@@ -32,6 +32,7 @@ def format_value(v: Any) -> str:
 
     return str(value)
 
+
 def _display_status(value: Any) -> str:
     try:
         from inventory.models.reservation import ReservationStatus
@@ -43,7 +44,6 @@ def _display_status(value: Any) -> str:
         if value is None:
             return ""
         return str(value)
-
 
 
 def detect_changes(before, after) -> list[FieldChange]:

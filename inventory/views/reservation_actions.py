@@ -27,6 +27,7 @@ from inventory.models.vehicle import Vehicle
 from inventory.views.status_switch import transition_group, TransitionError
 from mockpay.models import PaymentIntent, PaymentIntentStatus
 
+
 @login_required
 @require_http_methods(["POST"])
 def reserve(request: HttpRequest) -> HttpResponse:
@@ -148,7 +149,6 @@ def reserve(request: HttpRequest) -> HttpResponse:
     return redirect("inventory:reservations")
 
 
-
 class ReservationEditForm(forms.ModelForm):
     class Meta:
         model = VehicleReservation
@@ -192,7 +192,7 @@ def my_reservations(request: HttpRequest) -> HttpResponse:
     return render(request, "inventory/reservations.html", context)
 
 
-@user_passes_test(lambda u: bool(getattr(u, "is_staff", False))) # TODO REMOVE LAMBDA
+@user_passes_test(lambda u: bool(getattr(u, "is_staff", False)))  # TODO REMOVE LAMBDA
 @require_http_methods(["POST"])
 def approve_group(request: HttpRequest, group_id: int) -> HttpResponse:
     try:
@@ -228,6 +228,7 @@ def cancel_reservation(request: HttpRequest, group_id: int) -> HttpResponse:
         )
         messages.info(request, f"Reservation {reference_value} canceled.")
     return redirect("inventory:reservations")
+
 
 @login_required
 @require_http_methods(["POST"])
@@ -280,6 +281,7 @@ def delete_reservation(request: HttpRequest, pk: int) -> HttpResponse:
 
     messages.success(request, "Vehicle removed from reservation.")
     return redirect("inventory:reservations")
+
 
 @login_required
 @require_http_methods(["GET", "POST"])
@@ -546,6 +548,7 @@ def edit_reservation(request: HttpRequest, pk: int) -> HttpResponse:
         },
     )
 
+
 @login_required
 def add_vehicle(request: HttpRequest, group_id: int) -> HttpResponse:
     group_obj: ReservationGroup = get_object_or_404(
@@ -578,6 +581,7 @@ def add_vehicle(request: HttpRequest, group_id: int) -> HttpResponse:
     return render(
         request, "inventory/add_vehicle.html", {"form": blank_form, "group": group_obj}
     )
+
 
 @user_passes_test(
     lambda u: bool(getattr(u, "is_staff", False))

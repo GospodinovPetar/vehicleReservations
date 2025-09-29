@@ -13,10 +13,14 @@ class EchoConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         await self.accept()
-        await self.send(text_data=json.dumps({
-            "type": "welcome",
-            "message": "WebSocket connected",
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "welcome",
+                    "message": "WebSocket connected",
+                }
+            )
+        )
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data is not None:
@@ -53,20 +57,28 @@ class ReservationConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_add(rg, self.channel_name)
                 self._joined_groups.append(rg)
 
-        await self.send(text_data=json.dumps({
-            "type": "connected",
-            "joined_groups": self._joined_groups,
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "connected",
+                    "joined_groups": self._joined_groups,
+                }
+            )
+        )
 
     async def disconnect(self, close_code):
         for g in getattr(self, "_joined_groups", []) or []:
             await self.channel_layer.group_discard(g, self.channel_name)
 
     async def reservation_event(self, event):
-        await self.send(text_data=json.dumps({
-            "type": "reservation.event",
-            "event": event.get("event"),
-            "group": event.get("group"),
-            "reservation": event.get("reservation"),
-            "actor_user_id": event.get("actor_user_id"),
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "reservation.event",
+                    "event": event.get("event"),
+                    "group": event.get("group"),
+                    "reservation": event.get("reservation"),
+                    "actor_user_id": event.get("actor_user_id"),
+                }
+            )
+        )

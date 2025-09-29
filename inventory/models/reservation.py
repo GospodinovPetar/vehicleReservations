@@ -141,13 +141,21 @@ class VehicleReservation(models.Model):
         if self.vehicle_id and self.vehicle is not None:
             v = self.vehicle
             if self.pickup_location_id and v.available_pickup_locations.exists():
-                allowed_pick = v.available_pickup_locations.filter(pk=self.pickup_location_id).exists()
+                allowed_pick = v.available_pickup_locations.filter(
+                    pk=self.pickup_location_id
+                ).exists()
                 if not allowed_pick:
-                    error_map["pickup_location"] = "Pickup location not allowed for this vehicle."
+                    error_map["pickup_location"] = (
+                        "Pickup location not allowed for this vehicle."
+                    )
             if self.return_location_id and v.available_return_locations.exists():
-                allowed_ret = v.available_return_locations.filter(pk=self.return_location_id).exists()
+                allowed_ret = v.available_return_locations.filter(
+                    pk=self.return_location_id
+                ).exists()
                 if not allowed_ret:
-                    error_map["return_location"] = "Return location not allowed for this vehicle."
+                    error_map["return_location"] = (
+                        "Return location not allowed for this vehicle."
+                    )
 
         if len(error_map) > 0:
             raise ValidationError(error_map)
@@ -323,6 +331,7 @@ class ReservationGroup(models.Model):
         # Ensure unique reference is generated on creation or when missing
         if not getattr(self, "reference", None):
             from uuid import uuid4
+
             # 12-char uppercase token from UUID4 hex; extremely low collision risk
             self.reference = uuid4().hex[:12].upper()
 
@@ -347,7 +356,9 @@ class ReservationGroup(models.Model):
             }
             if (previous_status_value, self.status) not in allowed:
                 raise ValidationError(
-                    {"status": f"Illegal status transition: {previous_status_value} -> {self.status}."}
+                    {
+                        "status": f"Illegal status transition: {previous_status_value} -> {self.status}."
+                    }
                 )
 
         result = super().save(*args, **kwargs)

@@ -1,5 +1,9 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
+from django.contrib.auth.decorators import (
+    login_required,
+    user_passes_test,
+    permission_required,
+)
 from django.shortcuts import redirect, render, get_object_or_404
 
 from accounts.forms import CustomUserCreationForm, UserEditForm
@@ -9,9 +13,9 @@ from inventory.models.vehicle import Vehicle
 
 
 def admin_required(view_func):
-    return user_passes_test(lambda u: u.is_authenticated and getattr(u, "role", "user") == "admin")(
-        view_func
-    )
+    return user_passes_test(
+        lambda u: u.is_authenticated and getattr(u, "role", "user") == "admin"
+    )(view_func)
 
 
 @login_required
@@ -162,14 +166,17 @@ def delete_user(request, pk):
 
 def manager_required(view_func):
     return user_passes_test(
-        lambda u: u.is_authenticated and getattr(u, "role", "user") in ["manager", "admin"],
+        lambda u: u.is_authenticated
+        and getattr(u, "role", "user") in ["manager", "admin"],
         login_url="/accounts/login/",
     )(view_func)
+
 
 @login_required
 @manager_required
 def manager_dashboard(request):
     return render(request, "accounts/manager/manager_dashboard.html")
+
 
 @login_required
 @manager_required
@@ -178,6 +185,7 @@ def manager_vehicles(request):
     return render(
         request, "accounts/manager/manager_vehicles.html", {"vehicles": vehicles}
     )
+
 
 @login_required
 @manager_required

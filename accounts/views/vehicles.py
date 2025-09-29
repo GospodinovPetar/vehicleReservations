@@ -1,5 +1,9 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
+from django.contrib.auth.decorators import (
+    login_required,
+    user_passes_test,
+    permission_required,
+)
 from django.shortcuts import redirect, render, get_object_or_404
 
 from accounts.forms import VehicleForm
@@ -13,7 +17,10 @@ from inventory.models.vehicle import Vehicle
 @permission_required("inventory.view_vehicle", raise_exception=True)
 def vehicle_list(request):
     vehicles = Vehicle.objects.all()
-    return render(request, "accounts/vehicles/vehicle_list.html", {"vehicles": vehicles})
+    return render(
+        request, "accounts/vehicles/vehicle_list.html", {"vehicles": vehicles}
+    )
+
 
 @login_required
 @manager_required
@@ -42,6 +49,7 @@ def vehicle_create(request):
         messages.error(request, "Please fix the errors below.")
 
     return render(request, "accounts/vehicles/vehicle_form.html", {"form": form})
+
 
 @login_required
 @manager_required
@@ -77,6 +85,7 @@ def vehicle_edit(request, pk):
         "accounts/vehicles/vehicle_form.html",
         {"form": form},
     )
+
 
 @login_required
 @manager_required

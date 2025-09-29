@@ -77,7 +77,6 @@ def _cost_for(days_total: int, daily_price: float, month_first: bool) -> Dict[st
     remaining_days = days_total
     months_count = 0
     weeks_count = 0
-    days_count = 0
 
     if month_first:
         if remaining_days >= 30:

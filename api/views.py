@@ -5,7 +5,10 @@ from decimal import Decimal, ROUND_HALF_UP
 from config.ws_events import broadcast_reservation_event
 
 from django.contrib.auth import get_user_model, authenticate, login, logout
-from django.core.exceptions import ValidationError as DjangoValidationError, PermissionDenied
+from django.core.exceptions import (
+    ValidationError as DjangoValidationError,
+    PermissionDenied,
+)
 from django.db import transaction
 from django.conf import settings
 from django.db.models import Q
@@ -23,7 +26,12 @@ from drf_spectacular.utils import (
     OpenApiTypes,
 )
 
-from inventory.models.reservation import ReservationStatus, VehicleReservation, Location, ReservationGroup
+from inventory.models.reservation import (
+    ReservationStatus,
+    VehicleReservation,
+    Location,
+    ReservationGroup,
+)
 from inventory.models.vehicle import Vehicle
 
 from cart.models.cart import Cart, CartItem
@@ -43,7 +51,13 @@ from .serializers import (
 
 User = get_user_model()
 
-def _group_ws_payload(group: ReservationGroup, *, actor_user_id: int | None = None, extra: dict | None = None) -> dict:
+
+def _group_ws_payload(
+    group: ReservationGroup,
+    *,
+    actor_user_id: int | None = None,
+    extra: dict | None = None,
+) -> dict:
     """
     Standard payload we send over the 'reservations.all' websocket group.
     Mirrors what the signals send so the client receives a consistent shape.
@@ -52,14 +66,17 @@ def _group_ws_payload(group: ReservationGroup, *, actor_user_id: int | None = No
         "kind": "group",
         "group_id": group.id,
         "status": group.status,
-        "total_price": str(getattr(group, "total_price", "")) if hasattr(group, "total_price") else None,
+        "total_price": (
+            str(getattr(group, "total_price", ""))
+            if hasattr(group, "total_price")
+            else None
+        ),
         "changed_at": timezone.now().isoformat(),
         "modified_by_id": actor_user_id,
     }
     if extra:
         payload.update(extra)
     return payload
-
 
 
 @extend_schema(tags=["User's Actions"])
@@ -84,7 +101,9 @@ def login_view(request):
         password=ser.validated_data["password"],
     )
     if not user:
-        return Response({"errors": {"non_field_errors": ["Invalid credentials."]}}, status=400)
+        return Response(
+            {"errors": {"non_field_errors": ["Invalid credentials."]}}, status=400
+        )
     login(request, user)
     return Response({"message": "Logged in."})
 
@@ -118,7 +137,9 @@ class AccountViewSet(viewsets.ViewSet):
         ser.is_valid(raise_exception=True)
         u = request.user
         if not u.check_password(ser.validated_data["old_password"]):
-            return Response({"errors": {"old_password": ["Incorrect password."]}}, status=400)
+            return Response(
+                {"errors": {"old_password": ["Incorrect password."]}}, status=400
+            )
         u.set_password(ser.validated_data["new_password"])
         u.save(update_fields=["password"])
         return Response({"message": "Password changed successfully."})
@@ -127,10 +148,18 @@ class AccountViewSet(viewsets.ViewSet):
 @extend_schema(
     tags=["User's Actions"],
     parameters=[
-        OpenApiParameter("start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=True),
-        OpenApiParameter("end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=True),
-        OpenApiParameter("pickup_location", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
-        OpenApiParameter("return_location", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=True
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=True
+        ),
+        OpenApiParameter(
+            "pickup_location", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "return_location", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False
+        ),
     ],
     responses={200: OpenApiResponse(description="List of available vehicles & quotes")},
 )
@@ -140,22 +169,39 @@ def availability_view(request):
     start_str = request.query_params.get("start_date")
     end_str = request.query_params.get("end_date")
     if not start_str or not end_str:
-        return Response({"errors": {"date_range": ["start_date and end_date are required."]}}, status=400)
+        return Response(
+            {"errors": {"date_range": ["start_date and end_date are required."]}},
+            status=400,
+        )
     start = parse_iso_date(start_str)
     end = parse_iso_date(end_str)
     if start is None or end is None:
-        return Response({"errors": {"date_range": ["Invalid date format. Use YYYY-MM-DD."]}}, status=400)
+        return Response(
+            {"errors": {"date_range": ["Invalid date format. Use YYYY-MM-DD."]}},
+            status=400,
+        )
     if end <= start:
-        return Response({"errors": {"date_range": ["end_date must be after start_date."]}}, status=400)
+        return Response(
+            {"errors": {"date_range": ["end_date must be after start_date."]}},
+            status=400,
+        )
 
-    # Optional: enforce max rental days to keep responses sane
     try:
         max_days = int(getattr(settings, "MAX_RENTAL_DAYS", 60))
     except Exception:
         max_days = 60
     total_days = (end - start).days
     if total_days > max_days:
-        return Response({"errors": {"date_range": [f"The requested period is too long (max {max_days} days)."]}}, status=400)
+        return Response(
+            {
+                "errors": {
+                    "date_range": [
+                        f"The requested period is too long (max {max_days} days)."
+                    ]
+                }
+            },
+            status=400,
+        )
 
     pickup_param = request.query_params.get("pickup_location")
     return_param = request.query_params.get("return_location")
@@ -167,21 +213,40 @@ def availability_view(request):
         try:
             pickup_id = int(pickup_param)
         except ValueError:
-            return Response({"errors": {"pickup_location": ["pickup_location must be an integer id."]}}, status=400)
+            return Response(
+                {
+                    "errors": {
+                        "pickup_location": ["pickup_location must be an integer id."]
+                    }
+                },
+                status=400,
+            )
         pickup_loc = Location.objects.filter(pk=pickup_id).first()
         if pickup_loc is None:
-            return Response({"errors": {"pickup_location": ["Pickup location not found."]}}, status=400)
+            return Response(
+                {"errors": {"pickup_location": ["Pickup location not found."]}},
+                status=400,
+            )
 
     if return_param is not None:
         try:
             return_id = int(return_param)
         except ValueError:
-            return Response({"errors": {"return_location": ["return_location must be an integer id."]}}, status=400)
+            return Response(
+                {
+                    "errors": {
+                        "return_location": ["return_location must be an integer id."]
+                    }
+                },
+                status=400,
+            )
         return_loc = Location.objects.filter(pk=return_id).first()
         if return_loc is None:
-            return Response({"errors": {"return_location": ["Return location not found."]}}, status=400)
+            return Response(
+                {"errors": {"return_location": ["Return location not found."]}},
+                status=400,
+            )
 
-    # Use centralized availability logic from the model to respect location rules
     vehicle_ids = VehicleReservation.available_vehicles(
         start_date=start,
         end_date=end,
@@ -200,7 +265,9 @@ def availability_view(request):
     retrieve=extend_schema(tags=["User's Actions"], summary="Get vehicle"),
     create=extend_schema(tags=["Manager's Actions"], summary="Add vehicle"),
     update=extend_schema(tags=["Manager's Actions"], summary="Edit vehicle"),
-    partial_update=extend_schema(tags=["Manager's Actions"], summary="Edit vehicle (partial)"),
+    partial_update=extend_schema(
+        tags=["Manager's Actions"], summary="Edit vehicle (partial)"
+    ),
     destroy=extend_schema(tags=["Manager's Actions"], summary="Delete vehicle"),
 )
 class VehicleViewSet(viewsets.ModelViewSet):
@@ -213,12 +280,15 @@ class VehicleViewSet(viewsets.ModelViewSet):
             return [IsManagerOrAdmin()]
         return [AllowAny()]
 
+
 @extend_schema_view(
     list=extend_schema(tags=["User's Actions"], summary="List locations"),
     retrieve=extend_schema(tags=["User's Actions"], summary="Get a location"),
     create=extend_schema(tags=["Manager's Actions"], summary="Add location"),
     update=extend_schema(tags=["Manager's Actions"], summary="Edit location"),
-    partial_update=extend_schema(tags=["Manager's Actions"], summary="Edit location (partial)"),
+    partial_update=extend_schema(
+        tags=["Manager's Actions"], summary="Edit location (partial)"
+    ),
     destroy=extend_schema(tags=["Manager's Actions"], summary="Delete location"),
 )
 class LocationViewSet(viewsets.ModelViewSet):
@@ -247,41 +317,84 @@ class CartItemOutSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartItem
-        fields = ["id", "vehicle", "start_date", "end_date", "pickup_location", "return_location"]
+        fields = [
+            "id",
+            "vehicle",
+            "start_date",
+            "end_date",
+            "pickup_location",
+            "return_location",
+        ]
 
 
 @extend_schema_view(
     list=extend_schema(tags=["User's Actions"], summary="GET cart"),
-    add_item=extend_schema(tags=["User's Actions"], summary="Add to cart", request=CartItemCreateSerializer),
+    add_item=extend_schema(
+        tags=["User's Actions"], summary="Add to cart", request=CartItemCreateSerializer
+    ),
     remove_item=extend_schema(tags=["User's Actions"], summary="Remove from cart"),
     clear=extend_schema(tags=["User's Actions"], summary="Clear cart"),
-    checkout=extend_schema(tags=["User's Actions"], summary="Checkout (creates Pending reservation group)"),
+    checkout=extend_schema(
+        tags=["User's Actions"], summary="Checkout (creates Pending reservation group)"
+    ),
 )
 class CartViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def list(self, request):
         cart = Cart.get_or_create_active(request.user)
-        items = CartItem.objects.filter(cart=cart).select_related("vehicle", "pickup_location", "return_location")
-        return Response({
-            "id": cart.id,
-            "is_checked_out": cart.is_checked_out,
-            "items": CartItemOutSerializer(items, many=True).data
-        })
+        items = CartItem.objects.filter(cart=cart).select_related(
+            "vehicle", "pickup_location", "return_location"
+        )
+        return Response(
+            {
+                "id": cart.id,
+                "is_checked_out": cart.is_checked_out,
+                "items": CartItemOutSerializer(items, many=True).data,
+            }
+        )
 
     @action(detail=False, methods=["post"], url_path="items")
     def add_item(self, request):
         ser = CartItemCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
-        vehicle = get_object_or_404(Vehicle, pk=ser.validated_data["vehicle_id"]) 
-        pickup = get_object_or_404(Location, pk=ser.validated_data["pickup_location_id"]) 
-        return_loc = get_object_or_404(Location, pk=ser.validated_data["return_location_id"]) 
+        vehicle = get_object_or_404(Vehicle, pk=ser.validated_data["vehicle_id"])
+        pickup = get_object_or_404(
+            Location, pk=ser.validated_data["pickup_location_id"]
+        )
+        return_loc = get_object_or_404(
+            Location, pk=ser.validated_data["return_location_id"]
+        )
 
-        if vehicle.available_pickup_locations.exists() and not vehicle.available_pickup_locations.filter(pk=pickup.pk).exists():
-            return Response({"errors": {"pickup_location_id": [f"{vehicle.name} is not available for pickup at this location."]}}, status=400)
-        if vehicle.available_return_locations.exists() and not vehicle.available_return_locations.filter(pk=return_loc.pk).exists():
-            return Response({"errors": {"return_location_id": [f"{vehicle.name} cannot be returned to this location."]}}, status=400)
+        if (
+            vehicle.available_pickup_locations.exists()
+            and not vehicle.available_pickup_locations.filter(pk=pickup.pk).exists()
+        ):
+            return Response(
+                {
+                    "errors": {
+                        "pickup_location_id": [
+                            f"{vehicle.name} is not available for pickup at this location."
+                        ]
+                    }
+                },
+                status=400,
+            )
+        if (
+            vehicle.available_return_locations.exists()
+            and not vehicle.available_return_locations.filter(pk=return_loc.pk).exists()
+        ):
+            return Response(
+                {
+                    "errors": {
+                        "return_location_id": [
+                            f"{vehicle.name} cannot be returned to this location."
+                        ]
+                    }
+                },
+                status=400,
+            )
 
         cart = Cart.get_or_create_active(request.user)
         try:
@@ -297,19 +410,24 @@ class CartViewSet(viewsets.ViewSet):
                 daily = Decimal(str(vehicle.price_per_day))
                 rt = RateTable(day=float(daily))
                 q = quote_total(item.start_date, item.end_date, rt)
-                total = Decimal(str(q.get("total", 0))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                total = Decimal(str(q.get("total", 0))).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
                 item.total_price = total
                 item.save(update_fields=["total_price"])
         except DjangoValidationError as e:
             errors = getattr(e, "message_dict", {"non_field_errors": e.messages})
             return Response({"errors": errors}, status=400)
 
-        return Response({
-            "message": "Added to cart",
-            "item_id": item.id,
-            "start_date": str(item.start_date),
-            "end_date": str(item.end_date),
-        }, status=201)
+        return Response(
+            {
+                "message": "Added to cart",
+                "item_id": item.id,
+                "start_date": str(item.start_date),
+                "end_date": str(item.end_date),
+            },
+            status=201,
+        )
 
     @action(detail=False, methods=["delete"], url_path=r"items/(?P<item_id>\d+)")
     def remove_item(self, request, item_id=None):
@@ -327,12 +445,20 @@ class CartViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["post"])
     def checkout(self, request):
         with transaction.atomic():
-            cart = Cart.objects.select_for_update().filter(user=request.user, is_checked_out=False).first()
+            cart = (
+                Cart.objects.select_for_update()
+                .filter(user=request.user, is_checked_out=False)
+                .first()
+            )
             if not cart:
-                return Response({"errors": {"cart": ["Cart is empty or already checked out."]}}, status=400)
+                return Response(
+                    {"errors": {"cart": ["Cart is empty or already checked out."]}},
+                    status=400,
+                )
 
             items = list(
-                CartItem.objects.select_for_update().filter(cart=cart)
+                CartItem.objects.select_for_update()
+                .filter(cart=cart)
                 .select_related("vehicle", "pickup_location", "return_location")
                 .order_by("start_date", "vehicle_id")
             )
@@ -346,25 +472,66 @@ class CartViewSet(viewsets.ViewSet):
             # Re-validate vehicle/location compatibility (in case settings changed)
             for it in items:
                 v = it.vehicle
-                if v.available_pickup_locations.exists() and not v.available_pickup_locations.filter(pk=it.pickup_location_id).exists():
-                    return Response({"errors": {"pickup_location": [f"{v.name} no longer allows pickup at {it.pickup_location}."]}}, status=400)
-                if v.available_return_locations.exists() and not v.available_return_locations.filter(pk=it.return_location_id).exists():
-                    return Response({"errors": {"return_location": [f"{v.name} no longer allows return at {it.return_location}."]}}, status=400)
+                if (
+                    v.available_pickup_locations.exists()
+                    and not v.available_pickup_locations.filter(
+                        pk=it.pickup_location_id
+                    ).exists()
+                ):
+                    return Response(
+                        {
+                            "errors": {
+                                "pickup_location": [
+                                    f"{v.name} no longer allows pickup at {it.pickup_location}."
+                                ]
+                            }
+                        },
+                        status=400,
+                    )
+                if (
+                    v.available_return_locations.exists()
+                    and not v.available_return_locations.filter(
+                        pk=it.return_location_id
+                    ).exists()
+                ):
+                    return Response(
+                        {
+                            "errors": {
+                                "return_location": [
+                                    f"{v.name} no longer allows return at {it.return_location}."
+                                ]
+                            }
+                        },
+                        status=400,
+                    )
 
             # Availability check
             for it in items:
                 overlap = Q(start_date__lt=it.end_date) & Q(end_date__gt=it.start_date)
-                conflict = VehicleReservation.objects.filter(
-                    vehicle=it.vehicle, group__status__in=ReservationStatus.blocking()
-                ).filter(overlap).exists()
+                conflict = (
+                    VehicleReservation.objects.filter(
+                        vehicle=it.vehicle,
+                        group__status__in=ReservationStatus.blocking(),
+                    )
+                    .filter(overlap)
+                    .exists()
+                )
                 if conflict:
                     return Response(
-                        {"errors": {"availability": [f"{it.vehicle} not available for {it.start_date} → {it.end_date}."]}},
+                        {
+                            "errors": {
+                                "availability": [
+                                    f"{it.vehicle} not available for {it.start_date} → {it.end_date}."
+                                ]
+                            }
+                        },
                         status=400,
                     )
 
             # Create group: Pending
-            group = ReservationGroup.objects.create(user=request.user, status=ReservationStatus.PENDING)
+            group = ReservationGroup.objects.create(
+                user=request.user, status=ReservationStatus.PENDING
+            )
             created_ids = []
             try:
                 for it in items:
@@ -403,7 +570,11 @@ class CartViewSet(viewsets.ViewSet):
             pass
 
         return Response(
-            {"message": "Checkout complete. Reservation pending approval.", "group_id": group.id, "reservation_ids": created_ids},
+            {
+                "message": "Checkout complete. Reservation pending approval.",
+                "group_id": group.id,
+                "reservation_ids": created_ids,
+            },
             status=201,
         )
 
@@ -420,8 +591,11 @@ class PaymentSerializer(serializers.Serializer):
         month = attrs.get("exp_month")
         year = attrs.get("exp_year")
         if month is None or month < 1 or month > 12:
-            raise serializers.ValidationError({"exp_month": ["Invalid exp_month (1..12)."]})
+            raise serializers.ValidationError(
+                {"exp_month": ["Invalid exp_month (1..12)."]}
+            )
         from datetime import datetime
+
         now = datetime.now()
         if year is None or year < now.year or year > now.year + 20:
             raise serializers.ValidationError({"exp_year": ["Invalid exp_year."]})
@@ -430,14 +604,30 @@ class PaymentSerializer(serializers.Serializer):
 
 @extend_schema_view(
     list=extend_schema(tags=["Manager's Actions"], summary="List ALL reservations"),
-    create=extend_schema(tags=["Manager's Actions"], summary="Create reservation (single-shot/backoffice)"),
-    approve=extend_schema(tags=["Manager's Actions"], summary="Approve reservation group"),
-    reject=extend_schema(tags=["Manager's Actions"], summary="Reject reservation group"),
-    complete=extend_schema(tags=["Manager's Actions"], summary="Mark as complete (status=reserved only)"),
-    pay=extend_schema(tags=["User's Actions"], summary="Pay for an approved reservation (user owns it)"),
+    create=extend_schema(
+        tags=["Manager's Actions"],
+        summary="Create reservation (single-shot/backoffice)",
+    ),
+    approve=extend_schema(
+        tags=["Manager's Actions"], summary="Approve reservation group"
+    ),
+    reject=extend_schema(
+        tags=["Manager's Actions"], summary="Reject reservation group"
+    ),
+    complete=extend_schema(
+        tags=["Manager's Actions"], summary="Mark as complete (status=reserved only)"
+    ),
+    pay=extend_schema(
+        tags=["User's Actions"],
+        summary="Pay for an approved reservation (user owns it)",
+    ),
 )
-class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin):
-    queryset = VehicleReservation.objects.select_related("vehicle", "group", "pickup_location", "return_location").all()
+class ReservationViewSet(
+    viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin
+):
+    queryset = VehicleReservation.objects.select_related(
+        "vehicle", "group", "pickup_location", "return_location"
+    ).all()
     serializer_class = ReservationSerializer
     permission_classes = [IsAuthenticated]
 
@@ -455,7 +645,14 @@ class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
     def approve(self, request, pk=None):
         _, group = self._get_group_from_reservation(pk)
         if group.status != ReservationStatus.PENDING:
-            return Response({"errors": {"state": [f"Group not pending (current: {group.status})."]}}, status=400)
+            return Response(
+                {
+                    "errors": {
+                        "state": [f"Group not pending (current: {group.status})."]
+                    }
+                },
+                status=400,
+            )
         group.status = ReservationStatus.APPROVED
         group.save(update_fields=["status"])
 
@@ -474,7 +671,10 @@ class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
     def reject(self, request, pk=None):
         _, group = self._get_group_from_reservation(pk)
         if group.status not in (ReservationStatus.PENDING, ReservationStatus.APPROVED):
-            return Response({"errors": {"state": [f"Cannot reject from state {group.status}."]}}, status=400)
+            return Response(
+                {"errors": {"state": [f"Cannot reject from state {group.status}."]}},
+                status=400,
+            )
         group.status = ReservationStatus.REJECTED
         group.save(update_fields=["status"])
         try:
@@ -492,7 +692,10 @@ class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
     def complete(self, request, pk=None):
         _, group = self._get_group_from_reservation(pk)
         if group.status != ReservationStatus.RESERVED:
-            return Response({"errors": {"state": ["Only reserved reservations can be completed."]}}, status=400)
+            return Response(
+                {"errors": {"state": ["Only reserved reservations can be completed."]}},
+                status=400,
+            )
         group.status = ReservationStatus.COMPLETED
         group.save(update_fields=["status"])
 
@@ -522,7 +725,10 @@ class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             raise PermissionDenied("You can only pay your own reservations.")
 
         if group.status != ReservationStatus.APPROVED:
-            return Response({"errors": {"state": ["Reservation must be approved before payment."]}}, status=400)
+            return Response(
+                {"errors": {"state": ["Reservation must be approved before payment."]}},
+                status=400,
+            )
 
         ser = PaymentSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
@@ -543,11 +749,13 @@ class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
         except Exception:
             pass
 
-        return Response({
-            "message": "Payment successful. Reservation is now reserved.",
-            "group_id": group.id,
-            "charged": str(expected_total),
-        })
+        return Response(
+            {
+                "message": "Payment successful. Reservation is now reserved.",
+                "group_id": group.id,
+                "charged": str(expected_total),
+            }
+        )
 
 
 @extend_schema_view(
@@ -560,23 +768,35 @@ class MyReservationViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return (
-            VehicleReservation.objects
-            .select_related("vehicle", "group", "pickup_location", "return_location")
+            VehicleReservation.objects.select_related(
+                "vehicle", "group", "pickup_location", "return_location"
+            )
             .filter(user=self.request.user)
             .order_by("-start_date")
         )
 
+
 class AdminUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "is_active", "is_staff", "first_name", "last_name"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "is_active",
+            "is_staff",
+            "first_name",
+            "last_name",
+        ]
 
 
 class AdminUserCreateSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
     email = serializers.EmailField(required=False, allow_blank=True)
-    is_manager = serializers.BooleanField(required=False, default=False)  # if managers via groups/flags
+    is_manager = serializers.BooleanField(
+        required=False, default=False
+    )  # if managers via groups/flags
 
 
 class AdminUserUpdateSerializer(serializers.Serializer):
@@ -590,9 +810,15 @@ class AdminUserUpdateSerializer(serializers.Serializer):
     retrieve=extend_schema(tags=["Admin's Actions"], summary="Get user (admins only)"),
     create=extend_schema(tags=["Admin's Actions"], summary="Add user (admins only)"),
     update=extend_schema(tags=["Admin's Actions"], summary="Edit user (admins only)"),
-    partial_update=extend_schema(tags=["Admin's Actions"], summary="Edit user (partial) (admins only)"),
-    destroy=extend_schema(tags=["Admin's Actions"], summary="Delete user (admins only)"),
-    promote=extend_schema(tags=["Admin's Actions"], summary="Promote user (admins only)"),
+    partial_update=extend_schema(
+        tags=["Admin's Actions"], summary="Edit user (partial) (admins only)"
+    ),
+    destroy=extend_schema(
+        tags=["Admin's Actions"], summary="Delete user (admins only)"
+    ),
+    promote=extend_schema(
+        tags=["Admin's Actions"], summary="Promote user (admins only)"
+    ),
     block=extend_schema(tags=["Admin's Actions"], summary="Block user (admins only)"),
 )
 class AdminUserViewSet(viewsets.ModelViewSet):
@@ -604,6 +830,7 @@ class AdminUserViewSet(viewsets.ModelViewSet):
       - Block user (custom action)
       - Edit user (update/partial_update)
     """
+
     queryset = User.objects.all().order_by("id")
     permission_classes = [IsAdminUser]
     serializer_class = AdminUserSerializer
@@ -627,6 +854,7 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         if ser.validated_data.get("is_manager"):
             try:
                 from django.contrib.auth.models import Group
+
                 mgr_group, _ = Group.objects.get_or_create(name="manager")
                 user.groups.add(mgr_group)
             except Exception:
@@ -636,7 +864,9 @@ class AdminUserViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         user = self.get_object()
-        ser = self.get_serializer(data=request.data, partial=(self.action == "partial_update"))
+        ser = self.get_serializer(
+            data=request.data, partial=(self.action == "partial_update")
+        )
         ser.is_valid(raise_exception=True)
         for f in ("email", "first_name", "last_name"):
             if f in ser.validated_data:
@@ -649,6 +879,7 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         user = self.get_object()
         try:
             from django.contrib.auth.models import Group
+
             mgr_group, _ = Group.objects.get_or_create(name="manager")
             user.groups.add(mgr_group)
             return Response({"message": f"User {user.username} promoted to manager."})

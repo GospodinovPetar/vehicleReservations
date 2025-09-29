@@ -16,6 +16,7 @@ def location_list(request):
         request, "accounts/locations/location_list.html", {"locations": locations}
     )
 
+
 @login_required
 @manager_required
 @permission_required("inventory.add_location", raise_exception=True)
@@ -30,6 +31,7 @@ def location_create(request):
     return render(
         request, "accounts/locations/location_form.html", {"title": "Create location"}
     )
+
 
 @login_required
 @manager_required
@@ -49,6 +51,7 @@ def location_edit(request, pk):
         "accounts/locations/location_form.html",
         {"location": loc, "title": "Edit location"},
     )
+
 
 @login_required
 @manager_required

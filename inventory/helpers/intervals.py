@@ -1,35 +1,28 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Iterable, List, Sequence, Tuple, Union
+from typing import Iterable, List, Tuple, Union
 
 DateLike = Union[date, datetime]
 Interval = Tuple[DateLike, DateLike]
 
 
 def merge_intervals(intervals: Iterable[Interval]) -> List[Interval]:
-    intervals_list: List[Interval] = list(intervals)
-    if len(intervals_list) == 0:
+    items = sorted(intervals, key=lambda p: p[0])
+    if not items:
         return []
 
-    intervals_list.sort(key=lambda pair: pair[0])
-
     merged: List[Interval] = []
-    current_start: DateLike
-    current_end: DateLike
-    current_start, current_end = intervals_list[0]
+    cur_start, cur_end = items[0]
 
-    for idx in range(1, len(intervals_list)):
-        next_start, next_end = intervals_list[idx]
-        if next_start <= current_end:
-            if next_end > current_end:
-                current_end = next_end
+    for nxt_start, nxt_end in items[1:]:
+        if nxt_start <= cur_end:
+            cur_end = max(cur_end, nxt_end)
         else:
-            merged.append((current_start, current_end))
-            current_start = next_start
-            current_end = next_end
+            merged.append((cur_start, cur_end))
+            cur_start, cur_end = nxt_start, nxt_end
 
-    merged.append((current_start, current_end))
+    merged.append((cur_start, cur_end))
     return merged
 
 
@@ -41,27 +34,23 @@ def free_slices(
     if request_end <= request_start:
         return []
 
-    clamped_busy: List[Interval] = []
-    for start_value, end_value in busy_intervals:
-        if end_value <= request_start or start_value >= request_end:
+    clamped: List[Interval] = []
+    for s, e in busy_intervals:
+        if e <= request_start or s >= request_end:
             continue
-        s = start_value if start_value > request_start else request_start
-        e = end_value if end_value < request_end else request_end
-        if s < e:
-            clamped_busy.append((s, e))
+        clamped.append((max(s, request_start), min(e, request_end)))
 
-    merged_busy: List[Interval] = merge_intervals(clamped_busy)
+    merged_busy = merge_intervals(clamped)
 
-    free_list: List[Interval] = []
+    free: List[Interval] = []
     cursor: DateLike = request_start
 
-    for busy_start, busy_end in merged_busy:
-        if cursor < busy_start:
-            free_list.append((cursor, busy_start))
-        if busy_end > cursor:
-            cursor = busy_end
+    for b_start, b_end in merged_busy:
+        if cursor < b_start:
+            free.append((cursor, b_start))
+        cursor = max(cursor, b_end)
 
     if cursor < request_end:
-        free_list.append((cursor, request_end))
+        free.append((cursor, request_end))
 
-    return free_list
+    return free

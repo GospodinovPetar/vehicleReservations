@@ -1,11 +1,19 @@
 from django.contrib import messages
 from django.http import HttpResponseForbidden
-from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
+from django.contrib.auth.decorators import (
+    login_required,
+    user_passes_test,
+    permission_required,
+)
 from django.shortcuts import redirect, render, get_object_or_404
 
 from accounts.forms import ReservationStatusForm
 from accounts.views.admins_managers import manager_required
-from inventory.models.reservation import ReservationGroup, ReservationStatus, VehicleReservation
+from inventory.models.reservation import (
+    ReservationGroup,
+    ReservationStatus,
+    VehicleReservation,
+)
 
 
 @login_required
@@ -47,6 +55,7 @@ def reservation_list(request):
         {"ongoing": ongoing, "archived": archived},
     )
 
+
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
@@ -60,6 +69,7 @@ def reservation_group_approve(request, pk):
 
     messages.success(request, f"Reservation group {group.id} is now awaiting payment.")
     return redirect("accounts:reservation-list")
+
 
 @login_required
 @manager_required
@@ -79,6 +89,7 @@ def reservation_group_reject(request, pk):
 
     messages.warning(request, f"Reservation group {group.id} has been rejected.")
     return redirect("accounts:reservation-list")
+
 
 @login_required
 @manager_required
@@ -104,6 +115,7 @@ def reservation_update(request, pk):
         {"form": form, "group": group},
     )
 
+
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
@@ -118,6 +130,7 @@ def reservation_approve(request, pk):
 
     messages.success(request, f"Reservation #{reservation.id} is now awaiting payment.")
     return redirect("accounts:reservation-list")
+
 
 @login_required
 @manager_required
@@ -139,6 +152,7 @@ def reservation_reject(request, pk):
     messages.warning(request, f"Reservation #{r.id} rejected; group moved to Rejected.")
     return redirect("accounts:reservation-list")
 
+
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
@@ -156,6 +170,7 @@ def reservation_cancel(request, pk):
     messages.warning(request, f"Reservation #{r.id} canceled; group moved to Canceled.")
     return redirect("accounts:reservation-list")
 
+
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
@@ -169,6 +184,7 @@ def reservation_complete(request, pk):
 
     messages.success(request, f"Reservation group {group.id} marked as Completed.")
     return redirect("accounts:reservation-list")
+
 
 @login_required
 @manager_required

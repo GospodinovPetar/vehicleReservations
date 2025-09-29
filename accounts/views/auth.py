@@ -8,15 +8,28 @@ from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from django.db import models
 
-from accounts.forms import CustomUserCreationForm, EmailCodeForm, UserProfileForm, EmailOnlyForm, \
-    PasswordResetConfirmForm
+from accounts.forms import (
+    CustomUserCreationForm,
+    EmailCodeForm,
+    UserProfileForm,
+    EmailOnlyForm,
+    PasswordResetConfirmForm,
+)
 from accounts.models import PendingRegistration
-from accounts.views.helpers import _issue_code, PURPOSE_REGISTER, _send_verification_email, _validate_code, \
-    PURPOSE_RESET, _send_reset_email, User
+from accounts.views.helpers import (
+    _issue_code,
+    PURPOSE_REGISTER,
+    _send_verification_email,
+    _validate_code,
+    PURPOSE_RESET,
+    _send_reset_email,
+    User,
+)
 
 from inventory.models.reservation import VehicleReservation
 
 SESSION_KEY = "email_codes"
+
 
 @require_http_methods(["GET", "POST"])
 def register(request):

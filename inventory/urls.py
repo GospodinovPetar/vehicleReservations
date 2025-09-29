@@ -5,8 +5,15 @@ from cart.views.checkout import checkout
 from cart.views.remove_from_cart import remove_from_cart
 from cart.views.view_cart import view_cart
 from inventory.views.payment_intent import create_payment_intent
-from inventory.views.reservation_actions import my_reservations, reject_reservation, cancel_reservation, add_vehicle, \
-    edit_reservation, delete_reservation, approve_group
+from inventory.views.reservation_actions import (
+    my_reservations,
+    reject_reservation,
+    cancel_reservation,
+    add_vehicle,
+    edit_reservation,
+    delete_reservation,
+    approve_group,
+)
 from inventory.views.search import search, home
 
 app_name = "inventory"

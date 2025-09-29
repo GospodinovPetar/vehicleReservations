@@ -2,7 +2,14 @@ from typing import Any, List, Dict, Optional
 
 from django.template import TemplateDoesNotExist
 
-from emails.helpers import recipients_for_group, render_pair, send, group_items, _display_status, detect_changes
+from emails.helpers import (
+    recipients_for_group,
+    render_pair,
+    send,
+    group_items,
+    _display_status,
+    detect_changes,
+)
 
 
 def send_group_created_email(group: Any) -> None:
@@ -31,8 +38,6 @@ def send_group_created_email(group: Any) -> None:
         html_body_value = None
 
     send(subject_value, recipients_list, text_body_value, html_body_value)
-
-
 
 
 def send_group_status_changed_email(
@@ -130,6 +135,7 @@ def send_reservation_edited_email(before: Any, after: Any) -> None:
 
     send(subject_value, recipients_list, text_body_value, html_body_value)
 
+
 def send_vehicle_added_email(reservation: Any) -> None:
     group_obj: Optional[Any] = getattr(reservation, "group", None)
     if group_obj is None:
@@ -199,4 +205,3 @@ def send_vehicle_removed_email(reservation_snapshot: Any) -> None:
         html_body_value = None
 
     send(subject_value, recipients_list, text_body_value, html_body_value)
-

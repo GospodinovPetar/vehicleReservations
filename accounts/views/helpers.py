@@ -9,7 +9,6 @@ import time
 User = get_user_model()
 
 
-
 SESSION_KEY = "email_codes"
 PURPOSE_REGISTER = "register"
 PURPOSE_RESET = "reset_pwd"
