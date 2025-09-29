@@ -42,6 +42,7 @@ def send_group_status_changed_email(
         "reference": group_reference_value,
         "old_status": old_status_display,
         "new_status": new_status_display,
+        "status": new_status_display,  # provide a generic 'status' for templates expecting it
         "items": items_list,
     }
 

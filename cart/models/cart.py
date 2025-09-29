@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.apps import apps
 from django.db import models, transaction
+from django.utils import timezone
 
 
 def _max_rental_days() -> int:
@@ -78,6 +79,9 @@ class CartItem(models.Model):
                 name="cartitem_end_after_start",
             ),
         ]
+        indexes = [
+            models.Index(fields=["cart", "vehicle", "start_date", "end_date"]),
+        ]
 
     @staticmethod
     def _validate_dates(start_date, end_date):
@@ -85,6 +89,12 @@ class CartItem(models.Model):
             raise ValidationError("Both start and end dates are required.")
         if end_date <= start_date:
             raise ValidationError("End date must be after start date.")
+        # Disallow past dates for better UX and to avoid later checkout failures
+        today = timezone.localdate()
+        if start_date < today:
+            raise ValidationError("Start date cannot be in the past.")
+        if end_date < today:
+            raise ValidationError("End date cannot be in the past.")
         max_days = _max_rental_days()
         rental_days = (end_date - start_date).days
         if rental_days > max_days:
