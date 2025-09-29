@@ -1,0 +1,93 @@
+.pay-card {
+  max-width: 540px;
+  margin: 24px auto;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+}
+
+.row .wide {
+    flex: 2;
+}
+.row .narrow {
+    flex: 1;
+}
+
+.row > * {
+  flex: 1;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #374151;
+}
+
+.input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.err {
+  color: #b91c1c;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: none;
+  background: #111827;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn.secondary {
+  background: #6b7280;
+}
+
+.amount {
+  font-weight: 700;
+}
+
+.hint {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 12px;
+}

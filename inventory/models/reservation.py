@@ -340,6 +340,7 @@ class ReservationGroup(models.Model):
             allowed = {
                 (ReservationStatus.PENDING, ReservationStatus.AWAITING_PAYMENT),
                 (ReservationStatus.PENDING, ReservationStatus.REJECTED),
+                (ReservationStatus.PENDING, ReservationStatus.CANCELED),
                 (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.RESERVED),
                 (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.REJECTED),
                 (ReservationStatus.RESERVED, ReservationStatus.COMPLETED),

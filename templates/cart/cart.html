@@ -12,6 +12,8 @@
         <thead>
           <tr>
             <th>Vehicle</th>
+            <th>Pickup</th>
+            <th>Return</th>
             <th>From</th>
             <th>To</th>
             <th style="text-align:right;">Days</th>
@@ -32,6 +34,27 @@
                   {% else %}—{% endif %}
                 {% endwith %}
               </td>
+
+              <td>
+                {% with loc=row.item.pickup_location %}
+                  {% if loc %}
+                    {% if loc.display_name %}{{ loc.display_name }}
+                    {% elif loc.name %}{{ loc.name }}
+                    {% else %}{{ loc }}{% endif %}
+                  {% else %}—{% endif %}
+                {% endwith %}
+              </td>
+
+              <td>
+                {% with loc=row.item.return_location %}
+                  {% if loc %}
+                    {% if loc.display_name %}{{ loc.display_name }}
+                    {% elif loc.name %}{{ loc.name }}
+                    {% else %}{{ loc }}{% endif %}
+                  {% else %}—{% endif %}
+                {% endwith %}
+              </td>
+
               <td>{{ row.item.start_date|date:"Y-m-d" }}</td>
               <td>{{ row.item.end_date|date:"Y-m-d" }}</td>
               <td style="text-align:right;">{{ row.days }}</td>
@@ -53,7 +76,7 @@
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="4" style="text-align:right;"><strong>Cart total:</strong></td>
+            <td colspan="6" style="text-align:right;"><strong>Cart total:</strong></td>
             <td style="text-align:right;">
               <strong>
                 {% if cart_total is not None %}

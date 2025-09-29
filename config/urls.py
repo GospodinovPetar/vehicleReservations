@@ -3,6 +3,8 @@ from django.urls import path, include, re_path
 from django.views.generic import TemplateView, RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
+from config.consumers import EchoConsumer, ReservationConsumer
+
 urlpatterns = [
     path("", include(("inventory.urls", "inventory"), namespace="inventory")),
     path("accounts/", include(("accounts.urls", "accounts"), namespace="accounts")),
@@ -20,4 +22,8 @@ urlpatterns += [
     re_path(r"^manager/(?P<rest>.*)$",
             RedirectView.as_view(url="/accounts/manager/%(rest)s", permanent=False),
             name="redirect-manager-under-accounts"),
+]
+websocket_urlpatterns = [
+    re_path(r"^ws/echo/?$", EchoConsumer.as_asgi()),
+    re_path(r"^ws/reservations/?$", ReservationConsumer.as_asgi()),
 ]

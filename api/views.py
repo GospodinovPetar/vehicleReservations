@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import timezone
 from decimal import Decimal, ROUND_HALF_UP
+from config.ws_events import broadcast_reservation_event
 
 from django.contrib.auth import get_user_model, authenticate, login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError, PermissionDenied
@@ -37,11 +39,26 @@ from .serializers import (
     ReservationSerializer,
     RegisterSerializer,
     LoginSerializer,
-    AvailabilityResponseSerializer,
 )
 
 User = get_user_model()
 
+def _group_ws_payload(group: ReservationGroup, *, actor_user_id: int | None = None, extra: dict | None = None) -> dict:
+    """
+    Standard payload we send over the 'reservations.all' websocket group.
+    Mirrors what the signals send so the client receives a consistent shape.
+    """
+    payload = {
+        "kind": "group",
+        "group_id": group.id,
+        "status": group.status,
+        "total_price": str(getattr(group, "total_price", "")) if hasattr(group, "total_price") else None,
+        "changed_at": timezone.now().isoformat(),
+        "modified_by_id": actor_user_id,
+    }
+    if extra:
+        payload.update(extra)
+    return payload
 
 
 
@@ -371,6 +388,20 @@ class CartViewSet(viewsets.ViewSet):
             cart.save(update_fields=["is_checked_out"])
             CartItem.objects.filter(cart=cart).delete()
 
+        try:
+            payload = _group_ws_payload(
+                group,
+                actor_user_id=request.user.id,
+                extra={"reservation_ids": created_ids},
+            )
+            broadcast_reservation_event(
+                event="reservation.created",
+                reservation_dict=payload,
+                audience=["reservations.all"],
+            )
+        except Exception:
+            pass
+
         return Response(
             {"message": "Checkout complete. Reservation pending approval.", "group_id": group.id, "reservation_ids": created_ids},
             status=201,
@@ -427,6 +458,16 @@ class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             return Response({"errors": {"state": [f"Group not pending (current: {group.status})."]}}, status=400)
         group.status = ReservationStatus.APPROVED
         group.save(update_fields=["status"])
+
+        try:
+            payload = _group_ws_payload(group, actor_user_id=request.user.id)
+            broadcast_reservation_event(
+                event="group.status_changed",
+                reservation_dict=payload,
+                audience=["reservations.all"],
+            )
+        except Exception:
+            pass
         return Response({"message": "Reservation approved."})
 
     @action(detail=True, methods=["post"])
@@ -436,6 +477,15 @@ class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             return Response({"errors": {"state": [f"Cannot reject from state {group.status}."]}}, status=400)
         group.status = ReservationStatus.REJECTED
         group.save(update_fields=["status"])
+        try:
+            payload = _group_ws_payload(group, actor_user_id=request.user.id)
+            broadcast_reservation_event(
+                event="group.status_changed",
+                reservation_dict=payload,
+                audience=["reservations.all"],
+            )
+        except Exception:
+            pass
         return Response({"message": "Reservation rejected."})
 
     @action(detail=True, methods=["post"])
@@ -445,6 +495,17 @@ class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             return Response({"errors": {"state": ["Only reserved reservations can be completed."]}}, status=400)
         group.status = ReservationStatus.COMPLETED
         group.save(update_fields=["status"])
+
+        try:
+            payload = _group_ws_payload(group, actor_user_id=request.user.id)
+            broadcast_reservation_event(
+                event="group.status_changed",
+                reservation_dict=payload,
+                audience=["reservations.all"],
+            )
+        except Exception:
+            pass
+
         return Response({"message": "Reservation marked as complete."})
 
     @action(detail=True, methods=["post"])
@@ -469,9 +530,18 @@ class ReservationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
         # Compute expected total server-side
         expected_total = group.total_price
 
-        # TODO: integrate PSP; we simulate success and ignore client amount
         group.status = ReservationStatus.RESERVED
         group.save(update_fields=["status"])
+
+        try:
+            payload = _group_ws_payload(group, actor_user_id=request.user.id)
+            broadcast_reservation_event(
+                event="group.status_changed",
+                reservation_dict=payload,
+                audience=["reservations.all"],
+            )
+        except Exception:
+            pass
 
         return Response({
             "message": "Payment successful. Reservation is now reserved.",

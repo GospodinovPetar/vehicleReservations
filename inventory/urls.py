@@ -4,15 +4,10 @@ from cart.views.add_to_cart import add_to_cart
 from cart.views.checkout import checkout
 from cart.views.remove_from_cart import remove_from_cart
 from cart.views.view_cart import view_cart
-from inventory.views.reservations.add_vehicle_to_reservation import add_vehicle
-from inventory.views.reservations.approve_group import approve_group
-from inventory.views.reservations.cancel_reservation import cancel_reservation
-from inventory.views.reservations.create_payment_intent import create_payment_intent
-from inventory.views.reservations.delete_reservation import delete_reservation
-from inventory.views.reservations.edit_reservation import edit_reservation
-from inventory.views.reservations.my_reservations import my_reservations
-from inventory.views.reservations.reject_reservation import reject_reservation
-from inventory.views.search import home, search
+from inventory.views.payment_intent import create_payment_intent
+from inventory.views.reservation_actions import my_reservations, reject_reservation, cancel_reservation, add_vehicle, \
+    edit_reservation, delete_reservation, approve_group
+from inventory.views.search import search, home
 
 app_name = "inventory"
 

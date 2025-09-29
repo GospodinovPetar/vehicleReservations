@@ -170,19 +170,59 @@ More endpoints will be added as the project grows.
 
 
 
-## 📡 WebSockets (Simple Echo)
-A minimal WebSocket endpoint is included using Django Channels.
+## 📡 WebSockets
+Real-time updates are powered by Django Channels. Two endpoints are available:
 
-- Endpoint: `ws://<host>/ws/echo/`
-- Test page: `http://<host>/ws-test/`
+- Echo test: `ws://<host>/ws/echo/`
+- Reservations stream: `ws://<host>/ws/reservations/`
 
-How to run locally with WebSocket support:
+Auth: The connection uses Django session cookies. Open the socket from a page where you are logged in.
+
+On connect to `/ws/reservations/`, the server subscribes you to groups based on your role:
+- Users: `user:<your_id>` (you get your own reservation updates)
+- Managers: `role:managers` (all reservation updates)
+- Admins: `role:admins` (all reservation updates, plus admin group)
+
+Message format for reservation updates (JSON):
+
+{
+  "type": "reservation.event",
+  "event": "reservation.created" | "reservation.status_changed",
+  "group": {
+    "id": 123,
+    "reference": "ABC123XYZ",
+    "status": "PENDING" | "APPROVED" | "RESERVED" | "REJECTED" | "COMPLETED",
+    "total_price": "199.99",
+    "user_id": 5,
+    "created_at": "2025-09-29T12:34:56Z"
+  },
+  "reservation": {  // may be null
+    "id": 456,
+    "vehicle_id": 9,
+    "vehicle_name": "Tesla Model 3",
+    "pickup_location_id": 1,
+    "return_location_id": 2,
+    "start_date": "2025-10-01",
+    "end_date": "2025-10-05",
+    "total_price": "199.99",
+    "group_id": 123
+  },
+  "actor_user_id": 5
+}
+
+Events are emitted when:
+- A user completes checkout (group created with status PENDING)
+- A manager/admin approves/rejects a group
+- A user pays (group becomes RESERVED)
+- A manager/admin marks a group as COMPLETED
+
+Local run with WebSocket support:
 
 1) Install dependencies (includes `channels`):
 
    pip install -r requirements.txt
 
-2) Install an ASGI server (recommended for WS), e.g. Daphne:
+2) Install an ASGI server (recommended), e.g. Daphne:
 
    pip install daphne
 
@@ -190,10 +230,6 @@ How to run locally with WebSocket support:
 
    daphne -b 0.0.0.0 -p 8000 config.asgi:application
 
-4) Open the test page and try sending a message:
-
-   http://127.0.0.1:8000/ws-test/
-
 Notes:
 - This setup uses the in-memory channel layer for simplicity; for production, use Redis.
-- The consumer simply echoes back whatever you send.
+- The echo consumer simply echoes back whatever you send.
