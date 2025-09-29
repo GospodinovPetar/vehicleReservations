@@ -23,7 +23,6 @@ INSTALLED_APPS = [
     "channels",
     "rest_framework",
     "drf_spectacular",
-    "drf_spectacular_sidecar",
     "accounts",
     "inventory",
     "cart",
@@ -104,7 +103,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "templates"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "templates" / "static"]
 
 MEDIA_URL = "media/"
