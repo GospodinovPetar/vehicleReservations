@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
 
 from django import forms
 from django.core.validators import RegexValidator
 from django.utils import timezone
+from django.db.models import TextChoices
 
 
 @dataclass(frozen=True)
@@ -20,7 +20,7 @@ class CardConstraints:
     max_year: int = 2099
 
 
-class Outcome(forms.TextChoices):
+class Outcome(TextChoices):
     AUTO = "auto", "Auto"
     FORCE_SUCCESS = "success", "Force success"
     FORCE_FAIL = "fail", "Force fail"
