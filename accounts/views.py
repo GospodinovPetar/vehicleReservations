@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.db import models
 from django.http import HttpResponseForbidden
 from django.contrib.auth import login, logout, get_user_model, update_session_auth_hash
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.shortcuts import redirect, render, get_object_or_404
 from django.views.decorators.http import require_http_methods
@@ -40,7 +40,6 @@ from .models import PendingRegistration
 User = get_user_model()
 
 
-# --------------- Session-backed code helpers (NO DB for codes) ---------------
 
 SESSION_KEY = "email_codes"  # maps purposes to code bundles
 PURPOSE_REGISTER = "register"
@@ -309,7 +308,7 @@ def login_view(request):
             user = form.get_user()
 
             # Blocked or inactive users cannot log in
-            if user.is_blocked or not user.is_active:
+            if getattr(user, "is_blocked", False) or not user.is_active:
                 messages.error(
                     request,
                     "Your account has been blocked or is inactive. Please contact support.",
@@ -319,9 +318,9 @@ def login_view(request):
             login(request, user)
             messages.success(request, "You are now logged in.")
 
-            if user.role == "admin":
+            if getattr(user, "role", "user") == "admin":
                 return redirect("accounts:admin-dashboard")
-            elif user.role == "manager":
+            elif getattr(user, "role", "user") == "manager":
                 return redirect("accounts:manager-dashboard")
             else:
                 return redirect("/")
@@ -377,7 +376,7 @@ def logout_view(request):
 
 @login_required
 def profile_detail(request, pk):
-    user = get_object_or_404(CustomUser, pk=pk)
+    user = get_object_or_404(User, pk=pk)
     return render(request, "accounts/profile_detail.html", {"user": user})
 
 
@@ -397,7 +396,7 @@ def profile_view(request, pk=None):
     else:
         if pk == request.user.pk:
             profile_user = request.user
-        elif request.user.role in ["admin", "manager"]:
+        elif getattr(request.user, "role", "user") in ["admin", "manager"]:
             profile_user = get_object_or_404(User, pk=pk)
         else:
             return HttpResponseForbidden("You cannot view other users’ profiles.")
@@ -529,11 +528,12 @@ def forgot_password_confirm(request):
 
 # ----------- Admin decorators / views -----------
 def admin_required(view_func):
-    return user_passes_test(lambda u: u.is_authenticated and u.role == "admin")(
+    return user_passes_test(lambda u: u.is_authenticated and getattr(u, "role", "user") == "admin")(
         view_func
     )
 
 
+@login_required
 @admin_required
 def admin_dashboard(request):
     query = request.GET.get("q")
@@ -566,11 +566,12 @@ def admin_dashboard(request):
     )
 
 
+@login_required
 @admin_required
 def block_user(request, pk):
     user = get_object_or_404(User, pk=pk)
     # Strict: do not allow any admin-to-admin actions
-    if user.role == "admin":
+    if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot block another admin.")
     else:
         user.is_blocked = True
@@ -579,10 +580,11 @@ def block_user(request, pk):
     return redirect("accounts:admin-dashboard")
 
 
+@login_required
 @admin_required
 def unblock_user(request, pk):
     user = get_object_or_404(User, pk=pk)
-    if user.role == "admin":
+    if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot modify another admin.")
     else:
         user.is_blocked = False
@@ -591,10 +593,11 @@ def unblock_user(request, pk):
     return redirect("accounts:admin-dashboard")
 
 
+@login_required
 @admin_required
 def promote_manager(request, pk):
     user = get_object_or_404(User, pk=pk)
-    if user.role == "admin":
+    if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot modify another admin.")
     else:
         user.role = "manager"
@@ -603,10 +606,11 @@ def promote_manager(request, pk):
     return redirect("accounts:admin-dashboard")
 
 
+@login_required
 @admin_required
 def demote_user(request, pk):
     user = get_object_or_404(User, pk=pk)
-    if user.role == "admin":
+    if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot modify another admin.")
     else:
         user.role = "user"
@@ -615,6 +619,7 @@ def demote_user(request, pk):
     return redirect("accounts:admin-dashboard")
 
 
+@login_required
 @admin_required
 def create_user(request):
     if request.method == "POST":
@@ -632,11 +637,12 @@ def create_user(request):
     )
 
 
+@login_required
 @admin_required
 def edit_user(request, pk):
     user = get_object_or_404(User, pk=pk)
     # Do not allow admin to edit other admins
-    if user.role == "admin":
+    if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot edit another admin.")
         return redirect("accounts:admin-dashboard")
 
@@ -656,10 +662,11 @@ def edit_user(request, pk):
     )
 
 
+@login_required
 @admin_required
 def delete_user(request, pk):
     user = get_object_or_404(User, pk=pk)
-    if user.role == "admin":
+    if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot delete another admin.")
         return redirect("accounts:admin-dashboard")
 
@@ -675,16 +682,16 @@ def delete_user(request, pk):
 # ----------- Manager decorators / views -----------
 def manager_required(view_func):
     return user_passes_test(
-        lambda u: u.is_authenticated and u.role in ["manager", "admin"],
+        lambda u: u.is_authenticated and getattr(u, "role", "user") in ["manager", "admin"],
         login_url="/accounts/login/",
     )(view_func)
 
-
+@login_required
 @manager_required
 def manager_dashboard(request):
     return render(request, "accounts/manager/manager_dashboard.html")
 
-
+@login_required
 @manager_required
 def manager_vehicles(request):
     vehicles = Vehicle.objects.all()
@@ -692,8 +699,9 @@ def manager_vehicles(request):
         request, "accounts/manager/manager_vehicles.html", {"vehicles": vehicles}
     )
 
-
+@login_required
 @manager_required
+@permission_required("inventory.view_reservationgroup", raise_exception=True)
 def manager_reservations(request):
     # managers/admins see all reservations
     reservations = VehicleReservation.objects.all().select_related(
@@ -707,12 +715,16 @@ def manager_reservations(request):
 
 
 # --- VEHICLE VIEWS ---
+@login_required
 @manager_required
+@permission_required("inventory.view_vehicle", raise_exception=True)
 def vehicle_list(request):
     vehicles = Vehicle.objects.all()
-    return render(request, "accounts/vehicle_list.html", {"vehicles": vehicles})
+    return render(request, "accounts/vehicles/vehicle_list.html", {"vehicles": vehicles})
 
-
+@login_required
+@manager_required
+@permission_required("inventory.add_vehicle", raise_exception=True)
 def vehicle_create(request):
     pickup_param = request.GET.get("pickup")
 
@@ -730,20 +742,19 @@ def vehicle_create(request):
     if request.method == "POST":
         if form.is_valid():
             vehicle = form.save()
-            request.session["last_pickup_id"] = form.cleaned_data[
-                "available_pickup_locations"
-            ].pk
+            last_pickup = form.cleaned_data.get("available_pickup_locations")
+            request.session["last_pickup_id"] = getattr(last_pickup, "pk", None)
             messages.success(request, "Vehicle created successfully.")
             return redirect("accounts:vehicle-list")
-        else:
-            messages.error(request, "Please fix the errors below.")
+        messages.error(request, "Please fix the errors below.")
 
     return render(request, "accounts/vehicles/vehicle_form.html", {"form": form})
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_vehicle", raise_exception=True)
 def vehicle_edit(request, pk):
-    vehicle = Vehicle.objects.get(pk=pk)
+    vehicle = get_object_or_404(Vehicle, pk=pk)
 
     if request.method == "POST":
         form = VehicleForm(request.POST, instance=vehicle)
@@ -774,7 +785,9 @@ def vehicle_edit(request, pk):
         {"form": form},
     )
 
-
+@login_required
+@manager_required
+@permission_required("inventory.delete_vehicle", raise_exception=True)
 def vehicle_delete(request, pk):
     vehicle = get_object_or_404(Vehicle, pk=pk)
 
@@ -793,7 +806,9 @@ def vehicle_delete(request, pk):
 
 
 # --- RESERVATION VIEWS ---
+@login_required
 @manager_required
+@permission_required("inventory.view_reservationgroup", raise_exception=True)
 def reservation_list(request):
     """
     Managers/admins see groups split into:
@@ -830,8 +845,9 @@ def reservation_list(request):
         {"ongoing": ongoing, "archived": archived},
     )
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_group_approve(request, pk):
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status != ReservationStatus.PENDING:
@@ -843,8 +859,9 @@ def reservation_group_approve(request, pk):
     messages.success(request, f"Reservation group {group.id} is now awaiting payment.")
     return redirect("accounts:reservation-list")
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_group_reject(request, pk):
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status not in (
@@ -861,8 +878,9 @@ def reservation_group_reject(request, pk):
     messages.warning(request, f"Reservation group {group.id} has been rejected.")
     return redirect("accounts:reservation-list")
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_update(request, pk):
     """Update a group’s status instead of individual reservations."""
     group = get_object_or_404(ReservationGroup, pk=pk)
@@ -884,8 +902,9 @@ def reservation_update(request, pk):
         {"form": form, "group": group},
     )
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_approve(request, pk):
     reservation = get_object_or_404(VehicleReservation, pk=pk)
     grp = reservation.group
@@ -898,8 +917,9 @@ def reservation_approve(request, pk):
     messages.success(request, f"Reservation #{reservation.id} is now awaiting payment.")
     return redirect("accounts:reservation-list")
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_reject(request, pk):
     r = get_object_or_404(VehicleReservation, pk=pk)
     grp = r.group
@@ -917,8 +937,9 @@ def reservation_reject(request, pk):
     messages.warning(request, f"Reservation #{r.id} rejected; group moved to Rejected.")
     return redirect("accounts:reservation-list")
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_cancel(request, pk):
     r = get_object_or_404(VehicleReservation, pk=pk)
     grp = r.group
@@ -933,8 +954,9 @@ def reservation_cancel(request, pk):
     messages.warning(request, f"Reservation #{r.id} canceled; group moved to Canceled.")
     return redirect("accounts:reservation-list")
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_complete(request, pk):
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status != ReservationStatus.RESERVED:
@@ -946,8 +968,9 @@ def reservation_complete(request, pk):
     messages.success(request, f"Reservation group {group.id} marked as Completed.")
     return redirect("accounts:reservation-list")
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_group_complete(request, pk):
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status != ReservationStatus.RESERVED:
@@ -976,15 +999,18 @@ def user_reservations(request):
 
 
 # --- LOCATION MANAGEMENT (accessible to admin + manager) ---
+@login_required
 @manager_required
+@permission_required("inventory.view_location", raise_exception=True)
 def location_list(request):
     locations = Location.objects.all()
     return render(
         request, "accounts/locations/location_list.html", {"locations": locations}
     )
 
-
+@login_required
 @manager_required
+@permission_required("inventory.add_location", raise_exception=True)
 def location_create(request):
     if request.method == "POST":
         name = request.POST.get("name")
@@ -997,8 +1023,9 @@ def location_create(request):
         request, "accounts/locations/location_form.html", {"title": "Create location"}
     )
 
-
+@login_required
 @manager_required
+@permission_required("inventory.change_location", raise_exception=True)
 def location_edit(request, pk):
     loc = get_object_or_404(Location, pk=pk)
     if request.method == "POST":
@@ -1015,8 +1042,9 @@ def location_edit(request, pk):
         {"location": loc, "title": "Edit location"},
     )
 
-
+@login_required
 @manager_required
+@permission_required("inventory.delete_location", raise_exception=True)
 def location_delete(request, pk):
     loc = get_object_or_404(Location, pk=pk)
 

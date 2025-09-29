@@ -14,5 +14,5 @@ COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["python","manage.py","runserver","0.0.0.0:8000"]
+CMD ["daphne","-b","0.0.0.0","-p","8000","config.asgi:application"]
 

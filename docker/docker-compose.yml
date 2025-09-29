@@ -17,12 +17,13 @@ services:
 
   web:
     build:
-      context: ..                 # project root (where manage.py lives)
+      context: ..
       dockerfile: docker/Dockerfile
     env_file:
       - ../.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
+      DEBUG: "1"
       POSTGRES_DB: vehicledb
       POSTGRES_USER: vehicleuser
       POSTGRES_PASSWORD: vehiclepass
@@ -37,7 +38,7 @@ services:
     volumes:
       - ../:/work
     working_dir: /work
-    command: python manage.py runserver 0.0.0.0:8000
+    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
 
 volumes:
   pg_data:
