@@ -61,6 +61,11 @@ class VehicleReservation(models.Model):
         related_name="reservations",
     )
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["vehicle", "start_date", "end_date"]),
+        ]
+
     @property
     def vehicle_display(self) -> str:
         name_value: str = ""
@@ -131,6 +136,18 @@ class VehicleReservation(models.Model):
                 error_map["start_date"] = (
                     "Vehicle is not available in the selected period."
                 )
+
+        # Vehicle/location compatibility if both provided and vehicle has restrictions
+        if self.vehicle_id and self.vehicle is not None:
+            v = self.vehicle
+            if self.pickup_location_id and v.available_pickup_locations.exists():
+                allowed_pick = v.available_pickup_locations.filter(pk=self.pickup_location_id).exists()
+                if not allowed_pick:
+                    error_map["pickup_location"] = "Pickup location not allowed for this vehicle."
+            if self.return_location_id and v.available_return_locations.exists():
+                allowed_ret = v.available_return_locations.filter(pk=self.return_location_id).exists()
+                if not allowed_ret:
+                    error_map["return_location"] = "Return location not allowed for this vehicle."
 
         if len(error_map) > 0:
             raise ValidationError(error_map)
@@ -303,6 +320,12 @@ class ReservationGroup(models.Model):
             self.save(update_fields=["status"])
 
     def save(self, *args, **kwargs):
+        # Ensure unique reference is generated on creation or when missing
+        if not getattr(self, "reference", None):
+            from uuid import uuid4
+            # 12-char uppercase token from UUID4 hex; extremely low collision risk
+            self.reference = uuid4().hex[:12].upper()
+
         previous_status_value: Optional[str] = None
         if self.pk:
             try:
@@ -312,6 +335,19 @@ class ReservationGroup(models.Model):
                 previous_status_value = previous_obj.status
             except type(self).DoesNotExist:
                 previous_status_value = None
+
+        if previous_status_value and previous_status_value != self.status:
+            allowed = {
+                (ReservationStatus.PENDING, ReservationStatus.AWAITING_PAYMENT),
+                (ReservationStatus.PENDING, ReservationStatus.REJECTED),
+                (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.RESERVED),
+                (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.REJECTED),
+                (ReservationStatus.RESERVED, ReservationStatus.COMPLETED),
+            }
+            if (previous_status_value, self.status) not in allowed:
+                raise ValidationError(
+                    {"status": f"Illegal status transition: {previous_status_value} -> {self.status}."}
+                )
 
         result = super().save(*args, **kwargs)
 
