@@ -167,3 +167,33 @@ More endpoints will be added as the project grows.
 * ✅ Better test coverage
 
 * ✅ Extended API (CRUD for vehicles, reservations, locations)
+
+
+
+## 📡 WebSockets (Simple Echo)
+A minimal WebSocket endpoint is included using Django Channels.
+
+- Endpoint: `ws://<host>/ws/echo/`
+- Test page: `http://<host>/ws-test/`
+
+How to run locally with WebSocket support:
+
+1) Install dependencies (includes `channels`):
+
+   pip install -r requirements.txt
+
+2) Install an ASGI server (recommended for WS), e.g. Daphne:
+
+   pip install daphne
+
+3) Start the server with Daphne:
+
+   daphne -b 0.0.0.0 -p 8000 config.asgi:application
+
+4) Open the test page and try sending a message:
+
+   http://127.0.0.1:8000/ws-test/
+
+Notes:
+- This setup uses the in-memory channel layer for simplicity; for production, use Redis.
+- The consumer simply echoes back whatever you send.
