@@ -352,6 +352,7 @@ class ReservationGroup(models.Model):
                 (ReservationStatus.PENDING, ReservationStatus.CANCELED),
                 (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.RESERVED),
                 (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.REJECTED),
+                (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.PENDING),
                 (ReservationStatus.RESERVED, ReservationStatus.COMPLETED),
             }
             if (previous_status_value, self.status) not in allowed:

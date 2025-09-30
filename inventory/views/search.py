@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
-from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils.dateparse import parse_date
@@ -72,7 +72,9 @@ def search(request: HttpRequest) -> HttpResponse:
         "partial_results": [],
     }
 
-    if start_date is None or end_date is None or not (start_date < end_date):
+    if (start_date <= end_date) or (start_date is None and end_date is None):
+        messages.error(request, "Invalid start and end dates.")
+
         return render(request, "home.html", context)
 
     vehicles_qs = (

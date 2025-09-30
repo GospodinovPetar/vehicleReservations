@@ -61,10 +61,6 @@
                     {% csrf_token %}
                     <button class="btn" type="submit">Delete</button>
                   </form>
-                  <form method="post" action="{% url 'accounts:reservation_group_cancel' group.id %}" style="display:inline;">
-                    {% csrf_token %}
-                    <button class="btn" type="submit">Cancel</button>
-                  </form>
                 {% endif %}
               </td>
             </tr>

@@ -1,6 +1,6 @@
 Hi,
 
-Use this code to verify your email for {{ site_name }}:
+Use this code to verify your email for Vehicle Rental:
 
 {{ code }}
 

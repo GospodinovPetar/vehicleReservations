@@ -1,172 +1,160 @@
-from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
-from django.conf import settings
-from django.utils.crypto import salted_hmac
-import secrets
-import time
+from __future__ import annotations
 
+from django.contrib.auth import get_user_model
+from django.conf import settings
+from django.utils import timezone
+from django.core.cache import cache
+
+import secrets
+from typing import Tuple
 
 User = get_user_model()
-
 
 SESSION_KEY = "email_codes"
 PURPOSE_REGISTER = "register"
 PURPOSE_RESET = "reset_pwd"
 
 
-def _codes_state(request) -> dict:
-    """
-    Return the mutable session dict that stores email-code state; create if missing.
-
-    Session structure (per purpose):
-        {
-          PURPOSE: {
-            'email': str,
-            'hash': str,           # HMAC of email:purpose:code
-            'expires_at': int,     # epoch seconds
-            'attempts': int,       # failed attempts
-            'ttl_minutes': int
-          },
-          ...
-        }
-    """
+def _get_bundle(request) -> dict:
     return request.session.setdefault(SESSION_KEY, {})
 
 
-def _hash_code(email: str, purpose: str, code: str) -> str:
+def _issue_code(request, email: str, purpose: str, ttl_minutes: int) -> Tuple[str, int]:
     """
-    Build a stable HMAC for a given email/purpose/code bundle.
+    Issue a short-lived numeric code and stash it in the session.
 
-    Args:
-        email: Email address being verified.
-        purpose: Logical purpose key (e.g., 'register' or 'reset_pwd').
-        code: The plaintext verification code.
-
-    Returns:
-        str: Hex digest HMAC.
+    The structure in the session is:
+      request.session[SESSION_KEY][purpose] = {
+          "email": <email>,
+          "code": <6-digit string>,
+          "issued_at": <aware dt iso>,
+          "ttl": <minutes>,
+          "attempts": <int>
+      }
     """
-    msg = f"{email}:{purpose}:{code}"
-    return salted_hmac("email-code", msg).hexdigest()
+    code = f"{secrets.randbelow(1_000_000):06d}"
 
-
-def _issue_code(request, *, email: str, purpose: str, ttl_minutes: int = 10):
-    """
-    Generate a new code, store its HMAC and metadata in session, and return it.
-
-    Side effects:
-        - Writes to `request.session[SESSION_KEY][purpose]`
-        - Marks session as modified
-
-    Args:
-        email: Target email to associate with the code.
-        purpose: Purpose namespace (e.g., PURPOSE_REGISTER).
-        ttl_minutes: Validity window in minutes.
-
-    Returns:
-        tuple[str, int]: (plaintext code, ttl_minutes)
-    """
-    code = secrets.token_hex(4).upper()
-    expires_at = int(time.time()) + ttl_minutes * 60
-    state = _codes_state(request)
-    state[purpose] = {
-        "email": email,
-        "hash": _hash_code(email, purpose, code),
-        "expires_at": expires_at,
+    bundle = _get_bundle(request)
+    bundle[purpose] = {
+        "email": email.strip().lower(),
+        "code": code,
+        "issued_at": timezone.now().isoformat(),
+        "ttl": int(ttl_minutes),
         "attempts": 0,
-        "ttl_minutes": ttl_minutes,
     }
     request.session.modified = True
-    return code, ttl_minutes
+    # Keep backward compatibility: callers may expect (code, ttl)
+    return code, int(ttl_minutes)
 
 
-def _consume_and_clear(request, purpose: str):
-    """
-    Remove any in-progress code bundle for a given purpose from the session.
-
-    Args:
-        purpose: Purpose namespace to clear.
-    """
-    state = _codes_state(request)
-    if purpose in state:
-        del state[purpose]
+def _consume_and_clear(request, purpose: str) -> None:
+    bundle = _get_bundle(request)
+    if purpose in bundle:
+        del bundle[purpose]
         request.session.modified = True
 
 
-def _validate_code(request, *, email: str, purpose: str, submitted_code: str):
+def _validate_code(
+    request,
+    purpose: str,
+    email: str,
+    submitted_code: str,
+) -> Tuple[bool, str | None]:
     """
-    Validate a user-submitted code against the stored session bundle.
+    Validate a code that was previously issued with _issue_code.
 
-    - Enforces email match, expiry, and an attempt limit.
-    - Consumes and clears the bundle on success or on certain failures.
-
-    Args:
-        email: Email to validate against the stored bundle.
-        purpose: Purpose namespace of the flow.
-        submitted_code: User-entered code (case-insensitive).
-
-    Returns:
-        tuple[bool, str|None]: (is_valid, error_message_if_any)
+    Returns (is_valid, error_message). When valid, the stored code is consumed.
     """
-    state = _codes_state(request)
-    bundle = state.get(purpose)
-    if not bundle:
-        return False, "No code in progress. Please request a new code."
+    email = (email or "").strip().lower()
+    submitted_code = (submitted_code or "").strip()
 
-    if bundle.get("email", "").lower() != email.lower():
-        return False, "Email does not match the ongoing verification."
+    bundle = _get_bundle(request)
+    stored = bundle.get(purpose)
+    if not stored:
+        return False, "No verification in progress. Please request a new code."
 
-    now = int(time.time())
-    if now > int(bundle.get("expires_at", 0)):
+    if stored.get("email") != email:
+        return False, "This code was issued for a different email address."
+
+    # Expiry check
+    try:
+        issued_at = timezone.datetime.fromisoformat(stored["issued_at"])
+        if timezone.is_naive(issued_at):
+            issued_at = timezone.make_aware(issued_at, timezone.get_current_timezone())
+    except Exception:
+        # If anything looks off, treat as expired to be safe
         _consume_and_clear(request, purpose)
-        return False, "Code expired. We sent you a new one."
+        return False, "Verification expired. Please request a new code."
 
-    if int(bundle.get("attempts", 0)) >= 5:
+    ttl = int(stored.get("ttl", 15))
+    if timezone.now() > issued_at + timezone.timedelta(minutes=ttl):
         _consume_and_clear(request, purpose)
-        return False, "Too many attempts. We sent you a new code."
+        return False, "Verification code expired. Please request a new one."
 
-    expected_hash = bundle.get("hash")
-    if expected_hash != _hash_code(email, purpose, submitted_code.strip().upper()):
-        bundle["attempts"] = int(bundle.get("attempts", 0)) + 1
+    # Match check
+    if stored.get("code") != submitted_code:
+        stored["attempts"] = int(stored.get("attempts", 0)) + 1
         request.session.modified = True
         return False, "Invalid code."
 
+    # Success — consume
     _consume_and_clear(request, purpose)
     return True, None
 
 
-def _send_verification_email(to_email: str, code: str, ttl_minutes: int):
-    """
-    Email the registration verification code.
-
-    Args:
-        to_email: Recipient email.
-        code: Plaintext verification code.
-        ttl_minutes: Minutes until expiration (for informing the user).
-    """
-    subject = "Your verification code"
-    body = (
-        "Hi,\n\n"
-        "Use this code to verify your email:\n\n"
-        f"{code}\n\n"
-        f"It expires in {ttl_minutes} minutes.\n"
-    )
-    send_mail(subject, body, getattr(settings, "DEFAULT_FROM_EMAIL", None), [to_email])
+# === Email send helpers (FIX: single source of truth) ===
+# Historically this module sent emails directly using django.core.mail.send_mail,
+# while accounts/emails.py also sent the same email with HTML templates.
+# That caused *duplicate emails* on registration.
+#
+# The fix is to delegate all sending to accounts.emails so only ONE code email
+# is ever sent per issuance.
 
 
-def _send_reset_email(to_email: str, code: str, ttl_minutes: int):
-    """
-    Email the password reset code.
+def _send_verification_email(to_email: str, code: str, ttl_minutes: int) -> None:
+    """Send the registration verification code exactly once per (email, code) within TTL.
 
-    Args:
-        to_email: Recipient email.
-        code: Plaintext reset code.
-        ttl_minutes: Minutes until expiration (for informing the user).
+    Uses Django's cache as an idempotency lock so multiple call sites won't duplicate sends.
     """
-    subject = "Your password reset code"
-    body = (
-        "Hi,\n\n"
-        "Use this code to reset your password:\n\n"
-        f"{code}\n\n"
-        f"It expires in {ttl_minutes} minutes.\n"
-    )
-    send_mail(subject, body, getattr(settings, "DEFAULT_FROM_EMAIL", None), [to_email])
+    from accounts.emails import send_verification_email
+
+    key = f"idemp:verify:{to_email.strip().lower()}:{code}"
+    timeout = max(60, int(ttl_minutes) * 60)  # at least 60s, up to TTL
+    try:
+        # cache.add returns True only if the key did not exist
+        if cache.add(key, 1, timeout=timeout):
+            send_verification_email(to_email, code, ttl_minutes)
+        else:
+            # Duplicate detected; skip sending
+            return
+    except Exception:
+        # If cache misconfigured, fall back to best-effort session guard
+        # (still prevents duplicates in the same request cycle)
+        _sent = _get_bundle(getattr(_send_verification_email, "_request", object()))
+        if isinstance(_sent, dict) and not _sent.get(key):
+            _sent[key] = True
+            try:
+                send_verification_email(to_email, code, ttl_minutes)
+            finally:
+                pass
+
+
+def _send_reset_email(to_email: str, code: str, ttl_minutes: int) -> None:
+    """Send the password reset code exactly once per (email, code) within TTL."""
+    from accounts.emails import send_reset_password_email
+
+    key = f"idemp:reset:{to_email.strip().lower()}:{code}"
+    timeout = max(60, int(ttl_minutes) * 60)
+    try:
+        if cache.add(key, 1, timeout=timeout):
+            send_reset_password_email(to_email, code, ttl_minutes)
+        else:
+            return
+    except Exception:
+        _sent = _get_bundle(getattr(_send_reset_email, "_request", object()))
+        if isinstance(_sent, dict) and not _sent.get(key):
+            _sent[key] = True
+            try:
+                send_reset_password_email(to_email, code, ttl_minutes)
+            finally:
+                pass

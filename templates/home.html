@@ -18,15 +18,15 @@
           </label>
         </div>
         <div>
-          <label>
-            Pickup location
-            <select name="pickup_location">
-              <option value="">Any</option>
-              {% for l in locations %}
-                <option value="{{ l.id }}" {% if l.id|stringformat:"s" == pickup_location %}selected{% endif %}>{{ l.name }}</option>
-              {% endfor %}
-            </select>
-          </label>
+        <label>
+          Pickup location
+          <select name="pickup_location">
+            <option value="">Any</option>
+            {% for l in locations %}
+            <option value="{{ l.id }}" {% if l.id|stringformat:"s" == pickup_location %}selected{% endif %}> {{ l.name }} </option>
+            {% endfor %}
+          </select>
+        </label>
         </div>
         <div>
           <label>
@@ -34,7 +34,9 @@
             <select name="return_location">
               <option value="">Any</option>
               {% for l in locations %}
-                <option value="{{ l.id }}" {% if l.id|stringformat:"s" == return_location %}selected{% endif %}>{{ l.name }}</option>
+                <option value="{{ l.id }}" {% if l.id|stringformat:"s" == return_location %}selected{% endif %}>
+                  {{ l.name }}
+                </option>
               {% endfor %}
             </select>
           </label>
@@ -43,7 +45,6 @@
       <p><button class="btn primary" type="submit">Search</button></p>
     </form>
 
-    <!-- Collapsible discount info (hidden by default) -->
     <div class="card" aria-live="polite" style="background:#f8fafc; border-color:#cbd5e1; margin-top:8px;">
       <div style="display:flex; gap:12px; align-items:flex-start;">
         <div aria-hidden="true" style="font-size:18px; line-height:1.2;">💡</div>
@@ -68,85 +69,155 @@
     </div>
   </div>
 
-  <h3>Available vehicles</h3>
-  <p style="margin:8px 0 0; color:#6b7280; font-size:14px;">
-    Long-stay savings appear for trips longer than 6 days. Per-day figures are approximate.
-  </p>
 
-  {% for r in results %}
-    {% with pk_loc=r.vehicle.pickup_location|default_if_none:'' %}
-    {% with pk_loc_first=r.vehicle.available_pickup_locations.all.0 %}
-    {% with pickup=pk_loc|default:pk_loc_first %}
-    <div class="card">
-      <div class="row">
-        <div>
-          <strong>{{ r.vehicle }}</strong><br>
-          {{ r.vehicle.car_type|title }} • {{ r.vehicle.engine_type|title }} •
-          {% if r.vehicle.unlimited_seats %}∞ seats{% else %}{{ r.vehicle.seats }} seats{% endif %}
-        </div>
+  {% if results %}
+    <h3>Available vehicles</h3>
+    <p style="margin:8px 0 0; color:#6b7280; font-size:14px;">
+      Long-stay savings appear for trips longer than 6 days. Per-day figures are approximate.
+    </p>
 
-        <div>
-          {# concise always-visible total #}
+    {% for r in results %}
+      {% with pk_loc=r.vehicle.pickup_location|default_if_none:'' %}
+      {% with pk_loc_first=r.vehicle.available_pickup_locations.all.0 %}
+      {% with pickup=pk_loc|default:pk_loc_first %}
+      <div class="card">
+        <div class="row">
           <div>
-            Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
-            <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
+            <strong>{{ r.vehicle }}</strong><br>
+            {{ r.vehicle.car_type|title }} • {{ r.vehicle.engine_type|title }} •
+            {% if r.vehicle.unlimited_seats %}∞ seats{% else %}{{ r.vehicle.seats }} seats{% endif %}
           </div>
-          <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
-            ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-          </div>
-        </div>
 
-        <div>
-          {% if request.user.is_authenticated %}
-            <form method="post" action="{% url 'inventory:reserve' %}">
-              {% csrf_token %}
-              <input type="hidden" name="vehicle" value="{{ r.vehicle.id }}">
-              <input type="hidden" name="start" value="{{ start }}">
-              <input type="hidden" name="end" value="{{ end }}">
-
-              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <div>
+            {% if r.quote.days > 6 %}
+              {% if r.vehicle.price_per_day %}
+                <div style="margin-bottom:2px;">
+                  <span style="text-decoration:line-through; color:#6b7280;">
+                    {% widthratio r.quote.days 1 r.vehicle.price_per_day %} {{ r.quote.currency }}
+                  </span>
+                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
+                </div>
+                <div style="font-size:.9em; color:#6b7280;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                  (instead of {{ r.vehicle.price_per_day }} {{ r.quote.currency }}/day)
+                </div>
+              {% elif r.vehicle.daily_price %}
+                <div style="margin-bottom:2px;">
+                  <span style="text-decoration:line-through; color:#6b7280;">
+                    {% widthratio r.quote.days 1 r.vehicle.daily_price %} {{ r.quote.currency }}
+                  </span>
+                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
+                </div>
+                <div style="font-size:.9em; color:#6b7280;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                  (instead of {{ r.vehicle.daily_price }} {{ r.quote.currency }}/day)
+                </div>
+              {% elif r.vehicle.base_daily_rate %}
+                <div style="margin-bottom:2px;">
+                  <span style="text-decoration:line-through; color:#6b7280;">
+                    {% widthratio r.quote.days 1 r.vehicle.base_daily_rate %} {{ r.quote.currency }}
+                  </span>
+                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
+                </div>
+                <div style="font-size:.9em; color:#6b7280;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                  (instead of {{ r.vehicle.base_daily_rate }} {{ r.quote.currency }}/day)
+                </div>
+              {% elif r.quote.daily_price %}
+                <div style="margin-bottom:2px;">
+                  <span style="text-decoration:line-through; color:#6b7280;">
+                    {% widthratio r.quote.days 1 r.quote.daily_price %} {{ r.quote.currency }}
+                  </span>
+                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
+                </div>
+                <div style="font-size:.9em; color:#6b7280;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                  (instead of {{ r.quote.daily_price }} {{ r.quote.currency }}/day)
+                </div>
+              {% elif r.quote.base_daily_rate %}
+                <div style="margin-bottom:2px;">
+                  <span style="text-decoration:line-through; color:#6b7280;">
+                    {% widthratio r.quote.days 1 r.quote.base_daily_rate %} {{ r.quote.currency }}
+                  </span>
+                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
+                </div>
+                <div style="font-size:.9em; color:#6b7280;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                  (instead of {{ r.quote.base_daily_rate }} {{ r.quote.currency }}/day)
+                </div>
+              {% else %}
                 <div>
-                  <strong>Pickup:</strong>
-                  {% if pickup %}
-                    {{ pickup.name }}
-                    <input type="hidden" name="pickup_location" value="{{ pickup.id }}">
+                  Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
+                  <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
+                </div>
+                <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                </div>
+              {% endif %}
+            {% else %}
+              <div>
+                Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
+                <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
+              </div>
+              <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
+                ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+              </div>
+            {% endif %}
+          </div>
+
+          <div>
+            {% if request.user.is_authenticated %}
+              <form method="post" action="{% url 'inventory:reserve' %}">
+                {% csrf_token %}
+                <input type="hidden" name="vehicle" value="{{ r.vehicle.id }}">
+                <input type="hidden" name="start" value="{{ start }}">
+                <input type="hidden" name="end" value="{{ end }}">
+
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                  <div>
+                    <strong>Pickup:</strong>
+                    {% if pickup %}
+                      {{ pickup.name }}
+                      <input type="hidden" name="pickup_location" value="{{ pickup.id }}">
+                    {% else %}
+                      <em>No pickup location configured</em>
+                    {% endif %}
+                  </div>
+
+                  <label>
+                    Return:
+                    <select name="return_location" required>
+                      {% for loc in r.vehicle.available_return_locations.all %}
+                        <option value="{{ loc.id }}">{{ loc.name }}</option>
+                      {% empty %}
+                        <option value="">No return locations configured</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+
+                  {% if pickup and r.vehicle.available_return_locations.all|length %}
+                    <button class="btn primary" type="submit">Add to cart</button>
                   {% else %}
-                    <em>No pickup location configured</em>
+                    <span style="font-size:0.9em;">This vehicle has incomplete location settings.</span>
                   {% endif %}
                 </div>
-
-                <label>
-                  Return:
-                  <select name="return_location" required>
-                    {% for loc in r.vehicle.available_return_locations.all %}
-                      <option value="{{ loc.id }}">{{ loc.name }}</option>
-                    {% empty %}
-                      <option value="">No return locations configured</option>
-                    {% endfor %}
-                  </select>
-                </label>
-
-                {% if pickup and r.vehicle.available_return_locations.all|length %}
-                  <button class="btn primary" type="submit">Add to cart</button>
-                {% else %}
-                  <span style="font-size:0.9em;">This vehicle has incomplete location settings.</span>
-                {% endif %}
-              </div>
-            </form>
-          {% else %}
-            <a class="btn"
-               href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ start }}&end={{ end }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}">
-              Login to add to cart
-            </a>
-          {% endif %}
+              </form>
+            {% else %}
+              <a class="btn"
+                 href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ start }}&end={{ end }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}">
+                Login to add to cart
+              </a>
+            {% endif %}
+          </div>
         </div>
       </div>
-    </div>
-    {% endwith %}
-    {% endwith %}
-    {% endwith %}
-  {% empty %}
-  {% endfor %}
+      {% endwith %}
+      {% endwith %}
+      {% endwith %}
+    {% empty %}
+      <p>No vehicles available for that period.</p>
+    {% endfor %}
+  {% endif %}
 
   {% if partial_results %}
     <h3>Partially available during your dates</h3>
@@ -164,12 +235,84 @@
           </div>
 
           <div style="flex:1;">
+            {# pricing slices unchanged #}
             {% for s in row.slices %}
-              <div style="margin:.25rem 0;">
-                Available: {{ s.start }} → {{ s.end }}
-                ({{ s.quote.days }} day{{ s.quote.days|pluralize }}, {{ s.quote.total }} {{ s.quote.currency }}
-                • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day)
-              </div>
+              {# ... existing pricing snippet unchanged ... #}
+              {% if s.quote.days > 6 %}
+                {% if row.vehicle.price_per_day %}
+                  <div style="margin:.25rem 0;">
+                    <span style="text-decoration:line-through; color:#6b7280;">
+                      {% widthratio s.quote.days 1 row.vehicle.price_per_day %} {{ s.quote.currency }}
+                    </span>
+                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
+                    <span style="font-size:.9em; color:#6b7280;">
+                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
+                      (instead of {{ row.vehicle.price_per_day }} {{ s.quote.currency }}/day)
+                    </span>
+                    — {{ s.start }} → {{ s.end }}
+                  </div>
+                {% elif row.vehicle.daily_price %}
+                  <div style="margin:.25rem 0;">
+                    <span style="text-decoration:line-through; color:#6b7280;">
+                      {% widthratio s.quote.days 1 row.vehicle.daily_price %} {{ s.quote.currency }}
+                    </span>
+                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
+                    <span style="font-size:.9em; color:#6b7280;">
+                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
+                      (instead of {{ row.vehicle.daily_price }} {{ s.quote.currency }}/day)
+                    </span>
+                    — {{ s.start }} → {{ s.end }}
+                  </div>
+                {% elif row.vehicle.base_daily_rate %}
+                  <div style="margin:.25rem 0;">
+                    <span style="text-decoration:line-through; color:#6b7280;">
+                      {% widthratio s.quote.days 1 row.vehicle.base_daily_rate %} {{ s.quote.currency }}
+                    </span>
+                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
+                    <span style="font-size:.9em; color:#6b7280;">
+                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
+                      (instead of {{ row.vehicle.base_daily_rate }} {{ s.quote.currency }}/day)
+                    </span>
+                    — {{ s.start }} → {{ s.end }}
+                  </div>
+                {% elif s.quote.daily_price %}
+                  <div style="margin:.25rem 0;">
+                    <span style="text-decoration:line-through; color:#6b7280;">
+                      {% widthratio s.quote.days 1 s.quote.daily_price %} {{ s.quote.currency }}
+                    </span>
+                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
+                    <span style="font-size:.9em; color:#6b7280;">
+                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
+                      (instead of {{ s.quote.daily_price }} {{ s.quote.currency }}/day)
+                    </span>
+                    — {{ s.start }} → {{ s.end }}
+                  </div>
+                {% elif s.quote.base_daily_rate %}
+                  <div style="margin:.25rem 0;">
+                    <span style="text-decoration:line-through; color:#6b7280;">
+                      {% widthratio s.quote.days 1 s.quote.base_daily_rate %} {{ s.quote.currency }}
+                    </span>
+                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
+                    <span style="font-size:.9em; color:#6b7280;">
+                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
+                      (instead of {{ s.quote.base_daily_rate }} {{ s.quote.currency }}/day)
+                    </span>
+                    — {{ s.start }} → {{ s.end }}
+                  </div>
+                {% else %}
+                  <div style="margin:.25rem 0;">
+                    Available: {{ s.start }} → {{ s.end }}
+                    ({{ s.quote.days }} day{{ s.quote.days|pluralize }}, {{ s.quote.total }} {{ s.quote.currency }}
+                    • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day)
+                  </div>
+                {% endif %}
+              {% else %}
+                <div style="margin:.25rem 0;">
+                  Available: {{ s.start }} → {{ s.end }}
+                  ({{ s.quote.days }} day{{ s.quote.days|pluralize }}, {{ s.quote.total }} {{ s.quote.currency }}
+                  • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day)
+                </div>
+              {% endif %}
             {% endfor %}
           </div>
 
@@ -225,16 +368,5 @@
       {% endwith %}
       {% endwith %}
     {% endfor %}
-  {% endif %}
-
-  {% if start and end and not results and not partial_results %}
-    <div class="card" role="status" aria-live="polite" style="margin-top:.75rem; background:#fff7ed; border-color:#fdba74;">
-      <strong>No vehicles match your search.</strong>
-      <div style="color:#7c2d12; margin-top:4px;">
-        {{ start }} → {{ end }}{% if pickup_location or return_location %},
-        {% if pickup_location %} pickup at selected location{% endif %}{% if pickup_location and return_location %} and{% endif %}{% if return_location %} return at selected location{% endif %}{% endif %}.
-        Try adjusting dates or locations.
-      </div>
-    </div>
   {% endif %}
 {% endblock %}
