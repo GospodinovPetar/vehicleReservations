@@ -110,9 +110,6 @@ class PendingRegistration(models.Model):
         password_hash,
         ttl_hours: int = 24,
     ):
-        """
-        Upsert semantics: keep one active pending registration per email/username.
-        """
         cls.objects.filter(email=email).delete()
         cls.objects.filter(username=username).delete()
         return cls.objects.create(

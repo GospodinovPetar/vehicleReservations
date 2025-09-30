@@ -27,16 +27,16 @@ GLOBAL_WS_GROUP = "reservations.all"
 
 
 def _in_atomic_block() -> bool:
-    """Return True if currently inside a transaction.atomic() block."""
+    """Return True if currently inside a wrapped `transaction.atomic()` block."""
     return transaction.get_connection().in_atomic_block
 
 
 def _on_commit_or_now(fn: callable) -> None:
     """
-    Execute `fn` on transaction commit if inside an atomic block, otherwise now.
+    Run `fn` on transaction commit if inside `atomic()`, otherwise run immediately.
 
-    Keeps signal bodies concise and ensures side effects run only after a
-    successful commit when needed.
+    This keeps signal bodies side-effect-free until the write is durably committed,
+    avoiding duplicate or premature notifications.
     """
     if _in_atomic_block():
         transaction.on_commit(fn)
@@ -51,9 +51,16 @@ def _ws_broadcast(
     actor_user_id: Optional[int] = None,
 ) -> None:
     """
-    Broadcast a reservation-related event to Channels groups.
+    Broadcast a reservation-related event to one or more Channels groups.
 
-    Handled by ReservationConsumer.reservation_event().
+    The consumer should implement a handler for the `"reservation.event"` type.
+    Payload is augmented with the destination `group` during send.
+
+    Args:
+        event: Event name (e.g., "group.created", "reservation.updated").
+        reservation_payload: Dict describing the entity and fields of interest.
+        groups: Optional explicit group names; defaults to GLOBAL_WS_GROUP.
+        actor_user_id: Optional ID of the user initiating the action.
     """
     target_groups: Sequence[str] = groups or (GLOBAL_WS_GROUP,)
     layer = get_channel_layer()
@@ -78,7 +85,9 @@ def _remember_old_status(
     sender: type[ReservationGroup], instance: ReservationGroup, **_: Any
 ) -> None:
     """
-    Cache previous status on the instance for post_save comparisons.
+    Cache the previous status on the instance prior to saving.
+
+    Adds `instance._old_status` so post_save can detect status transitions.
     """
     if not instance.pk:
         instance._old_status = None
@@ -99,8 +108,15 @@ def _handle_group_post_save(
     **_: Any,
 ) -> None:
     """
-    Send emails and WebSocket broadcasts on group creation or status change.
-    Also updates vehicle location availability when a group completes.
+    React to reservation group creation and status changes.
+
+    Side effects:
+        - Emails: creation or status-changed notifications.
+        - WebSocket: broadcast group created/status_changed.
+        - On transition to COMPLETED: adjust vehicles' pickup/return availability.
+
+    Args:
+        created: True when the group row was newly created.
     """
     old_status = getattr(instance, "_old_status", None)
     status_changed = old_status is not None and old_status != instance.status
@@ -132,8 +148,11 @@ def _handle_group_post_save(
         and status_changed
         and instance.status == ReservationStatus.COMPLETED
     ):
-
         def update_vehicle_locations() -> None:
+            """
+            On completion: set vehicle pickup to the reservation's return location,
+            and allow returns at the original pickup location.
+            """
             items = VehicleReservation.objects.filter(group=instance).select_related(
                 "vehicle", "pickup_location", "return_location"
             )
@@ -152,7 +171,10 @@ def _capture_reservation_snapshot(
     sender: type[VehicleReservation], instance: VehicleReservation, **_: Any
 ) -> None:
     """
-    Cache a 'before' snapshot for change detection in post_save.
+    Store a pre-save snapshot on the instance for later diffing in post_save.
+
+    Sets `instance._before_snapshot` to the existing DB row (with relations),
+    or None if this is a new reservation.
     """
     if not instance.pk:
         instance._before_snapshot = None
@@ -176,8 +198,16 @@ def _reservation_created_or_edited(
     **_: Any,
 ) -> None:
     """
-    On create: email and broadcast 'created'.
-    On update: detect meaningful changes, email, and broadcast 'updated'.
+    Email and broadcast when a reservation is created or meaningfully edited.
+
+    On create:
+        - Email `send_vehicle_added_email`.
+        - Broadcast "reservation.created".
+
+    On update:
+        - Compare tracked fields to the `_before_snapshot`.
+        - If changed, email `send_reservation_edited_email`.
+        - Broadcast "reservation.updated".
     """
 
     def perform_actions_and_broadcast() -> None:
@@ -229,7 +259,9 @@ def _reservation_deleted(
     sender: type[VehicleReservation], instance: VehicleReservation, **_: Any
 ) -> None:
     """
-    Email notification and broadcast on reservation deletion.
+    Email and broadcast when a reservation is deleted.
+
+    Sends `send_vehicle_removed_email` and emits a "reservation.deleted" event.
     """
 
     def perform_delete_side_effects_and_broadcast() -> None:
@@ -253,8 +285,12 @@ def _auto_cleanup_payment_on_pending(
     sender: type[VehicleReservation], instance: VehicleReservation, **_: Any
 ) -> None:
     """
-    If a reservation in a group marked AWAITING_PAYMENT is modified, cancel any
-    in-flight PaymentIntents and move the group back to PENDING, then broadcast.
+    Auto-cancel in-flight payments and revert group to PENDING on edits.
+
+    If a reservation changes while its group is `AWAITING_PAYMENT`, this:
+      - Cancels PaymentIntents in REQUIRES_CONFIRMATION or PROCESSING.
+      - Updates the group's status back to PENDING.
+      - Broadcasts "group.status_changed" with the new status.
     """
     group = instance.group
     if group is None or group.status != ReservationStatus.AWAITING_PAYMENT:

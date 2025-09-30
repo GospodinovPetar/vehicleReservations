@@ -1,7 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import (
     login_required,
-    user_passes_test,
     permission_required,
 )
 from django.shortcuts import redirect, render, get_object_or_404
@@ -16,6 +15,15 @@ from inventory.models.vehicle import Vehicle
 @manager_required
 @permission_required("inventory.view_vehicle", raise_exception=True)
 def vehicle_list(request):
+    """
+    List all vehicles for managers/admins.
+
+    Renders:
+        accounts/vehicles/vehicle_list.html
+
+    Context:
+        vehicles (QuerySet[Vehicle]): All vehicles.
+    """
     vehicles = Vehicle.objects.all()
     return render(
         request, "accounts/vehicles/vehicle_list.html", {"vehicles": vehicles}
@@ -26,6 +34,20 @@ def vehicle_list(request):
 @manager_required
 @permission_required("inventory.add_vehicle", raise_exception=True)
 def vehicle_create(request):
+    """
+    Create a new vehicle.
+
+    - If a `pickup` GET param is provided and valid, pre-selects that location.
+    - On POST with valid data, saves the vehicle, stores the last chosen pickup
+      in the session, flashes a success message, and redirects to the list.
+    - On validation errors, flashes an error message and re-renders the form.
+
+    Renders:
+        accounts/vehicles/vehicle_form.html
+
+    Session:
+        last_pickup_id (int|None): The last selected pickup location ID.
+    """
     pickup_param = request.GET.get("pickup")
 
     initial = {}
@@ -55,6 +77,19 @@ def vehicle_create(request):
 @manager_required
 @permission_required("inventory.change_vehicle", raise_exception=True)
 def vehicle_edit(request, pk):
+    """
+    Edit an existing vehicle.
+
+    - On GET, displays a form populated with the vehicle.
+    - On POST with valid data, updates vehicle and its pickup/return locations,
+      flashes a success message, and redirects to the list.
+
+    Args:
+        pk (int): Vehicle primary key.
+
+    Renders:
+        accounts/vehicles/vehicle_form.html
+    """
     vehicle = get_object_or_404(Vehicle, pk=pk)
 
     if request.method == "POST":
@@ -91,6 +126,19 @@ def vehicle_edit(request, pk):
 @manager_required
 @permission_required("inventory.delete_vehicle", raise_exception=True)
 def vehicle_delete(request, pk):
+    """
+    Delete a vehicle if it is not part of any blocking reservation.
+
+    - If the vehicle has an ongoing (blocking) reservation, blocks deletion and
+      flashes an error.
+    - Otherwise deletes the vehicle, flashes success, and redirects to the list.
+
+    Args:
+        pk (int): Vehicle primary key.
+
+    Redirects:
+        accounts:vehicle-list
+    """
     vehicle = get_object_or_404(Vehicle, pk=pk)
 
     if vehicle.reservations.filter(

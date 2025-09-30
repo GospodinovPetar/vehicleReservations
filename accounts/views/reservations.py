@@ -2,7 +2,6 @@ from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.contrib.auth.decorators import (
     login_required,
-    user_passes_test,
     permission_required,
 )
 from django.shortcuts import redirect, render, get_object_or_404
@@ -21,9 +20,17 @@ from inventory.models.reservation import (
 @permission_required("inventory.view_reservationgroup", raise_exception=True)
 def reservation_list(request):
     """
-    Managers/admins see groups split into:
-    - ongoing: PENDING, AWAITING_PAYMENT, RESERVED
-    - archived: COMPLETED, REJECTED, CANCELED
+    List reservation groups for managers/admins, split by status.
+
+    Ongoing statuses: PENDING, AWAITING_PAYMENT, RESERVED.
+    Archived statuses: COMPLETED, REJECTED, CANCELED.
+
+    Renders:
+        accounts/reservations/reservation_list.html
+
+    Context:
+        ongoing (QuerySet[ReservationGroup])
+        archived (QuerySet[ReservationGroup])
     """
     ongoing = (
         ReservationGroup.objects.filter(
@@ -60,6 +67,15 @@ def reservation_list(request):
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_group_approve(request, pk):
+    """
+    Move a pending reservation group to AWAITING_PAYMENT.
+
+    Args:
+        pk (int): ReservationGroup primary key.
+
+    Returns:
+        403 if the group is not in PENDING.
+    """
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status != ReservationStatus.PENDING:
         return HttpResponseForbidden("Only pending groups can be approved.")
@@ -75,6 +91,17 @@ def reservation_group_approve(request, pk):
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_group_reject(request, pk):
+    """
+    Reject a reservation group.
+
+    Allowed from statuses: PENDING, AWAITING_PAYMENT.
+
+    Args:
+        pk (int): ReservationGroup primary key.
+
+    Returns:
+        403 if the group is not in an allowed status.
+    """
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status not in (
         ReservationStatus.PENDING,
@@ -95,7 +122,18 @@ def reservation_group_reject(request, pk):
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_update(request, pk):
-    """Update a group’s status instead of individual reservations."""
+    """
+    Update a group’s status via form (only for PENDING groups).
+
+    - GET: render form with current status.
+    - POST: validate and save the group status.
+
+    Args:
+        pk (int): ReservationGroup primary key.
+
+    Returns:
+        403 if the group is not PENDING.
+    """
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status != ReservationStatus.PENDING:
         return HttpResponseForbidden("Only pending groups can be updated.")
@@ -120,6 +158,15 @@ def reservation_update(request, pk):
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_approve(request, pk):
+    """
+    Approve a reservation by moving its group to AWAITING_PAYMENT.
+
+    Args:
+        pk (int): VehicleReservation primary key.
+
+    Returns:
+        403 if the group is missing or not PENDING.
+    """
     reservation = get_object_or_404(VehicleReservation, pk=pk)
     grp = reservation.group
     if not grp or grp.status != ReservationStatus.PENDING:
@@ -136,6 +183,17 @@ def reservation_approve(request, pk):
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_reject(request, pk):
+    """
+    Reject a reservation by moving its group to REJECTED.
+
+    Allowed from statuses: PENDING, AWAITING_PAYMENT.
+
+    Args:
+        pk (int): VehicleReservation primary key.
+
+    Returns:
+        403 if the group is missing or not in an allowed status.
+    """
     r = get_object_or_404(VehicleReservation, pk=pk)
     grp = r.group
     if not grp or grp.status not in (
@@ -157,6 +215,17 @@ def reservation_reject(request, pk):
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_cancel(request, pk):
+    """
+    Cancel a reservation by moving its group to CANCELED.
+
+    Allowed from status: RESERVED.
+
+    Args:
+        pk (int): VehicleReservation primary key.
+
+    Returns:
+        403 if the group is missing or not RESERVED.
+    """
     r = get_object_or_404(VehicleReservation, pk=pk)
     grp = r.group
     if not grp or grp.status != ReservationStatus.RESERVED:
@@ -175,6 +244,15 @@ def reservation_cancel(request, pk):
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_complete(request, pk):
+    """
+    Mark a reservation group as COMPLETED (group provided by pk).
+
+    Args:
+        pk (int): ReservationGroup primary key (despite the name).
+
+    Returns:
+        403 if the group is not RESERVED.
+    """
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status != ReservationStatus.RESERVED:
         return HttpResponseForbidden("Only reserved groups can be marked as completed.")
@@ -190,6 +268,15 @@ def reservation_complete(request, pk):
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
 def reservation_group_complete(request, pk):
+    """
+    Mark a reservation group as COMPLETED (explicit group endpoint).
+
+    Args:
+        pk (int): ReservationGroup primary key.
+
+    Returns:
+        403 if the group is not RESERVED.
+    """
     group = get_object_or_404(ReservationGroup, pk=pk)
     if group.status != ReservationStatus.RESERVED:
         return HttpResponseForbidden("Only reserved groups can be marked as completed.")
@@ -201,9 +288,17 @@ def reservation_group_complete(request, pk):
     return redirect("accounts:reservation-list")
 
 
-# --- User reservation view (normal users only) ---
 @login_required
 def user_reservations(request):
+    """
+    List the logged-in user's individual vehicle reservations.
+
+    Renders:
+        accounts/reservations/reservation_list_user.html
+
+    Context:
+        reservations (QuerySet[VehicleReservation]): Reservations for request.user.
+    """
     reservations = (
         VehicleReservation.objects.filter(user=request.user)
         .select_related("vehicle", "pickup_location", "return_location")

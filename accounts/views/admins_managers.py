@@ -13,6 +13,15 @@ from inventory.models.vehicle import Vehicle
 
 
 def admin_required(view_func):
+    """
+    Decorator ensuring the user is authenticated and has role='admin'.
+
+    Usage:
+        @login_required
+        @admin_required
+        def some_admin_view(...):
+            ...
+    """
     return user_passes_test(
         lambda u: u.is_authenticated and getattr(u, "role", "user") == "admin"
     )(view_func)
@@ -21,6 +30,21 @@ def admin_required(view_func):
 @login_required
 @admin_required
 def admin_dashboard(request):
+    """
+    Admin dashboard user listing with simple filtering.
+
+    Query params:
+        q (str): search by username or email (icontains).
+        role (str): filter by exact role.
+        status (str): 'blocked' or 'active'.
+
+    Renders:
+        accounts/admin/admin_dashboard.html
+
+    Context:
+        users (QuerySet[User])
+        stats (dict): counts of roles and blocked/users.
+    """
     query = request.GET.get("q")
     role_filter = request.GET.get("role")
     status_filter = request.GET.get("status")
@@ -54,6 +78,16 @@ def admin_dashboard(request):
 @login_required
 @admin_required
 def block_user(request, pk):
+    """
+    Block a user (except other admins).
+
+    Args:
+        pk (int): User primary key.
+
+    Messages:
+        - Error if target is admin.
+        - Success when blocked.
+    """
     user = get_object_or_404(User, pk=pk)
     # Strict: do not allow any admin-to-admin actions
     if getattr(user, "role", "user") == "admin":
@@ -68,6 +102,12 @@ def block_user(request, pk):
 @login_required
 @admin_required
 def unblock_user(request, pk):
+    """
+    Unblock a user (except other admins).
+
+    Args:
+        pk (int): User primary key.
+    """
     user = get_object_or_404(User, pk=pk)
     if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot modify another admin.")
@@ -81,6 +121,12 @@ def unblock_user(request, pk):
 @login_required
 @admin_required
 def promote_manager(request, pk):
+    """
+    Promote a user to manager (not allowed for admins).
+
+    Args:
+        pk (int): User primary key.
+    """
     user = get_object_or_404(User, pk=pk)
     if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot modify another admin.")
@@ -94,6 +140,12 @@ def promote_manager(request, pk):
 @login_required
 @admin_required
 def demote_user(request, pk):
+    """
+    Demote a user to regular 'user' role (not allowed for admins).
+
+    Args:
+        pk (int): User primary key.
+    """
     user = get_object_or_404(User, pk=pk)
     if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot modify another admin.")
@@ -107,6 +159,15 @@ def demote_user(request, pk):
 @login_required
 @admin_required
 def create_user(request):
+    """
+    Create a new user as an admin.
+
+    - GET: Render creation form.
+    - POST: Validate and save; redirect to dashboard on success.
+
+    Renders:
+        accounts/admin/admin_user_form.html
+    """
     if request.method == "POST":
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
@@ -125,6 +186,17 @@ def create_user(request):
 @login_required
 @admin_required
 def edit_user(request, pk):
+    """
+    Edit a user's basic fields (except password) as admin.
+
+    - Disallows editing other admins.
+
+    Args:
+        pk (int): User primary key.
+
+    Renders:
+        accounts/admin/admin_user_form.html
+    """
     user = get_object_or_404(User, pk=pk)
     # Do not allow admin to edit other admins
     if getattr(user, "role", "user") == "admin":
@@ -150,6 +222,15 @@ def edit_user(request, pk):
 @login_required
 @admin_required
 def delete_user(request, pk):
+    """
+    Delete a user (confirmation flow), not allowed for admins.
+
+    - GET: Render confirm page.
+    - POST: Delete and redirect to dashboard.
+
+    Args:
+        pk (int): User primary key.
+    """
     user = get_object_or_404(User, pk=pk)
     if getattr(user, "role", "user") == "admin":
         messages.error(request, "You cannot delete another admin.")
@@ -165,6 +246,15 @@ def delete_user(request, pk):
 
 
 def manager_required(view_func):
+    """
+    Decorator ensuring the user is authenticated and has role in {'manager','admin'}.
+
+    Usage:
+        @login_required
+        @manager_required
+        def some_manager_view(...):
+            ...
+    """
     return user_passes_test(
         lambda u: u.is_authenticated
         and getattr(u, "role", "user") in ["manager", "admin"],
@@ -175,12 +265,27 @@ def manager_required(view_func):
 @login_required
 @manager_required
 def manager_dashboard(request):
+    """
+    Render the manager dashboard landing page.
+
+    Renders:
+        accounts/manager/manager_dashboard.html
+    """
     return render(request, "accounts/manager/manager_dashboard.html")
 
 
 @login_required
 @manager_required
 def manager_vehicles(request):
+    """
+    Show all vehicles to managers/admins.
+
+    Renders:
+        accounts/manager/manager_vehicles.html
+
+    Context:
+        vehicles (QuerySet[Vehicle])
+    """
     vehicles = Vehicle.objects.all()
     return render(
         request, "accounts/manager/manager_vehicles.html", {"vehicles": vehicles}
@@ -191,6 +296,15 @@ def manager_vehicles(request):
 @manager_required
 @permission_required("inventory.view_reservationgroup", raise_exception=True)
 def manager_reservations(request):
+    """
+    List all reservations for managers/admins.
+
+    Renders:
+        accounts/reservations/reservation_list.html
+
+    Context:
+        reservations (QuerySet[VehicleReservation])
+    """
     # managers/admins see all reservations
     reservations = VehicleReservation.objects.all().select_related(
         "user", "vehicle", "pickup_location", "return_location"

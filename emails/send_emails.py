@@ -13,6 +13,24 @@ from emails.helpers import (
 
 
 def send_group_created_email(group: Any) -> None:
+    """
+    Send a “reservation created” email to all recipients for the group.
+
+    The function prepares a context for the `reservation_created` template
+    (both text and HTML). If that template doesn’t exist, it falls back to a
+    simple plaintext message. The email subject includes a human-friendly
+    group reference if available, otherwise falls back to the group PK.
+
+    Args:
+        group: ReservationGroup-like object providing at least
+            - pk
+            - reference (optional)
+            - get_status_display()
+            - reservations (iterable used by group_items)
+
+    Returns:
+        None. Sends the email via `emails.helpers.send`.
+    """
     recipients_list: List[str] = recipients_for_group(group)
 
     group_reference_value: str = getattr(group, "reference", None)
@@ -43,6 +61,24 @@ def send_group_created_email(group: Any) -> None:
 def send_group_status_changed_email(
     group: Any, old_status: Any, new_status: Any
 ) -> None:
+    """
+    Send an email notifying recipients that a reservation group's status changed.
+
+    Chooses a base template based on the new status:
+      - RESERVED → `reservation_confirmed`
+      - REJECTED → `reservation_rejected`
+      - otherwise → `reservation_status_changed`
+    Falls back to `reservation_status_changed`, and if that’s also missing,
+    composes a minimal plaintext message with old/new statuses.
+
+    Args:
+        group: ReservationGroup-like object (see `send_group_created_email`).
+        old_status: The prior status (enum/string) for display.
+        new_status: The updated status (enum/string) for display and template choice.
+
+    Returns:
+        None. Sends the email via `emails.helpers.send`.
+    """
     recipients_list: List[str] = recipients_for_group(group)
 
     group_reference_value: str = getattr(group, "reference", None)
@@ -59,7 +95,7 @@ def send_group_status_changed_email(
         "reference": group_reference_value,
         "old_status": old_status_display,
         "new_status": new_status_display,
-        "status": new_status_display,  # provide a generic 'status' for templates expecting it
+        "status": new_status_display,  # generic key for templates
         "items": items_list,
     }
 
@@ -93,6 +129,19 @@ def send_group_status_changed_email(
 
 
 def send_reservation_edited_email(before: Any, after: Any) -> None:
+    """
+    Send an email summarizing edits to a specific reservation within a group.
+
+    Uses the `reservation_edited` template when available; otherwise, builds
+    a plaintext summary of field changes detected by `detect_changes()`.
+
+    Args:
+        before: Snapshot of the reservation before changes.
+        after: The updated reservation instance (must expose `.group`).
+
+    Returns:
+        None. Sends the email via `emails.helpers.send`.
+    """
     group_obj: Any = after.group
     recipients_list: List[str] = recipients_for_group(group_obj)
 
@@ -137,6 +186,22 @@ def send_reservation_edited_email(before: Any, after: Any) -> None:
 
 
 def send_vehicle_added_email(reservation: Any) -> None:
+    """
+    Notify recipients that an additional vehicle has been added to a group.
+
+    Only sends when the group already has other reservations (to avoid emailing
+    on the very first item). Uses the `vehicle_added` template; if absent,
+    falls back to a concise plaintext message.
+
+    Args:
+        reservation: A VehicleReservation-like object exposing:
+            - pk
+            - group (with `.reservations` manager and `get_status_display()`)
+            - vehicle (stringifiable)
+
+    Returns:
+        None. Sends the email via `emails.helpers.send`.
+    """
     group_obj: Optional[Any] = getattr(reservation, "group", None)
     if group_obj is None:
         return
@@ -167,13 +232,31 @@ def send_vehicle_added_email(reservation: Any) -> None:
     try:
         text_body_value, html_body_value = render_pair("vehicle_added", context)
     except TemplateDoesNotExist:
-        text_body_value = f"A vehicle was added to reservation {reference_value}: {getattr(reservation, 'vehicle', '')}."
+        text_body_value = (
+            f"A vehicle was added to reservation {reference_value}: "
+            f"{getattr(reservation, 'vehicle', '')}."
+        )
         html_body_value = None
 
     send(subject_value, recipients_list, text_body_value, html_body_value)
 
 
 def send_vehicle_removed_email(reservation_snapshot: Any) -> None:
+    """
+    Notify recipients that a vehicle has been removed from a group.
+
+    Uses the `vehicle_removed` template when present; otherwise, sends a
+    minimal plaintext message including the group reference and vehicle label.
+
+    Args:
+        reservation_snapshot: A lightweight reservation-like object exposing:
+            - group (with `.reservations` and `get_status_display()`)
+            - vehicle (stringifiable)
+            - pk (optional, used upstream when forming snapshots)
+
+    Returns:
+        None. Sends the email via `emails.helpers.send`.
+    """
     group_obj: Any = getattr(reservation_snapshot, "group", None)
     recipients_list: List[str] = recipients_for_group(group_obj)
 

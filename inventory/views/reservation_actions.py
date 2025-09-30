@@ -31,6 +31,22 @@ from mockpay.models import PaymentIntent, PaymentIntentStatus
 @login_required
 @require_http_methods(["POST"])
 def reserve(request: HttpRequest) -> HttpResponse:
+    """
+    Add a selected vehicle and period to the user's active reservation group.
+
+    Behavior:
+        - Validates start/end dates and pickup/return locations (or falls back
+          to the vehicle's first allowed locations if not provided).
+        - Ensures chosen locations are allowed for the vehicle.
+        - Reuses the latest AWAITING_PAYMENT or PENDING group, or creates a new one.
+        - If the group is AWAITING_PAYMENT, cancels in-flight payment intents and
+          moves the group back to PENDING before adding an item.
+        - On success, adds a VehicleReservation and ensures the group is PENDING.
+
+    Returns:
+        HttpResponse: Redirects to reservations list on success, or back to search with
+        an error message on failure.
+    """
     form_data = request.POST
 
     vehicle_param = form_data.get("vehicle")
@@ -150,7 +166,10 @@ def reserve(request: HttpRequest) -> HttpResponse:
 
 
 class ReservationEditForm(forms.ModelForm):
+    """Form for editing a reservation's key fields (vehicle, locations, dates)."""
+
     class Meta:
+        """Model binding and widgets for date inputs."""
         model = VehicleReservation
         fields = [
             "vehicle",
@@ -167,6 +186,15 @@ class ReservationEditForm(forms.ModelForm):
 
 @login_required
 def my_reservations(request: HttpRequest) -> HttpResponse:
+    """
+    List the current user's reservation groups, split into active and archived.
+
+    Active excludes REJECTED and CANCELED; both lists prefetch the group's
+    reservations with common relations for efficient rendering.
+
+    Returns:
+        HttpResponse: Rendered reservations page.
+    """
     archived_statuses = [ReservationStatus.REJECTED, ReservationStatus.CANCELED]
 
     items_queryset = VehicleReservation.objects.select_related(
@@ -195,6 +223,17 @@ def my_reservations(request: HttpRequest) -> HttpResponse:
 @user_passes_test(lambda u: bool(getattr(u, "is_staff", False)))  # TODO REMOVE LAMBDA
 @require_http_methods(["POST"])
 def approve_group(request: HttpRequest, group_id: int) -> HttpResponse:
+    """
+    Staff-only: move a reservation group from PENDING to AWAITING_PAYMENT.
+
+    Uses `transition_group` to perform a validated status change.
+
+    Args:
+        group_id: Primary key of the ReservationGroup.
+
+    Returns:
+        HttpResponse: Redirect back to the reservations page with a status message.
+    """
     try:
         group = transition_group(
             group_id=group_id, action="approve", actor=request.user
@@ -216,6 +255,15 @@ def approve_group(request: HttpRequest, group_id: int) -> HttpResponse:
 @login_required
 @require_http_methods(["POST"])
 def cancel_reservation(request: HttpRequest, group_id: int) -> HttpResponse:
+    """
+    Cancel a user's reservation group (if allowed by current status).
+
+    Args:
+        group_id: ReservationGroup primary key.
+
+    Returns:
+        HttpResponse: Redirect back to reservations with a message.
+    """
     try:
         group = transition_group(group_id=group_id, action="cancel", actor=request.user)
     except TransitionError as exc:
@@ -234,6 +282,20 @@ def cancel_reservation(request: HttpRequest, group_id: int) -> HttpResponse:
 @require_http_methods(["POST"])
 @transaction.atomic
 def delete_reservation(request: HttpRequest, pk: int) -> HttpResponse:
+    """
+    Remove a vehicle from a reservation group (not allowed if it's the only one).
+
+    Rules:
+        - Disallow edits for groups in REJECTED, CANCELED, or RESERVED.
+        - Require that at least one other VehicleReservation remains.
+        - Cancel in-flight PaymentIntents for the group.
+
+    Args:
+        pk: Primary key of the VehicleReservation to remove.
+
+    Returns:
+        HttpResponse: Redirects back to reservations with a status message.
+    """
     reservation_obj = get_object_or_404(
         VehicleReservation.objects.select_related("group"),
         pk=pk,
@@ -286,6 +348,21 @@ def delete_reservation(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 @require_http_methods(["GET", "POST"])
 def edit_reservation(request: HttpRequest, pk: int) -> HttpResponse:
+    """
+    Edit a reservation's vehicle, locations, and dates (role-aware access).
+
+    - Admin/Manager may edit any reservation; regular users may edit only their own.
+    - Validates date logic and location allowances against the selected vehicle.
+    - Prevents overlapping with blocking reservations.
+    - Marks the group PENDING when important fields change.
+    - Optionally emails the user a change summary.
+
+    Args:
+        pk: VehicleReservation primary key.
+
+    Returns:
+        HttpResponse: Rendered form on GET/validation errors; redirect on success.
+    """
     qs = VehicleReservation.objects.select_related("vehicle", "group", "user")
     user_role = getattr(request.user, "role", "")
     if user_role in ("manager", "admin"):
@@ -551,6 +628,19 @@ def edit_reservation(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 def add_vehicle(request: HttpRequest, group_id: int) -> HttpResponse:
+    """
+    Add a new vehicle item to an existing reservation group.
+
+    Rules:
+        - Disallow changes when the group is RESERVED.
+        - Saving a new item sets the group to PENDING.
+
+    Args:
+        group_id: ReservationGroup primary key to add into.
+
+    Returns:
+        HttpResponse: Render or redirect with user messaging.
+    """
     group_obj: ReservationGroup = get_object_or_404(
         ReservationGroup, pk=group_id, user=request.user
     )
@@ -588,6 +678,15 @@ def add_vehicle(request: HttpRequest, group_id: int) -> HttpResponse:
 )  # -------------TODO REMOVE LAMBDA
 @require_http_methods(["POST"])
 def reject_reservation(request: HttpRequest, group_id: int) -> HttpResponse:
+    """
+    Staff-only: move a reservation group to REJECTED.
+
+    Args:
+        group_id: ReservationGroup primary key.
+
+    Returns:
+        HttpResponse: Redirects back to reservations with a status toast.
+    """
     try:
         group = transition_group(group_id=group_id, action="reject", actor=request.user)
     except TransitionError as exc:

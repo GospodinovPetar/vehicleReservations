@@ -15,20 +15,57 @@ PURPOSE_RESET = "reset_pwd"
 
 
 def _codes_state(request) -> dict:
+    """
+    Return the mutable session dict that stores email-code state; create if missing.
+
+    Session structure (per purpose):
+        {
+          PURPOSE: {
+            'email': str,
+            'hash': str,           # HMAC of email:purpose:code
+            'expires_at': int,     # epoch seconds
+            'attempts': int,       # failed attempts
+            'ttl_minutes': int
+          },
+          ...
+        }
+    """
     return request.session.setdefault(SESSION_KEY, {})
 
 
 def _hash_code(email: str, purpose: str, code: str) -> str:
-    # HMAC using Django SECRET_KEY; avoids storing plaintext code in session
+    """
+    Build a stable HMAC for a given email/purpose/code bundle.
+
+    Args:
+        email: Email address being verified.
+        purpose: Logical purpose key (e.g., 'register' or 'reset_pwd').
+        code: The plaintext verification code.
+
+    Returns:
+        str: Hex digest HMAC.
+    """
     msg = f"{email}:{purpose}:{code}"
     return salted_hmac("email-code", msg).hexdigest()
 
 
 def _issue_code(request, *, email: str, purpose: str, ttl_minutes: int = 10):
     """
-    Generate an 8-hex code, store only its hash + expiry + attempts in the session.
+    Generate a new code, store its HMAC and metadata in session, and return it.
+
+    Side effects:
+        - Writes to `request.session[SESSION_KEY][purpose]`
+        - Marks session as modified
+
+    Args:
+        email: Target email to associate with the code.
+        purpose: Purpose namespace (e.g., PURPOSE_REGISTER).
+        ttl_minutes: Validity window in minutes.
+
+    Returns:
+        tuple[str, int]: (plaintext code, ttl_minutes)
     """
-    code = secrets.token_hex(4).upper()  # e.g. '9F42A1C8'
+    code = secrets.token_hex(4).upper()
     expires_at = int(time.time()) + ttl_minutes * 60
     state = _codes_state(request)
     state[purpose] = {
@@ -43,6 +80,12 @@ def _issue_code(request, *, email: str, purpose: str, ttl_minutes: int = 10):
 
 
 def _consume_and_clear(request, purpose: str):
+    """
+    Remove any in-progress code bundle for a given purpose from the session.
+
+    Args:
+        purpose: Purpose namespace to clear.
+    """
     state = _codes_state(request)
     if purpose in state:
         del state[purpose]
@@ -51,8 +94,18 @@ def _consume_and_clear(request, purpose: str):
 
 def _validate_code(request, *, email: str, purpose: str, submitted_code: str):
     """
-    Check presence, email match, expiry, attempts < 5, and HMAC equality.
-    Returns (ok: bool, error_message: str | None).
+    Validate a user-submitted code against the stored session bundle.
+
+    - Enforces email match, expiry, and an attempt limit.
+    - Consumes and clears the bundle on success or on certain failures.
+
+    Args:
+        email: Email to validate against the stored bundle.
+        purpose: Purpose namespace of the flow.
+        submitted_code: User-entered code (case-insensitive).
+
+    Returns:
+        tuple[bool, str|None]: (is_valid, error_message_if_any)
     """
     state = _codes_state(request)
     bundle = state.get(purpose)
@@ -73,18 +126,23 @@ def _validate_code(request, *, email: str, purpose: str, submitted_code: str):
 
     expected_hash = bundle.get("hash")
     if expected_hash != _hash_code(email, purpose, submitted_code.strip().upper()):
-        # bump attempts
         bundle["attempts"] = int(bundle.get("attempts", 0)) + 1
         request.session.modified = True
         return False, "Invalid code."
 
-    # success -> clear
     _consume_and_clear(request, purpose)
     return True, None
 
 
-# ----------- Mail helpers -----------
 def _send_verification_email(to_email: str, code: str, ttl_minutes: int):
+    """
+    Email the registration verification code.
+
+    Args:
+        to_email: Recipient email.
+        code: Plaintext verification code.
+        ttl_minutes: Minutes until expiration (for informing the user).
+    """
     subject = "Your verification code"
     body = (
         "Hi,\n\n"
@@ -96,6 +154,14 @@ def _send_verification_email(to_email: str, code: str, ttl_minutes: int):
 
 
 def _send_reset_email(to_email: str, code: str, ttl_minutes: int):
+    """
+    Email the password reset code.
+
+    Args:
+        to_email: Recipient email.
+        code: Plaintext reset code.
+        ttl_minutes: Minutes until expiration (for informing the user).
+    """
     subject = "Your password reset code"
     body = (
         "Hi,\n\n"

@@ -12,11 +12,20 @@ from mockpay.models import PaymentIntent, PaymentIntentStatus
 
 
 class TransitionError(ValidationError):
-    """Raised when a status change is not allowed."""
+    """Raised when a reservation group status change violates domain rules."""
 
 
 @dataclass(frozen=True)
 class Transition:
+    """A single allowed transition rule.
+
+    Attributes:
+        to_status: Target status after the transition.
+        allowed_from: Iterable of statuses from which this transition is allowed.
+        require_staff: Whether only staff may perform this action.
+        cancel_payment_intents: Whether to cancel in-flight payment intents first.
+        require_owner_or_staff: Whether the actor must be the owner or staff.
+    """
     to_status: str
     allowed_from: Iterable[str]
     require_staff: bool = False
@@ -52,8 +61,16 @@ TRANSITIONS = {
 
 def _cancel_open_payment_intents(group: ReservationGroup) -> int:
     """
-    Cancel any open intents linked to this group (idempotent).
-    Returns the number of affected intents.
+    Cancel any open PaymentIntents tied to the given group (idempotent).
+
+    Open intents are those in REQUIRES_CONFIRMATION or PROCESSING. The function
+    locks matching rows, updates their status to CANCELED, and returns the count.
+
+    Args:
+        group: ReservationGroup whose payment intents should be canceled.
+
+    Returns:
+        int: Number of intents updated.
     """
     qs = PaymentIntent.objects.select_for_update().filter(
         reservation_group=group,
@@ -79,8 +96,29 @@ def transition_group(
     reason: Optional[str] = None,
 ) -> ReservationGroup:
     """
-    Perform a named domain transition on a ReservationGroup with all checks,
-    locking, and side-effects in one place.
+    Perform a named transition on a ReservationGroup with full validation.
+
+    Steps:
+        - Validate `action` against TRANSITIONS.
+        - Lock the group row (SELECT FOR UPDATE) and load its owner.
+        - Enforce staff/owner permissions per rule.
+        - Ensure current status is in the rule's `allowed_from`.
+        - Optionally cancel in-flight PaymentIntents.
+        - Persist the new status.
+
+    Args:
+        group_id: Primary key of the ReservationGroup to transition.
+        action: Transition key (e.g., "approve", "reject", "cancel", "complete").
+        actor: The user performing the action; used for permission checks.
+        reason: Optional free-form reason (not persisted here, reserved for future use).
+
+    Returns:
+        ReservationGroup: The updated group instance.
+
+    Raises:
+        TransitionError: If the action is unknown or status change is not allowed.
+        PermissionDenied: If the actor lacks required permissions.
+        ReservationGroup.DoesNotExist: If the group_id is invalid.
     """
     if action not in TRANSITIONS:
         raise TransitionError(f"Unknown transition action '{action}'.")

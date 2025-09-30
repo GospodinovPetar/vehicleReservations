@@ -1,35 +1,99 @@
 from __future__ import annotations
 
-from typing import Optional
+import secrets
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
 
 from .forms import CheckoutForm
+from .helpers import _to_cents, _eur_amount, _cd
 from .models import PaymentIntent, PaymentIntentStatus
-from inventory.models.reservation import ReservationStatus
+from inventory.models.reservation import ReservationStatus, ReservationGroup
 
 
-def _eur_amount(intent: PaymentIntent) -> str:
-    cents_value = int(getattr(intent, "amount", 0) or 0)
-    euros_part = cents_value // 100
-    cents_part = cents_value % 100
-    return f"{euros_part}.{cents_part:02d}"
+@login_required
+@transaction.atomic
+def create_payment_intent(request: HttpRequest, group_id: int) -> HttpResponse:
+    """
+    Create a PaymentIntent for the user's reservation group currently awaiting payment.
 
+    Rules:
+        - Allowed only when group status is AWAITING_PAYMENT.
+        - Amount is the sum of reservation item totals (converted to cents).
+        - Fails if the computed amount is not positive.
+        - Returns a redirect to the checkout page for this intent.
 
-def _cd(data: dict, *keys: str, default: str = "") -> str:
-    for key in keys:
-        value = data.get(key)
-        if value not in (None, ""):
-            return value
-    return default
+    Args:
+        request: Django HttpRequest (authenticated user required).
+        group_id: ReservationGroup primary key.
+
+    Returns:
+        HttpResponse: Redirect to the mock checkout page, or back to reservations with a message.
+    """
+    group = get_object_or_404(
+        ReservationGroup.objects.select_for_update(),
+        pk=group_id,
+        user=request.user,
+    )
+
+    if group.status != ReservationStatus.AWAITING_PAYMENT:
+        messages.error(request, "This reservation is not awaiting payment.")
+        return redirect("inventory:reservations")
+
+    amount_cents_total = 0
+    items = group.reservations.select_related("vehicle").all()
+    for item in items:
+        item_total = getattr(item, "total_price", None)
+        amount_cents_total += _to_cents(item_total)
+
+    if amount_cents_total <= 0:
+        messages.error(request, "Invalid amount to pay.")
+        return redirect("inventory:reservations")
+
+    client_secret_value = secrets.token_hex(24)
+
+    intent = PaymentIntent.objects.create(
+        reservation_group=group,
+        amount=amount_cents_total,
+        currency="EUR",
+        client_secret=client_secret_value,
+        status=PaymentIntentStatus.REQUIRES_CONFIRMATION,
+    )
+
+    return redirect("mockpay:checkout_page", client_secret=intent.client_secret)
 
 
 @require_http_methods(["GET", "POST"])
 def checkout_page(request: HttpRequest, client_secret: str) -> HttpResponse:
+    """
+    Display/process the mock checkout form for a PaymentIntent.
+
+    GET:
+        - If the intent is expired or not awaiting confirmation, redirect to result.
+        - Otherwise render the form.
+
+    POST:
+        - Validate form and decide an outcome:
+            * auto mode:
+                - PAN 4242...4242  → success
+                - PAN 4000...0002  → fail
+                - otherwise         → success
+            * explicit "success" / "fail" / "cancel"
+        - Update PaymentIntent status accordingly.
+        - On success, set the reservation group to RESERVED.
+        - Redirect to a result page (or success page).
+
+    Args:
+        request: Django HttpRequest.
+        client_secret: Token identifying the PaymentIntent.
+
+    Returns:
+        HttpResponse: Rendered form (GET/invalid POST) or a redirect to the result page.
+    """
     intent = get_object_or_404(PaymentIntent, client_secret=client_secret)
 
     if intent.is_expired():
@@ -123,6 +187,16 @@ def checkout_page(request: HttpRequest, client_secret: str) -> HttpResponse:
 
 @require_http_methods(["GET"])
 def checkout_success(request: HttpRequest, client_secret: str) -> HttpResponse:
+    """
+    Display the success page for a completed (SUCCEEDED) PaymentIntent.
+
+    Args:
+        request: Django HttpRequest.
+        client_secret: Token identifying the PaymentIntent.
+
+    Returns:
+        HttpResponse: Rendered success/result page.
+    """
     intent = get_object_or_404(PaymentIntent, client_secret=client_secret)
     return render(
         request,
@@ -133,6 +207,16 @@ def checkout_success(request: HttpRequest, client_secret: str) -> HttpResponse:
 
 @require_http_methods(["GET"])
 def result(request: HttpRequest, client_secret: str) -> HttpResponse:
+    """
+    Display the result page for any PaymentIntent state.
+
+    Args:
+        request: Django HttpRequest.
+        client_secret: Token identifying the PaymentIntent.
+
+    Returns:
+        HttpResponse: Rendered result page with human-readable amount.
+    """
     intent = get_object_or_404(PaymentIntent, client_secret=client_secret)
     return render(
         request,

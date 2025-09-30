@@ -10,64 +10,50 @@ from django.shortcuts import render
 from django.utils.dateparse import parse_date
 
 from cart.models.cart import CartItem
+from inventory.helpers.intervals import free_slices
 from inventory.helpers.pricing import RateTable, quote_total
 from inventory.models.reservation import Location, ReservationStatus, VehicleReservation
 from inventory.models.vehicle import Vehicle
 
 
 def home(request: HttpRequest) -> HttpResponse:
+    """
+    Render the home page with a list of locations for the search form.
+
+    Context:
+        locations (QuerySet[Location]): All locations for user selection.
+
+    Returns:
+        HttpResponse: Rendered "home.html".
+    """
     locations_qs = Location.objects.all()
     context = {"locations": locations_qs}
     return render(request, "home.html", context)
 
 
-def _clip(
-    a: date, b: date, lo: date, hi: date
-) -> Tuple[Optional[date], Optional[date]]:
-    start_value = a if a >= lo else lo
-    end_value = b if b <= hi else hi
-    if start_value < end_value:
-        return start_value, end_value
-    return None, None
-
-
-def _merge(blocks: List[Tuple[date, date]]) -> List[Tuple[date, date]]:
-    if not blocks:
-        return []
-    sorted_blocks = sorted(blocks, key=lambda pair: pair[0])
-    merged: List[Tuple[date, date]] = [sorted_blocks[0]]
-    for start_value, end_value in sorted_blocks[1:]:
-        prev_start, prev_end = merged[-1]
-        if start_value <= prev_end:
-            new_end = prev_end if prev_end >= end_value else end_value
-            merged[-1] = (prev_start, new_end)
-        else:
-            merged.append((start_value, end_value))
-    return merged
-
-
-def _free_slices(
-    search_start: date, search_end: date, blocks: List[Tuple[date, date]]
-) -> List[Tuple[date, date]]:
-    clipped: List[Tuple[date, date]] = []
-    for block_start, block_end in blocks:
-        c_start, c_end = _clip(block_start, block_end, search_start, search_end)
-        if c_start is not None and c_end is not None:
-            clipped.append((c_start, c_end))
-    merged = _merge(clipped)
-    free_list: List[Tuple[date, date]] = []
-    cursor = search_start
-    for busy_start, busy_end in merged:
-        if cursor < busy_start:
-            free_list.append((cursor, busy_start))
-        if busy_end > cursor:
-            cursor = busy_end
-    if cursor < search_end:
-        free_list.append((cursor, search_end))
-    return free_list
-
-
 def search(request: HttpRequest) -> HttpResponse:
+    """
+    Search vehicles available in a date range with optional location filters.
+
+    Query params:
+        start (YYYY-MM-DD): Start date (required with `end`).
+        end (YYYY-MM-DD): End date (must be after `start`).
+        pickup_location: Optional Location PK to restrict pickups.
+        return_location: Optional Location PK to restrict returns.
+
+    Behavior:
+        - Validates dates; if invalid, re-renders the home page with existing inputs.
+        - Filters vehicles that have both pickup and return locations configured,
+          optionally constrained by the selected locations.
+        - Computes blocking intervals from confirmed reservations and the user's cart.
+        - Uses `free_slices` to find available windows within the requested range.
+        - Produces:
+            * `results`: vehicles fully available for the whole period, with a quote.
+            * `partial_results`: vehicles available only for sub-windows, each quoted.
+
+    Returns:
+        HttpResponse: Rendered "home.html" with results and partial_results.
+    """
     start_str = request.GET.get("start")
     end_str = request.GET.get("end")
     pickup_location_param = (request.GET.get("pickup_location") or "").strip()
@@ -150,7 +136,7 @@ def search(request: HttpRequest) -> HttpResponse:
 
     for vehicle in vehicles_qs:
         vehicle_blocks = blocks_by_vehicle.get(vehicle.id, [])
-        free_windows = _free_slices(start_date, end_date, vehicle_blocks)
+        free_windows = free_slices(start_date, end_date, vehicle_blocks)
         if not free_windows:
             continue
 

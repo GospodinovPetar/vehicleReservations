@@ -1,10 +1,6 @@
 from django.urls import path
 
-from cart.views.add_to_cart import add_to_cart
-from cart.views.checkout import checkout
-from cart.views.remove_from_cart import remove_from_cart
-from cart.views.view_cart import view_cart
-from inventory.views.payment_intent import create_payment_intent
+from cart.views import remove_from_cart, checkout, view_cart, add_to_cart
 from inventory.views.reservation_actions import (
     my_reservations,
     reject_reservation,
@@ -15,6 +11,7 @@ from inventory.views.reservation_actions import (
     approve_group,
 )
 from inventory.views.search import search, home
+from mockpay.views import create_payment_intent
 
 app_name = "inventory"
 

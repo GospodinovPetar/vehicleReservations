@@ -11,6 +11,15 @@ from inventory.models.reservation import Location, ReservationStatus
 @manager_required
 @permission_required("inventory.view_location", raise_exception=True)
 def location_list(request):
+    """
+    List all locations.
+
+    Renders:
+        accounts/locations/location_list.html
+
+    Context:
+        locations (QuerySet[Location])
+    """
     locations = Location.objects.all()
     return render(
         request, "accounts/locations/location_list.html", {"locations": locations}
@@ -21,6 +30,15 @@ def location_list(request):
 @manager_required
 @permission_required("inventory.add_location", raise_exception=True)
 def location_create(request):
+    """
+    Create a new location by name.
+
+    - GET renders a simple form.
+    - POST creates a Location when 'name' is supplied; otherwise shows error.
+
+    Renders:
+        accounts/locations/location_form.html
+    """
     if request.method == "POST":
         name = request.POST.get("name")
         if name:
@@ -37,6 +55,15 @@ def location_create(request):
 @manager_required
 @permission_required("inventory.change_location", raise_exception=True)
 def location_edit(request, pk):
+    """
+    Edit the name of an existing location.
+
+    Args:
+        pk (int): Location primary key.
+
+    Renders:
+        accounts/locations/location_form.html
+    """
     loc = get_object_or_404(Location, pk=pk)
     if request.method == "POST":
         name = request.POST.get("name")
@@ -57,6 +84,19 @@ def location_edit(request, pk):
 @manager_required
 @permission_required("inventory.delete_location", raise_exception=True)
 def location_delete(request, pk):
+    """
+    Delete a location if it is not referenced by any blocking reservations.
+
+    - Prevents deletion when an ongoing reservation uses the location as pickup
+      or return location.
+    - On success, deletes and redirects with a success message.
+
+    Args:
+        pk (int): Location primary key.
+
+    Redirects:
+        accounts:location-list
+    """
     loc = get_object_or_404(Location, pk=pk)
 
     from inventory.models.reservation import VehicleReservation as VR
