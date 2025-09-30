@@ -80,18 +80,16 @@ class VehicleForm(forms.ModelForm):
     car_type = forms.ChoiceField(choices=VehicleType.choices, label="Car Type")
     engine_type = forms.ChoiceField(choices=EngineType.choices, label="Engine Type")
 
-    # Single selection for pick-up (mapped to M2M in save())
     available_pickup_locations = forms.ModelChoiceField(
-        queryset=Location.objects.none(),  # set properly in __init__
-        required=True,
+        queryset=Location.objects.none(),
+        required=False,
         label="Pick-up Location",
         widget=forms.Select,
     )
 
-    # Multiple selection for drop-off
     available_return_locations = forms.ModelMultipleChoiceField(
-        queryset=Location.objects.none(),  # set properly in __init__
-        required=True,
+        queryset=Location.objects.none(),
+        required=False,
         label="Drop-off Locations",
         widget=forms.CheckboxSelectMultiple,
     )
@@ -104,12 +102,18 @@ class VehicleForm(forms.ModelForm):
             "engine_type",
             "seats",
             "price_per_day",
+            "plate_number",
+            "year_of_manufacturing",
+            "top_speed_kmh",
+            "mileage_km",
+            "fuel_consumption_l_100km",
+            "damages",
             "available_pickup_locations",
             "available_return_locations",
-            "plate_number",
         ]
         widgets = {
             "available_return_locations": forms.CheckboxSelectMultiple,
+            "damages": forms.Textarea(attrs={"rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -124,8 +128,6 @@ class VehicleForm(forms.ModelForm):
         self.fields["available_return_locations"].queryset = (
             Location.objects.all().order_by("name")
         )
-
-        self.fields["available_pickup_locations"].empty_label = None
 
         if instance and instance.pk:
             first_pickup = instance.available_pickup_locations.first()
@@ -146,41 +148,30 @@ class VehicleForm(forms.ModelForm):
             fld = self.fields["available_pickup_locations"]
             if default_id and fld.queryset.filter(pk=default_id).exists():
                 self.initial.setdefault("available_pickup_locations", int(default_id))
-            else:
-                first = fld.queryset.first()
-                if first:
-                    self.initial.setdefault("available_pickup_locations", first.pk)
 
     def save(self, commit=True):
         """
         Save the instance without Django's default M2M handling,
         then set M2M fields manually:
-          - available_pickup_locations: single -> [single]
+          - available_pickup_locations: single -> [single] (or empty)
           - available_return_locations: normal multiple
         """
-        # 1) Avoid default _save_m2m by using commit=False
         vehicle = super().save(commit=False)
 
-        # 2) Save the instance so M2Ms can be set
         if commit:
             vehicle.save()
 
-        # 3) Grab cleaned data
         pickup = self.cleaned_data.get("available_pickup_locations")
         returns = self.cleaned_data.get("available_return_locations")
 
         def _save_m2m():
             vehicle.available_pickup_locations.set([pickup] if pickup else [])
-            # multiple is already an iterable
-            vehicle.available_return_locations.set(
-                returns if returns is not None else []
-            )
+            vehicle.available_return_locations.set(returns if returns is not None else [])
 
-        # 5) Execute now or defer (Django pattern when commit=False)
         if commit:
             _save_m2m()
         else:
-            self._save_m2m = _save_m2m  # caller can run this later
+            self._save_m2m = _save_m2m
 
         return vehicle
 
@@ -219,3 +210,35 @@ class PasswordResetConfirmForm(forms.Form):
         if cleaned.get("new_password") != cleaned.get("new_password_confirm"):
             raise forms.ValidationError("Passwords do not match.")
         return cleaned
+
+class VehicleFilterForm(forms.Form):
+    """
+    GET-based filter form for the vehicle list.
+    """
+    name = forms.CharField(
+        required=False, label="Name",
+        widget=forms.TextInput(attrs={"placeholder": "e.g. Corolla"})
+    )
+    plate = forms.CharField(
+        required=False, label="Plate number",
+        widget=forms.TextInput(attrs={"placeholder": "e.g. ABC-123"})
+    )
+    car_type = forms.ChoiceField(
+        required=False, label="Type of vehicle",
+        choices=[("", "Any type")] + list(VehicleType.choices),
+        widget=forms.Select()
+    )
+    pickup_location = forms.ModelChoiceField(
+        queryset=Location.objects.all().order_by("name"),
+        required=False,
+        empty_label="Any pickup location",
+        label="Pickup location",
+        widget=forms.Select()
+    )
+    return_location = forms.ModelChoiceField(
+        queryset=Location.objects.all().order_by("name"),
+        required=False,
+        empty_label="Any drop-off location",
+        label="Drop-off location",
+        widget=forms.Select()
+    )

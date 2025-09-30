@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, Optional
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -24,27 +23,39 @@ GOLF_MK2_PATTERNS = (
 
 
 class VehicleType(models.TextChoices):
-    CAR = "car", "Car"
+    SEDAN = "sedan", "Sedan"
+    HATCHBACK = "hatchback", "Hatchback"
+    SUV = "suv", "SUV"
     MOTORCYCLE = "motorcycle", "Motorcycle"
-    CARAVAN = "caravan", "Caravan"
     VAN = "van", "Van"
     TRUCK = "truck", "Truck"
+    COUPE = "coupe", "Coupe"
+    CONVERTIBLE = "convertible", "Convertible"
+    WAGON = "wagon", "Wagon"
+    OTHER = "other", "Other"
 
 
 SEAT_BOUNDS = {
-    VehicleType.CAR: (2, 5),
+    VehicleType.SEDAN: (2, 5),
     VehicleType.MOTORCYCLE: (1, 2),
-    VehicleType.CARAVAN: (2, 7),
     VehicleType.VAN: (2, 9),
     VehicleType.TRUCK: (1, 3),
+    VehicleType.COUPE: (1, 2),
+    VehicleType.CONVERTIBLE: (2, 4),
+    VehicleType.WAGON: (2, 7),
+    VehicleType.OTHER: (2, 8),
+    VehicleType.SUV: (2, 5),
 }
 
 
 class EngineType(models.TextChoices):
     PETROL = "petrol", "Petrol"
     DIESEL = "diesel", "Diesel"
-    ELECTRIC = "electric", "Electric"
     HYBRID = "hybrid", "Hybrid"
+    ELECTRIC = "electric", "Electric"
+    LPG = "lpg", "LPG"
+    CNG = "cng", "CNG"
+    OTHER = "other", "Other"
 
 
 def _is_golf_mk2(name: str) -> bool:
@@ -57,51 +68,54 @@ def _is_golf_mk2(name: str) -> bool:
 
 class Vehicle(models.Model):
     name = models.CharField(max_length=120)
-    plate_number = models.CharField(max_length=20, unique=True)
-    car_type = models.CharField(
-        max_length=12, choices=VehicleType.choices, default=VehicleType.CAR
-    )
-    engine_type = models.CharField(
-        max_length=10, choices=EngineType.choices, default=EngineType.PETROL
-    )
-    price_per_day = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal("0.00")
-    )
-    seats = models.PositiveSmallIntegerField(null=True, blank=True)
+    car_type = models.CharField(max_length=24, choices=VehicleType.choices, default=VehicleType.SEDAN)
+    engine_type = models.CharField(max_length=24, choices=EngineType.choices, default=EngineType.PETROL)
+
+    seats = models.PositiveIntegerField(default=4)
+    price_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+
+    plate_number = models.CharField(max_length=32, blank=True)
+
+    year_of_manufacturing = models.PositiveIntegerField(null=True, blank=True)
+    top_speed_kmh = models.PositiveIntegerField(null=True, blank=True)
+    mileage_km = models.PositiveIntegerField(null=True, blank=True)
+    fuel_consumption_l_100km = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    damages = models.TextField(blank=True)
     unlimited_seats = models.BooleanField(default=False)
+
     available_pickup_locations = models.ManyToManyField(
-        "Location", related_name="pickup_vehicles", blank=True
+        "inventory.Location", related_name="pickup_vehicles", blank=True
     )
     available_return_locations = models.ManyToManyField(
-        "Location", related_name="return_vehicles", blank=True
+        "inventory.Location", related_name="return_vehicles", blank=True
     )
 
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                name="vehicle_seats_bounds_per_type",
-                check=(
-                    Q(unlimited_seats=True)
-                    | (Q(car_type=VehicleType.CAR) & Q(seats__gte=2) & Q(seats__lte=5))
-                    | (
-                        Q(car_type=VehicleType.MOTORCYCLE)
-                        & Q(seats__gte=1)
-                        & Q(seats__lte=2)
-                    )
-                    | (
-                        Q(car_type=VehicleType.CARAVAN)
-                        & Q(seats__gte=2)
-                        & Q(seats__lte=7)
-                    )
-                    | (Q(car_type=VehicleType.VAN) & Q(seats__gte=2) & Q(seats__lte=9))
-                    | (
-                        Q(car_type=VehicleType.TRUCK)
-                        & Q(seats__gte=1)
-                        & Q(seats__lte=3)
-                    )
-                ),
-            ),
-        ]
+    # class Meta:
+    #     constraints = [
+    #         models.CheckConstraint(
+    #             name="vehicle_seats_bounds_per_type",
+    #             check=(
+    #                 Q(unlimited_seats=True)
+    #                 | (Q(car_type=VehicleType.SEDAN) & Q(seats__gte=2) & Q(seats__lte=5))
+    #                 | (
+    #                     Q(car_type=VehicleType.MOTORCYCLE)
+    #                     & Q(seats__gte=1)
+    #                     & Q(seats__lte=2)
+    #                 )
+    #                 | (
+    #                     Q(car_type=VehicleType.)
+    #                     & Q(seats__gte=2)
+    #                     & Q(seats__lte=7)
+    #                 )
+    #                 | (Q(car_type=VehicleType.VAN) & Q(seats__gte=2) & Q(seats__lte=9))
+    #                 | (
+    #                     Q(car_type=VehicleType.TRUCK)
+    #                     & Q(seats__gte=1)
+    #                     & Q(seats__lte=3)
+    #                 )
+    #             ),
+    #         ),
+    #     ]
 
     def __str__(self) -> str:
         return f"{self.name} ({self.car_type}/{self.engine_type})"

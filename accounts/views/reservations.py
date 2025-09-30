@@ -38,6 +38,7 @@ def reservation_list(request):
                 ReservationStatus.PENDING,
                 ReservationStatus.AWAITING_PAYMENT,
                 ReservationStatus.RESERVED,
+                ReservationStatus.ONGOING
             ]
         )
         .prefetch_related("reservations__vehicle", "reservations__user")
@@ -263,6 +264,28 @@ def reservation_complete(request, pk):
     messages.success(request, f"Reservation group {group.id} marked as Completed.")
     return redirect("accounts:reservation-list")
 
+@login_required
+@manager_required
+@permission_required("inventory.change_reservationgroup", raise_exception=True)
+def reservation_group_ongoing(request, pk):
+    """
+    Mark a reservation group as COMPLETED (explicit group endpoint).
+
+    Args:
+        pk (int): ReservationGroup primary key.
+
+    Returns:
+        403 if the group is not RESERVED.
+    """
+    group = get_object_or_404(ReservationGroup, pk=pk)
+    if group.status != ReservationStatus.RESERVED:
+        return HttpResponseForbidden("Only reserved groups can be marked as ongoing.")
+
+    group.status = ReservationStatus.ONGOING
+    group.save(update_fields=["status"])
+
+    messages.success(request, f"Reservation group {group.id} marked as Ongoing.")
+    return redirect("accounts:reservation-list")
 
 @login_required
 @manager_required
@@ -278,8 +301,8 @@ def reservation_group_complete(request, pk):
         403 if the group is not RESERVED.
     """
     group = get_object_or_404(ReservationGroup, pk=pk)
-    if group.status != ReservationStatus.RESERVED:
-        return HttpResponseForbidden("Only reserved groups can be marked as completed.")
+    if group.status != ReservationStatus.ONGOING:
+        return HttpResponseForbidden("Only ongoing groups can be marked as completed.")
 
     group.status = ReservationStatus.COMPLETED
     group.save(update_fields=["status"])

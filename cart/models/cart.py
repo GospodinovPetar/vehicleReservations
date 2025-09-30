@@ -38,6 +38,7 @@ class Cart(models.Model):
     def clear(self):
         CartItem = apps.get_model("cart", "CartItem")
         with transaction.atomic():
+            # Lock items (race safety) then delete
             list(
                 CartItem.objects.select_for_update()
                 .filter(cart=self)
@@ -67,6 +68,7 @@ class CartItem(models.Model):
         related_name="+",
     )
 
+    # Optional: filled later by pricing, used by API/UI for quick totals
     total_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
@@ -104,12 +106,14 @@ class CartItem(models.Model):
 
     def clean(self):
         errors = {}
+
         try:
             self._validate_dates(self.start_date, self.end_date)
         except ValidationError as e:
             msg = e.messages[0] if getattr(e, "messages", None) else str(e)
             errors["start_date"] = msg
 
+        # Ensure both locations selected
         if not self.pickup_location or not self.return_location:
             errors["pickup_location"] = "Select both pickup and return locations."
 
@@ -134,58 +138,6 @@ class CartItem(models.Model):
                     }
                 )
 
-    @classmethod
-    @transaction.atomic
-    def merge_or_create(
-        cls, *, cart, vehicle, start_date, end_date, pickup_location, return_location
-    ):
-        if not pickup_location or not return_location:
-            raise ValidationError("Select both pickup and return locations.")
-        cls._validate_dates(start_date, end_date)
-
-        merged_start, merged_end = start_date, end_date
-
-        while True:
-            touching_qs = (
-                cls.objects.select_for_update()
-                .filter(
-                    cart=cart,
-                    vehicle=vehicle,
-                    pickup_location=pickup_location,
-                    return_location=return_location,
-                    start_date__lte=merged_end,
-                    end_date__gte=merged_start,
-                )
-                .order_by("start_date")
-            )
-            found = list(touching_qs)
-            if not found:
-                break
-            new_start = min([merged_start] + [i.start_date for i in found])
-            new_end = max([merged_end] + [i.end_date for i in found])
-            if new_start == merged_start and new_end == merged_end:
-                break
-            merged_start, merged_end = new_start, new_end
-
-        cls._validate_dates(merged_start, merged_end)
-
-        cls.objects.filter(
-            cart=cart,
-            vehicle=vehicle,
-            pickup_location=pickup_location,
-            return_location=return_location,
-            start_date__lte=merged_end,
-            end_date__gte=merged_start,
-        ).delete()
-
-        return cls.objects.create(
-            cart=cart,
-            vehicle=vehicle,
-            start_date=merged_start,
-            end_date=merged_end,
-            pickup_location=pickup_location,
-            return_location=return_location,
-        )
 
     def __str__(self):
         return f"{self.vehicle} ({self.start_date} -> {self.end_date})"

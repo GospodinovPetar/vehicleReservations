@@ -4,7 +4,8 @@
   <div class="card">
     <h3>Find a vehicle</h3>
     <form method="get" action="{% url 'inventory:search' %}">
-      <div class="row">
+      {# filters #}
+      <div class="row" style="display:grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:12px;">
         <div>
           <label>
             Start date
@@ -18,15 +19,37 @@
           </label>
         </div>
         <div>
-        <label>
-          Pickup location
-          <select name="pickup_location">
-            <option value="">Any</option>
-            {% for l in locations %}
-            <option value="{{ l.id }}" {% if l.id|stringformat:"s" == pickup_location %}selected{% endif %}> {{ l.name }} </option>
-            {% endfor %}
-          </select>
-        </label>
+          <label>
+            Type of vehicle
+            <select name="car_type">
+              <option value="">Any type</option>
+              {% for val, label in vehicle_types %}
+                <option value="{{ val }}" {% if request.GET.car_type == val %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="row" style="display:grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:12px; margin-top:8px;">
+        <div>
+          <label>
+            Name
+            <input type="text" name="name" placeholder="e.g. Corolla" value="{{ request.GET.name|default:'' }}">
+          </label>
+        </div>
+        <div>
+          <label>
+            Pickup location
+            <select name="pickup_location">
+              <option value="">Any</option>
+              {% for l in locations %}
+                <option value="{{ l.id }}" {% if l.id|stringformat:"s" == pickup_location %}selected{% endif %}>{{ l.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
         </div>
         <div>
           <label>
@@ -34,14 +57,13 @@
             <select name="return_location">
               <option value="">Any</option>
               {% for l in locations %}
-                <option value="{{ l.id }}" {% if l.id|stringformat:"s" == return_location %}selected{% endif %}>
-                  {{ l.name }}
-                </option>
+                <option value="{{ l.id }}" {% if l.id|stringformat:"s" == return_location %}selected{% endif %}>{{ l.name }}</option>
               {% endfor %}
             </select>
           </label>
         </div>
       </div>
+
       <p><button class="btn primary" type="submit">Search</button></p>
     </form>
 
@@ -68,8 +90,6 @@
       </div>
     </div>
   </div>
-
-
   {% if results %}
     <h3>Available vehicles</h3>
     <p style="margin:8px 0 0; color:#6b7280; font-size:14px;">
@@ -77,104 +97,32 @@
     </p>
 
     {% for r in results %}
-      {% with pk_loc=r.vehicle.pickup_location|default_if_none:'' %}
-      {% with pk_loc_first=r.vehicle.available_pickup_locations.all.0 %}
-      {% with pickup=pk_loc|default:pk_loc_first %}
+      {% with pickup=r.vehicle.available_pickup_locations.all.0 %}
       <div class="card">
         <div class="row">
           <div>
-            <strong>{{ r.vehicle }}</strong><br>
-            {# ——— Number plate line with common fallbacks ——— #}
-            {% if r.vehicle.license_plate %}
-              <span style="color:#6b7280;">Plate: {{ r.vehicle.license_plate }}</span><br>
-            {% elif r.vehicle.number_plate %}
-              <span style="color:#6b7280;">Plate: {{ r.vehicle.number_plate }}</span><br>
-            {% elif r.vehicle.plate_number %}
-              <span style="color:#6b7280;">Plate: {{ r.vehicle.plate_number }}</span><br>
-            {% elif r.vehicle.registration %}
-              <span style="color:#6b7280;">Plate: {{ r.vehicle.registration }}</span><br>
-            {% elif r.vehicle.registration_number %}
-              <span style="color:#6b7280;">Plate: {{ r.vehicle.registration_number }}</span><br>
-            {% endif %}
+            <strong>
+              {% with vid=r.vehicle.pk %}
+                {% if vid %}
+                  <a href="{% url 'accounts:vehicle-profile' vid %}">{{ r.vehicle }}</a>
+                {% else %}
+                  {{ r.vehicle }}
+                {% endif %}
+              {% endwith %}
+            </strong><br>
             {{ r.vehicle.car_type|title }} • {{ r.vehicle.engine_type|title }} •
             {% if r.vehicle.unlimited_seats %}∞ seats{% else %}{{ r.vehicle.seats }} seats{% endif %}
+            {% if r.vehicle.year_of_manufacturing %} • {{ r.vehicle.year_of_manufacturing }}{% endif %}
           </div>
 
           <div>
-            {% if r.quote.days > 6 %}
-              {% if r.vehicle.price_per_day %}
-                <div style="margin-bottom:2px;">
-                  <span style="text-decoration:line-through; color:#6b7280;">
-                    {% widthratio r.quote.days 1 r.vehicle.price_per_day %} {{ r.quote.currency }}
-                  </span>
-                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
-                </div>
-                <div style="font-size:.9em; color:#6b7280;">
-                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  (instead of {{ r.vehicle.price_per_day }} {{ r.quote.currency }}/day)
-                </div>
-              {% elif r.vehicle.daily_price %}
-                <div style="margin-bottom:2px;">
-                  <span style="text-decoration:line-through; color:#6b7280;">
-                    {% widthratio r.quote.days 1 r.vehicle.daily_price %} {{ r.quote.currency }}
-                  </span>
-                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
-                </div>
-                <div style="font-size:.9em; color:#6b7280;">
-                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  (instead of {{ r.vehicle.daily_price }} {{ r.quote.currency }}/day)
-                </div>
-              {% elif r.vehicle.base_daily_rate %}
-                <div style="margin-bottom:2px;">
-                  <span style="text-decoration:line-through; color:#6b7280;">
-                    {% widthratio r.quote.days 1 r.vehicle.base_daily_rate %} {{ r.quote.currency }}
-                  </span>
-                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
-                </div>
-                <div style="font-size:.9em; color:#6b7280;">
-                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  (instead of {{ r.vehicle.base_daily_rate }} {{ r.quote.currency }}/day)
-                </div>
-              {% elif r.quote.daily_price %}
-                <div style="margin-bottom:2px;">
-                  <span style="text-decoration:line-through; color:#6b7280;">
-                    {% widthratio r.quote.days 1 r.quote.daily_price %} {{ r.quote.currency }}
-                  </span>
-                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
-                </div>
-                <div style="font-size:.9em; color:#6b7280;">
-                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  (instead of {{ r.quote.daily_price }} {{ r.quote.currency }}/day)
-                </div>
-              {% elif r.quote.base_daily_rate %}
-                <div style="margin-bottom:2px;">
-                  <span style="text-decoration:line-through; color:#6b7280;">
-                    {% widthratio r.quote.days 1 r.quote.base_daily_rate %} {{ r.quote.currency }}
-                  </span>
-                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
-                </div>
-                <div style="font-size:.9em; color:#6b7280;">
-                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                  (instead of {{ r.quote.base_daily_rate }} {{ r.quote.currency }}/day)
-                </div>
-              {% else %}
-                <div>
-                  Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
-                  <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
-                </div>
-                <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
-                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-                </div>
-              {% endif %}
-            {% else %}
-              <div>
-                Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
-                <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
-              </div>
-              <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
-                ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-              </div>
-            {% endif %}
+            <div>
+              Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
+              <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
+            </div>
+            <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
+              ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+            </div>
           </div>
 
           <div>
@@ -224,8 +172,6 @@
         </div>
       </div>
       {% endwith %}
-      {% endwith %}
-      {% endwith %}
     {% empty %}
       <p>No vehicles available for that period.</p>
     {% endfor %}
@@ -233,109 +179,31 @@
 
   {% if partial_results %}
     <h3>Partially available during your dates</h3>
-
     {% for row in partial_results %}
-      {% with pk_loc=row.vehicle.pickup_location|default_if_none:'' %}
-      {% with pk_loc_first=row.vehicle.available_pickup_locations.all.0 %}
-      {% with pickup=pk_loc|default:pk_loc_first %}
+      {% with pickup=row.vehicle.available_pickup_locations.all.0 %}
       <div class="card">
         <div class="row">
           <div>
-            <strong>{{ row.vehicle }}</strong><br>
-            {% if row.vehicle.license_plate %}
-              <span style="color:#6b7280;">Plate: {{ row.vehicle.license_plate }}</span><br>
-            {% elif row.vehicle.number_plate %}
-              <span style="color:#6b7280;">Plate: {{ row.vehicle.number_plate }}</span><br>
-            {% elif row.vehicle.plate_number %}
-              <span style="color:#6b7280;">Plate: {{ row.vehicle.plate_number }}</span><br>
-            {% elif row.vehicle.registration %}
-              <span style="color:#6b7280;">Plate: {{ row.vehicle.registration }}</span><br>
-            {% elif row.vehicle.registration_number %}
-              <span style="color:#6b7280;">Plate: {{ row.vehicle.registration_number }}</span><br>
-            {% endif %}
-            {{ row.vehicle.car_type|title }} • {{ row.vehicle.engine_type|title }} •
-            {% if row.vehicle.unlimited_seats %}∞ seats{% else %}{{ row.vehicle.seats }} seats{% endif %}
+            <strong>
+              {% with vid=row.vehicle.pk %}
+                {% if vid %}
+                  <a href="{% url 'accounts:vehicle-profile' vid %}">{{ row.vehicle }}</a>
+                {% else %}
+                  {{ row.vehicle }}
+                {% endif %}
+              {% endwith %}
+            </strong><br>
+            {{ row.vehicle.car_type|title }} • {{ row.vehicle.engine_type|title }}
+            {% if row.vehicle.year_of_manufacturing %} • {{ row.vehicle.year_of_manufacturing }}{% endif %}
           </div>
 
           <div style="flex:1;">
-            {# pricing slices unchanged #}
             {% for s in row.slices %}
-              {# ... existing pricing snippet unchanged ... #}
-              {% if s.quote.days > 6 %}
-                {% if row.vehicle.price_per_day %}
-                  <div style="margin:.25rem 0;">
-                    <span style="text-decoration:line-through; color:#6b7280;">
-                      {% widthratio s.quote.days 1 row.vehicle.price_per_day %} {{ s.quote.currency }}
-                    </span>
-                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
-                    <span style="font-size:.9em; color:#6b7280;">
-                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
-                      (instead of {{ row.vehicle.price_per_day }} {{ s.quote.currency }}/day)
-                    </span>
-                    — {{ s.start }} → {{ s.end }}
-                  </div>
-                {% elif row.vehicle.daily_price %}
-                  <div style="margin:.25rem 0;">
-                    <span style="text-decoration:line-through; color:#6b7280;">
-                      {% widthratio s.quote.days 1 row.vehicle.daily_price %} {{ s.quote.currency }}
-                    </span>
-                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
-                    <span style="font-size:.9em; color:#6b7280;">
-                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
-                      (instead of {{ row.vehicle.daily_price }} {{ s.quote.currency }}/day)
-                    </span>
-                    — {{ s.start }} → {{ s.end }}
-                  </div>
-                {% elif row.vehicle.base_daily_rate %}
-                  <div style="margin:.25rem 0;">
-                    <span style="text-decoration:line-through; color:#6b7280;">
-                      {% widthratio s.quote.days 1 row.vehicle.base_daily_rate %} {{ s.quote.currency }}
-                    </span>
-                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
-                    <span style="font-size:.9em; color:#6b7280;">
-                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
-                      (instead of {{ row.vehicle.base_daily_rate }} {{ s.quote.currency }}/day)
-                    </span>
-                    — {{ s.start }} → {{ s.end }}
-                  </div>
-                {% elif s.quote.daily_price %}
-                  <div style="margin:.25rem 0;">
-                    <span style="text-decoration:line-through; color:#6b7280;">
-                      {% widthratio s.quote.days 1 s.quote.daily_price %} {{ s.quote.currency }}
-                    </span>
-                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
-                    <span style="font-size:.9em; color:#6b7280;">
-                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
-                      (instead of {{ s.quote.daily_price }} {{ s.quote.currency }}/day)
-                    </span>
-                    — {{ s.start }} → {{ s.end }}
-                  </div>
-                {% elif s.quote.base_daily_rate %}
-                  <div style="margin:.25rem 0;">
-                    <span style="text-decoration:line-through; color:#6b7280;">
-                      {% widthratio s.quote.days 1 s.quote.base_daily_rate %} {{ s.quote.currency }}
-                    </span>
-                    <span> → <strong>{{ s.quote.total }} {{ s.quote.currency }}</strong></span>
-                    <span style="font-size:.9em; color:#6b7280;">
-                      • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day
-                      (instead of {{ s.quote.base_daily_rate }} {{ s.quote.currency }}/day)
-                    </span>
-                    — {{ s.start }} → {{ s.end }}
-                  </div>
-                {% else %}
-                  <div style="margin:.25rem 0;">
-                    Available: {{ s.start }} → {{ s.end }}
-                    ({{ s.quote.days }} day{{ s.quote.days|pluralize }}, {{ s.quote.total }} {{ s.quote.currency }}
-                    • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day)
-                  </div>
-                {% endif %}
-              {% else %}
-                <div style="margin:.25rem 0;">
-                  Available: {{ s.start }} → {{ s.end }}
-                  ({{ s.quote.days }} day{{ s.quote.days|pluralize }}, {{ s.quote.total }} {{ s.quote.currency }}
-                  • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day)
-                </div>
-              {% endif %}
+              <div style="margin:.25rem 0;">
+                Available: {{ s.start }} → {{ s.end }}
+                ({{ s.quote.days }} day{{ s.quote.days|pluralize }}, {{ s.quote.total }} {{ s.quote.currency }}
+                • ≈ {% widthratio s.quote.total s.quote.days 1 %} {{ s.quote.currency }}/day)
+              </div>
             {% endfor %}
           </div>
 
@@ -387,8 +255,6 @@
           </div>
         </div>
       </div>
-      {% endwith %}
-      {% endwith %}
       {% endwith %}
     {% endfor %}
   {% endif %}

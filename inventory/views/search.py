@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
@@ -13,51 +13,41 @@ from cart.models.cart import CartItem
 from inventory.helpers.intervals import free_slices
 from inventory.helpers.pricing import RateTable, quote_total
 from inventory.models.reservation import Location, ReservationStatus, VehicleReservation
-from inventory.models.vehicle import Vehicle
+from inventory.models.vehicle import Vehicle, VehicleType  # <-- added VehicleType
 
 
 def home(request: HttpRequest) -> HttpResponse:
     """
-    Render the home page with a list of locations for the search form.
-
-    Context:
-        locations (QuerySet[Location]): All locations for user selection.
-
-    Returns:
-        HttpResponse: Rendered "home.html".
+    Render the home page with a list of locations for the search form,
+    plus a simple vehicle filter (name, type, pickup, drop-off).
     """
-    locations_qs = Location.objects.all()
-    context = {"locations": locations_qs}
+    locations_qs = Location.objects.all().order_by("name")
+
+    context: Dict[str, Any] = {
+        "locations": locations_qs,
+        "vehicle_types": list(VehicleType.choices),
+        "start": (request.GET.get("start") or "").strip(),
+        "end": (request.GET.get("end") or "").strip(),
+        "pickup_location": (request.GET.get("pickup_location") or "").strip(),
+        "return_location": (request.GET.get("return_location") or "").strip(),
+        "results": [],
+        "partial_results": [],
+    }
     return render(request, "home.html", context)
 
 
 def search(request: HttpRequest) -> HttpResponse:
     """
-    Search vehicles available in a date range with optional location filters.
-
-    Query params:
-        start (YYYY-MM-DD): Start date (required with `end`).
-        end (YYYY-MM-DD): End date (must be after `start`).
-        pickup_location: Optional Location PK to restrict pickups.
-        return_location: Optional Location PK to restrict returns.
-
-    Behavior:
-        - Validates dates; if invalid, re-renders the home page with existing inputs.
-        - Filters vehicles that have both pickup and return locations configured,
-          optionally constrained by the selected locations.
-        - Computes blocking intervals from confirmed reservations and the user's cart.
-        - Uses `free_slices` to find available windows within the requested range.
-        - Produces:
-            * `results`: vehicles fully available for the whole period, with a quote.
-            * `partial_results`: vehicles available only for sub-windows, each quoted.
-
-    Returns:
-        HttpResponse: Rendered "home.html" with results and partial_results.
+    Search vehicles available in a date range with optional filters.
     """
     start_str = request.GET.get("start")
     end_str = request.GET.get("end")
     pickup_location_param = (request.GET.get("pickup_location") or "").strip()
     return_location_param = (request.GET.get("return_location") or "").strip()
+
+    # Additional filters to align with the vehicle list filter
+    name_q = (request.GET.get("name") or "").strip()
+    car_type_q = (request.GET.get("car_type") or "").strip()  # dropdown value
 
     start_date = parse_date(start_str) if start_str else None
     end_date = parse_date(end_str) if end_str else None
@@ -68,6 +58,7 @@ def search(request: HttpRequest) -> HttpResponse:
         "pickup_location": pickup_location_param,
         "return_location": return_location_param,
         "locations": Location.objects.all().order_by("name"),
+        "vehicle_types": list(VehicleType.choices),
         "results": [],
         "partial_results": [],
     }
@@ -81,16 +72,13 @@ def search(request: HttpRequest) -> HttpResponse:
         return render(request, "home.html", context)
 
     today = date.today()
-
-    start_in_past = start_date < today
-    end_in_past = end_date < today
-    if start_in_past and end_in_past:
+    if start_date < today and end_date < today:
         messages.error(request, "Start date and end date cannot be in the past.")
         return render(request, "home.html", context)
-    if start_in_past:
+    if start_date < today:
         messages.error(request, "Start date cannot be in the past.")
         return render(request, "home.html", context)
-    if end_in_past:
+    if end_date < today:
         messages.error(request, "End date cannot be in the past.")
         return render(request, "home.html", context)
 
@@ -111,21 +99,18 @@ def search(request: HttpRequest) -> HttpResponse:
         .order_by("id")
     )
 
-    if (
-        pickup_location_param
-        and Location.objects.filter(pk=pickup_location_param).exists()
-    ):
-        vehicles_qs = vehicles_qs.filter(
-            available_pickup_locations__id=pickup_location_param
-        )
+    # Apply location constraints
+    if pickup_location_param and Location.objects.filter(pk=pickup_location_param).exists():
+        vehicles_qs = vehicles_qs.filter(available_pickup_locations__id=pickup_location_param)
 
-    if (
-        return_location_param
-        and Location.objects.filter(pk=return_location_param).exists()
-    ):
-        vehicles_qs = vehicles_qs.filter(
-            available_return_locations__id=return_location_param
-        )
+    if return_location_param and Location.objects.filter(pk=return_location_param).exists():
+        vehicles_qs = vehicles_qs.filter(available_return_locations__id=return_location_param)
+
+    # Apply name / type filters (plate removed as requested)
+    if name_q:
+        vehicles_qs = vehicles_qs.filter(name__icontains=name_q)
+    if car_type_q:
+        vehicles_qs = vehicles_qs.filter(car_type=car_type_q)
 
     vehicles_qs = vehicles_qs.distinct()
 
@@ -147,15 +132,9 @@ def search(request: HttpRequest) -> HttpResponse:
 
     blocks_by_vehicle: dict[int, List[Tuple[date, date]]] = defaultdict(list)
     for row in reservations_values:
-        vid = row["vehicle_id"]
-        s = row["start_date"]
-        e = row["end_date"]
-        blocks_by_vehicle[vid].append((s, e))
+        blocks_by_vehicle[row["vehicle_id"]].append((row["start_date"], row["end_date"]))
     for row in my_cart_values:
-        vid = row["vehicle_id"]
-        s = row["start_date"]
-        e = row["end_date"]
-        blocks_by_vehicle[vid].append((s, e))
+        blocks_by_vehicle[row["vehicle_id"]].append((row["start_date"], row["end_date"]))
 
     results_list: List[Dict[str, Any]] = []
     partial_results_list: List[Dict[str, Any]] = []

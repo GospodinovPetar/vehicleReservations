@@ -360,16 +360,12 @@ class CartViewSet(viewsets.ViewSet):
         ser.is_valid(raise_exception=True)
 
         vehicle = get_object_or_404(Vehicle, pk=ser.validated_data["vehicle_id"])
-        pickup = get_object_or_404(
-            Location, pk=ser.validated_data["pickup_location_id"]
-        )
-        return_loc = get_object_or_404(
-            Location, pk=ser.validated_data["return_location_id"]
-        )
+        pickup = get_object_or_404(Location, pk=ser.validated_data["pickup_location_id"])
+        return_loc = get_object_or_404(Location, pk=ser.validated_data["return_location_id"])
 
         if (
-            vehicle.available_pickup_locations.exists()
-            and not vehicle.available_pickup_locations.filter(pk=pickup.pk).exists()
+                vehicle.available_pickup_locations.exists()
+                and not vehicle.available_pickup_locations.filter(pk=pickup.pk).exists()
         ):
             return Response(
                 {
@@ -382,8 +378,8 @@ class CartViewSet(viewsets.ViewSet):
                 status=400,
             )
         if (
-            vehicle.available_return_locations.exists()
-            and not vehicle.available_return_locations.filter(pk=return_loc.pk).exists()
+                vehicle.available_return_locations.exists()
+                and not vehicle.available_return_locations.filter(pk=return_loc.pk).exists()
         ):
             return Response(
                 {
@@ -397,8 +393,9 @@ class CartViewSet(viewsets.ViewSet):
             )
 
         cart = Cart.get_or_create_active(request.user)
+
         try:
-            item = CartItem.merge_or_create(
+            item = CartItem(
                 cart=cart,
                 vehicle=vehicle,
                 start_date=ser.validated_data["start_date"],
@@ -406,6 +403,9 @@ class CartViewSet(viewsets.ViewSet):
                 pickup_location=pickup,
                 return_location=return_loc,
             )
+            item.full_clean()
+            item.save()
+
             if getattr(vehicle, "price_per_day", None) is not None:
                 daily = Decimal(str(vehicle.price_per_day))
                 rt = RateTable(day=float(daily))
@@ -415,6 +415,7 @@ class CartViewSet(viewsets.ViewSet):
                 )
                 item.total_price = total
                 item.save(update_fields=["total_price"])
+
         except DjangoValidationError as e:
             errors = getattr(e, "message_dict", {"non_field_errors": e.messages})
             return Response({"errors": errors}, status=400)
@@ -535,13 +536,14 @@ class CartViewSet(viewsets.ViewSet):
             created_ids = []
             try:
                 for it in items:
-                    r = VehicleReservation.merge_or_create_for_user(
+                    r = VehicleReservation.objects.create(
                         user=request.user,
                         vehicle=it.vehicle,
-                        start_date=it.start_date,
-                        end_date=it.end_date,
                         pickup_location=it.pickup_location,
                         return_location=it.return_location,
+                        start_date=it.start_date,
+                        end_date=it.end_date,
+                        group=group,
                     )
                     created_ids.append(r.id)
             except DjangoValidationError as e:

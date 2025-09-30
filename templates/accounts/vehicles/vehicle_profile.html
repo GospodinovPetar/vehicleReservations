@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card">
+    <h1 style="margin:0 0 .5rem 0;">{{ v.name }}</h1>
+    {% if v.plate_number %}
+      <div style="color:#6b7280;">Plate: {{ v.plate_number }}</div>
+    {% endif %}
+
+    <div style="display:grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap:12px; margin-top:12px;">
+      <div>
+        <h3 style="margin:.25rem 0;">Specifications</h3>
+        <ul style="margin:0; padding-left:18px;">
+          <li><strong>Type:</strong> {{ v.get_car_type_display }}</li>
+          <li><strong>Engine:</strong> {{ v.get_engine_type_display }}</li>
+          <li><strong>Seats:</strong> {{ v.seats }}</li>
+          <li><strong>Price/day:</strong> {{ v.price_per_day }} EUR</li>
+          {% if v.year_of_manufacturing %}<li><strong>Year:</strong> {{ v.year_of_manufacturing }}</li>{% endif %}
+          {% if v.top_speed_kmh %}<li><strong>Top speed:</strong> {{ v.top_speed_kmh }} km/h</li>{% endif %}
+          {% if v.mileage_km %}<li><strong>Mileage:</strong> {{ v.mileage_km|floatformat:0 }} km</li>{% endif %}
+          {% if v.fuel_consumption_l_100km is not None %}<li><strong>Fuel consumption:</strong> {{ v.fuel_consumption_l_100km }} L/100km</li>{% endif %}
+        </ul>
+      </div>
+
+      <div>
+        <h3 style="margin:.25rem 0;">Locations</h3>
+        <div><strong>Pickup:</strong>
+          {% with picks=v.available_pickup_locations.all %}
+            {% if picks %}{{ picks|join:", " }}{% else %}<em>No restriction</em>{% endif %}
+          {% endwith %}
+        </div>
+        <div style="margin-top:6px;"><strong>Return:</strong>
+          {% with rets=v.available_return_locations.all %}
+            {% if rets %}{{ rets|join:", " }}{% else %}<em>No restriction</em>{% endif %}
+          {% endwith %}
+        </div>
+
+        {% if v.damages %}
+          <h3 style="margin:12px 0 4px;">Damages / Notes</h3>
+          <div style="white-space:pre-wrap; color:#374151;">{{ v.damages }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      {% if request.user.is_authenticated and request.user.is_staff %}
+        <a href="{% url 'accounts:vehicle-edit' v.id %}" class="btn">Edit Vehicle</a>
+      {% endif %}
+      <a href="javascript:history.back()" class="btn btn-secondary">← Back</a>
+    </div>
+  </div>
+{% endblock %}

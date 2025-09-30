@@ -3,9 +3,10 @@ from django.contrib.auth.decorators import (
     login_required,
     permission_required,
 )
+from django.db import models
 from django.shortcuts import redirect, render, get_object_or_404
 
-from accounts.forms import VehicleForm
+from accounts.forms import VehicleForm, VehicleFilterForm
 from accounts.views.admins_managers import manager_required
 from inventory.models.reservation import Location, ReservationStatus
 from inventory.models.vehicle import Vehicle
@@ -16,17 +17,49 @@ from inventory.models.vehicle import Vehicle
 @permission_required("inventory.view_vehicle", raise_exception=True)
 def vehicle_list(request):
     """
-    List all vehicles for managers/admins.
+    List all vehicles for managers/admins with server-side filters.
 
     Renders:
         accounts/vehicles/vehicle_list.html
 
     Context:
-        vehicles (QuerySet[Vehicle]): All vehicles.
+        vehicles (QuerySet[Vehicle]): Filtered vehicles.
+        form (VehicleFilterForm): filter form for GET filters.
     """
-    vehicles = Vehicle.objects.all()
+    form = VehicleFilterForm(request.GET or None)
+
+    vehicles = (
+        Vehicle.objects.all()
+        .prefetch_related("available_pickup_locations", "available_return_locations")
+        .order_by("name", "id")
+    )
+
+    if form.is_valid():
+        cd = form.cleaned_data
+        if cd.get("name"):
+            vehicles = vehicles.filter(name__icontains=cd["name"].strip())
+        if cd.get("plate"):
+            vehicles = vehicles.filter(plate_number__icontains=cd["plate"].strip())
+        if cd.get("car_type"):
+            vehicles = vehicles.filter(car_type=cd["car_type"])
+        if cd.get("pickup_location"):
+            loc = cd["pickup_location"]
+            vehicles = vehicles.filter(
+                models.Q(available_pickup_locations__isnull=True)
+                | models.Q(available_pickup_locations=loc)
+            )
+        if cd.get("return_location"):
+            loc = cd["return_location"]
+            vehicles = vehicles.filter(
+                models.Q(available_return_locations__isnull=True)
+                | models.Q(available_return_locations=loc)
+            )
+        vehicles = vehicles.distinct()
+
     return render(
-        request, "accounts/vehicles/vehicle_list.html", {"vehicles": vehicles}
+        request,
+        "accounts/vehicles/vehicle_list.html",
+        {"vehicles": vehicles, "form": form},
     )
 
 
@@ -39,17 +72,9 @@ def vehicle_create(request):
 
     - If a `pickup` GET param is provided and valid, pre-selects that location.
     - On POST with valid data, saves the vehicle, stores the last chosen pickup
-      in the session, flashes a success message, and redirects to the list.
-    - On validation errors, flashes an error message and re-renders the form.
-
-    Renders:
-        accounts/vehicles/vehicle_form.html
-
-    Session:
-        last_pickup_id (int|None): The last selected pickup location ID.
+      in the session, and redirects back to the list.
     """
     pickup_param = request.GET.get("pickup")
-
     initial = {}
     if pickup_param:
         try:
@@ -80,36 +105,13 @@ def vehicle_edit(request, pk):
     """
     Edit an existing vehicle.
 
-    - On GET, displays a form populated with the vehicle.
-    - On POST with valid data, updates vehicle and its pickup/return locations,
-      flashes a success message, and redirects to the list.
-
-    Args:
-        pk (int): Vehicle primary key.
-
-    Renders:
-        accounts/vehicles/vehicle_form.html
+    Renders the same form as creation.
     """
     vehicle = get_object_or_404(Vehicle, pk=pk)
-
     if request.method == "POST":
         form = VehicleForm(request.POST, instance=vehicle)
         if form.is_valid():
-            vehicle = form.save(commit=False)
-            vehicle.save()
-
-            pickup = form.cleaned_data.get("available_pickup_locations")
-            if pickup:
-                vehicle.available_pickup_locations.set([pickup])
-            else:
-                vehicle.available_pickup_locations.clear()
-
-            dropoffs = form.cleaned_data.get("available_return_locations")
-            if dropoffs:
-                vehicle.available_return_locations.set(dropoffs)
-            else:
-                vehicle.available_return_locations.clear()
-
+            form.save()
             messages.success(request, "Vehicle updated successfully.")
             return redirect("accounts:vehicle-list")
     else:
@@ -153,3 +155,15 @@ def vehicle_delete(request, pk):
     vehicle.delete()
     messages.success(request, "Vehicle deleted successfully.")
     return redirect("accounts:vehicle-list")
+
+def vehicle_profile(request, pk):
+    """
+    Public vehicle profile page.
+    """
+    v = get_object_or_404(
+        Vehicle.objects.prefetch_related(
+            "available_pickup_locations", "available_return_locations"
+        ),
+        pk=pk,
+    )
+    return render(request, "accounts/vehicles/vehicle_profile.html", {"v": v})

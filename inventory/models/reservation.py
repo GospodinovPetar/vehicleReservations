@@ -275,12 +275,13 @@ class ReservationStatus(models.TextChoices):
     CANCELED = "CANCELED", "Canceled"
     REJECTED = "REJECTED", "Rejected"
     COMPLETED = "COMPLETED", "Completed"
+    ONGOING = "ONGOING", "Ongoing"
     PENDING = "PENDING", "Pending"
     AWAITING_PAYMENT = "AWAITING_PAYMENT", "Awaiting payment"
 
     @classmethod
     def blocking(cls) -> list[str]:
-        return [cls.RESERVED, cls.PENDING, cls.AWAITING_PAYMENT]
+        return [cls.RESERVED, cls.PENDING, cls.AWAITING_PAYMENT, cls.ONGOING]
 
 
 class ReservationGroup(models.Model):
@@ -296,21 +297,6 @@ class ReservationGroup(models.Model):
         default=ReservationStatus.PENDING,
     )
     created_at = models.DateTimeField(auto_now_add=True)
-
-    def apply_vehicle_location_flip(self) -> None:
-        items_qs = VehicleReservation.objects.filter(group=self).select_related(
-            "vehicle",
-            "pickup_location",
-            "return_location",
-        )
-        for item in items_qs:
-            vehicle_obj: Optional[Vehicle] = item.vehicle
-            if vehicle_obj is None:
-                continue
-            if item.return_location_id:
-                vehicle_obj.available_pickup_locations.set([item.return_location_id])
-            if item.pickup_location_id:
-                vehicle_obj.available_return_locations.add(item.pickup_location_id)
 
     @property
     def total_price(self) -> Decimal:
@@ -353,6 +339,8 @@ class ReservationGroup(models.Model):
                 (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.RESERVED),
                 (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.REJECTED),
                 (ReservationStatus.AWAITING_PAYMENT, ReservationStatus.PENDING),
+                (ReservationStatus.RESERVED, ReservationStatus.ONGOING),
+                (ReservationStatus.ONGOING, ReservationStatus.COMPLETED),
                 (ReservationStatus.RESERVED, ReservationStatus.COMPLETED),
             }
             if (previous_status_value, self.status) not in allowed:
@@ -364,10 +352,7 @@ class ReservationGroup(models.Model):
 
         result = super().save(*args, **kwargs)
 
-        status_changed_flag = previous_status_value != self.status
-        if status_changed_flag and self.status == ReservationStatus.RESERVED:
-            self.apply_vehicle_location_flip()
-
+        # Location flip removed: no side effects on vehicles when status changes.
         return result
 
     def __str__(self) -> str:

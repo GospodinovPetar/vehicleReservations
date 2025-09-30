@@ -39,7 +39,7 @@ def add_to_cart(request: HttpRequest) -> HttpResponse:
         - Validates presence and parsability of start/end dates.
         - Ensures both pickup and return locations exist.
         - Runs model validation on a prospective CartItem.
-        - Merges with a compatible existing CartItem or creates a new one.
+        - Always creates a new CartItem (no merging).
         - On success, redirects to the cart; on error, returns to the referrer.
     """
     referer_url = request.META.get("HTTP_REFERER", "/")
@@ -86,29 +86,21 @@ def add_to_cart(request: HttpRequest) -> HttpResponse:
 
     try:
         item.full_clean()
-
-        merged_item = CartItem.merge_or_create(
-            cart=cart_obj,
-            vehicle=vehicle_obj,
-            start_date=start_date,
-            end_date=end_date,
-            pickup_location=pickup_obj,
-            return_location=return_obj,
-        )
+        item.save()
 
         vehicle_str = str(vehicle_obj)
-        period_str = f"{merged_item.start_date} \u2192 {merged_item.end_date}"
-        messages.success(
-            request, f"Added {vehicle_str} to cart. Period now {period_str}."
-        )
+        period_str = f"{item.start_date} \u2192 {item.end_date}"
+        messages.success(request, f"Added {vehicle_str} to cart for {period_str}.")
         return redirect("cart:view_cart")
 
     except ValidationError as exc:
-        message_list = getattr(exc, "messages", None)
-        if not message_list:
-            error_msg = str(exc)
+        if hasattr(exc, "message_dict") and exc.message_dict:
+            error_msg = "; ".join(
+                f"{field}: {', '.join(msgs)}" for field, msgs in exc.message_dict.items()
+            )
         else:
-            error_msg = "; ".join(message_list)
+            message_list = getattr(exc, "messages", None)
+            error_msg = "; ".join(message_list) if message_list else str(exc)
         if not error_msg:
             error_msg = "Could not add this item to your cart."
         messages.error(request, error_msg)

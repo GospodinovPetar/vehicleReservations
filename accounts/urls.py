@@ -39,9 +39,9 @@ from .views.reservations import (
     reservation_update,
     reservation_group_reject,
     reservation_group_approve,
-    reservation_list,
+    reservation_list, reservation_group_ongoing,
 )
-from .views.vehicles import vehicle_delete, vehicle_edit, vehicle_create, vehicle_list
+from .views.vehicles import vehicle_delete, vehicle_edit, vehicle_create, vehicle_list, vehicle_profile
 
 app_name = "accounts"
 
@@ -69,6 +69,7 @@ urlpatterns = [
     path(
         "admin/users/<int:pk>/edit/", login_required(edit_user), name="admin-edit-user"
     ),
+    path("vehicles/<int:pk>/", vehicle_profile, name="vehicle-profile"),
     path(
         "admin/users/<int:pk>/delete/",
         login_required(delete_user),
@@ -221,15 +222,15 @@ urlpatterns = [
         name="reservation_group_cancel",
     ),
     path(
-        "manager/reservations/<int:pk>/complete/",
+        "manager/reservations/group/<int:pk>/ongoing/",
         login_required(
             manager_required(
                 permission_required(
                     "inventory.change_reservationgroup", raise_exception=True
-                )(reservation_complete)
+                )(reservation_group_ongoing)
             )
         ),
-        name="reservation-complete",
+        name="reservation_group_ongoing",
     ),
     path(
         "manager/reservations/group/<int:pk>/complete/",

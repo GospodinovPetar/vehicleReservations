@@ -14,13 +14,13 @@
                 &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
               </div>
 
-                <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
-                  {% csrf_token %}
-                  {% if g.status == 'AWAITING_PAYMENT' %}
-                    <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
-                  {% endif %}
-                  <button class="btn" type="submit">Cancel</button>
-                </form>
+              <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
+                {% csrf_token %}
+                {% if g.status == 'AWAITING_PAYMENT' %}
+                  <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
+                {% endif %}
+                <button class="btn" type="submit">Cancel</button>
+              </form>
             </div>
 
             <table>
@@ -38,8 +38,20 @@
                 {% with active_count=g.reservations.all|length %}
                   {% for r in g.reservations.all %}
                     <tr>
-                      <td>{{ r.user }}</td>
-                      <td>{{ r.vehicle_display }}</td>
+                      <td>
+                        {% if r.user.first_name or r.user.last_name %}
+                          {{ r.user.first_name }} {{ r.user.last_name }}
+                        {% else %}
+                          {{ r.user.username }}
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if r.vehicle_id %}
+                          <a href="{% url 'accounts:vehicle-profile' r.vehicle_id %}">{{ r.vehicle_display }}</a>
+                        {% else %}
+                          {{ r.vehicle_display }}
+                        {% endif %}
+                      </td>
                       <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                       <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
                       <td>{{ r.total_price|floatformat:2 }} EUR</td>
@@ -108,8 +120,20 @@
             <tbody>
               {% for r in g.reservations.all %}
                 <tr>
-                  <td>{{ r.user }}</td>
-                  <td>{{ r.vehicle_display }}</td>
+                  <td>
+                    {% if r.user.first_name or r.user.last_name %}
+                      {{ r.user.first_name }} {{ r.user.last_name }}
+                    {% else %}
+                      {{ r.user.username }}
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if r.vehicle_id %}
+                      <a href="{% url 'accounts:vehicle-profile' r.vehicle_id %}">{{ r.vehicle_display }}</a>
+                    {% else %}
+                      {{ r.vehicle_display }}
+                    {% endif %}
+                  </td>
                   <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                   <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
                   <td>{{ r.total_price|floatformat:2 }} EUR</td>
@@ -160,8 +184,20 @@
             <tbody>
               {% for r in g.reservations.all %}
                 <tr>
-                  <td>{{ r.user }}</td>
-                  <td>{{ r.vehicle_display }}</td>
+                  <td>
+                    {% if r.user.first_name or r.user.last_name %}
+                      {{ r.user.first_name }} {{ r.user.last_name }}
+                    {% else %}
+                      {{ r.user.username }}
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if r.vehicle_id %}
+                      <a href="{% url 'accounts:vehicle-profile' r.vehicle_id %}">{{ r.vehicle_display }}</a>
+                    {% else %}
+                      {{ r.vehicle_display }}
+                    {% endif %}
+                  </td>
                   <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                   <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
                   <td>{{ r.total_price|floatformat:2 }} EUR</td>

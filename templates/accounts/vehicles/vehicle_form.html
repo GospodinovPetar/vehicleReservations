@@ -22,6 +22,7 @@
       {% endif %}
 
       <div class="form-grid">
+        {# Basics #}
         <div class="form-field">
           <label for="{{ form.name.id_for_label }}">
             {{ form.name.label }}
@@ -71,10 +72,52 @@
           <label for="{{ form.price_per_day.id_for_label }}">
             {{ form.price_per_day.label }}
           </label>
-          {{ form.price_per_day }}
+            {{ form.price_per_day }}
           {% if form.price_per_day.errors %}<div class="field-error">{{ form.price_per_day.errors|striptags }}</div>{% endif %}
         </div>
 
+        {# --- New spec fields --- #}
+        <div class="form-field">
+          <label for="{{ form.year_of_manufacturing.id_for_label }}">
+            {{ form.year_of_manufacturing.label }}
+          </label>
+          {{ form.year_of_manufacturing }}
+          {% if form.year_of_manufacturing.errors %}<div class="field-error">{{ form.year_of_manufacturing.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.top_speed_kmh.id_for_label }}">
+            {{ form.top_speed_kmh.label }}
+          </label>
+          {{ form.top_speed_kmh }}
+          {% if form.top_speed_kmh.errors %}<div class="field-error">{{ form.top_speed_kmh.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.mileage_km.id_for_label }}">
+            {{ form.mileage_km.label }}
+          </label>
+          {{ form.mileage_km }}
+          {% if form.mileage_km.errors %}<div class="field-error">{{ form.mileage_km.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.fuel_consumption_l_100km.id_for_label }}">
+            {{ form.fuel_consumption_l_100km.label }}
+          </label>
+          {{ form.fuel_consumption_l_100km }}
+          {% if form.fuel_consumption_l_100km.errors %}<div class="field-error">{{ form.fuel_consumption_l_100km.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field form-field--full">
+          <label for="{{ form.damages.id_for_label }}">
+            {{ form.damages.label }}
+          </label>
+          {{ form.damages }}
+          {% if form.damages.errors %}<div class="field-error">{{ form.damages.errors|striptags }}</div>{% endif %}
+        </div>
+
+        {# Locations #}
         <div class="form-field form-field--full">
           <label for="{{ form.available_pickup_locations.id_for_label }}">
             {{ form.available_pickup_locations.label }}

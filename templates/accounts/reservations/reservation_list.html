@@ -1,75 +1,139 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h2>Ongoing Reservations</h2>
-        {% if request.user.role == "admin" %}
-            <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-        {% else %}
-            <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
-        {% endif %}
+<h2>Reservations</h2>
+
+<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+  {% if request.user.role == "admin" %}
+    <a href="{% url 'accounts:admin-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% else %}
+    <a href="{% url 'accounts:manager-dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  {% endif %}
+</div>
+
+{# ---------------------- Filters (GET; no JS) ---------------------- #}
+<form method="get" class="card" style="margin:12px 0; padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
+  <div style="display:grid; grid-template-columns: repeat(3, minmax(200px, 1fr)); gap:10px;">
+    <div>
+      <label style="display:block; font-size:12px; color:#555;">User name</label>
+      <input type="text" name="user" placeholder="e.g. John Doe"
+             value="{{ request.GET.user|default:'' }}" style="width:100%;">
+    </div>
+    <div>
+      <label style="display:block; font-size:12px; color:#555;">Status</label>
+      <select name="status" style="width:100%;">
+        {# empty = all statuses #}
+        <option value="" {% if not request.GET.status %}selected{% endif %}>All statuses</option>
+        {# Include the codes you use in your app #}
+        <option value="PENDING" {% if request.GET.status == "PENDING" %}selected{% endif %}>Pending</option>
+        <option value="AWAITING_PAYMENT" {% if request.GET.status == "AWAITING_PAYMENT" %}selected{% endif %}>Awaiting payment</option>
+        <option value="RESERVED" {% if request.GET.status == "RESERVED" %}selected{% endif %}>Reserved</option>
+        <option value="ONGOING" {% if request.GET.status == "ONGOING" %}selected{% endif %}>Ongoing</option>
+        <option value="COMPLETED" {% if request.GET.status == "COMPLETED" %}selected{% endif %}>Completed</option>
+        <option value="REJECTED" {% if request.GET.status == "REJECTED" %}selected{% endif %}>Rejected</option>
+        <option value="CANCELED" {% if request.GET.status == "CANCELED" %}selected{% endif %}>Canceled</option>
+      </select>
+    </div>
+    <div style="align-self:end;">
+      <button type="submit" class="btn">Apply filters</button>
+      <a href="{{ request.path }}" class="btn btn-secondary">Clear</a>
+    </div>
+  </div>
+</form>
+
+{# normalize the user query once #}
+{% with user_q=request.GET.user|default_if_none:''|lower %}
+{% with status_q=request.GET.status|default_if_none:'' %}
+
+<h2 style="margin-top:1em;">Ongoing Reservations</h2>
 
 {% if ongoing %}
   {% for group in ongoing %}
-    <div class="card" style="margin-bottom: 2em;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75em;">
-        <div>
-          <h3 style="margin:0;">Group {{ group.id }} — Ref: {{ group.reference }}</h3>
-          <div style="color:#666;">
-            Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
-            · <strong>Items:</strong> {{ group.reservations.count }}
+    {# Status filter at group level #}
+    {% if not status_q or status_q == group.status %}
+      <div class="card" style="margin-bottom: 2em;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75em;">
+          <div>
+            <h3 style="margin:0;">Group {{ group.id }} — Ref: {{ group.reference }}</h3>
+            <div style="color:#666;">
+              Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
+              · <strong>Items:</strong> {{ group.reservations.count }}
+            </div>
+          </div>
+
+          <div>
+            {% if group.status == "PENDING" %}
+              <a class="btn btn-success" href="{% url 'accounts:reservation-group-approve' group.id %}">Approve</a>
+              <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject</a>
+              <a class="btn" href="{% url 'accounts:reservation-update' group.id %}">Edit</a>
+            {% elif group.status == "AWAITING_PAYMENT" %}
+              <span class="badge">Awaiting Payment</span>
+              <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject</a>
+            {% elif group.status == "RESERVED" %}
+              <form method="post" action="{% url 'accounts:reservation_group_ongoing' group.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-success" type="submit">Mark as Ongoing</button>
+              </form>
+            {% elif group.status == "ONGOING" %}
+              <form method="post" action="{% url 'accounts:reservation_group_complete' group.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-success" type="submit">Mark as Completed</button>
+              </form>
+            {% endif %}
           </div>
         </div>
 
-        <div>
-          {% if group.status == "PENDING" %}
-            <a class="btn btn-success" href="{% url 'accounts:reservation-group-approve' group.id %}">Approve</a>
-            <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject</a>
-            <a class="btn" href="{% url 'accounts:reservation-update' group.id %}">Edit</a>
-          {% elif group.status == "AWAITING_PAYMENT" %}
-            <span class="badge">Awaiting Payment</span>
-            <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject</a>
-          {% elif group.status == "RESERVED" %}
-            <form method="post" action="{% url 'accounts:reservation_group_complete' group.id %}" style="display:inline;">
-              {% csrf_token %}
-              <button class="btn btn-success" type="submit">Mark as Completed</button>
-            </form>
-          {% endif %}
-        </div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>User</th>
-            <th>Vehicle</th>
-            <th>Dates</th>
-            <th>Pickup → Return</th>
-            <th>Total</th>
-            <th>Item Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in group.reservations.all %}
+        <table>
+          <thead>
             <tr>
-              <td><a href="{% url 'accounts:profile-detail' r.user.id %}">{{ r.user.username }}</a></td>
-              <td>{{ r.vehicle_display|default:r.vehicle }}</td>
-              <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-              <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
-              <td>{{ r.total_price|floatformat:2 }} EUR</td>
-              <td>
-                {% if group.status == "PENDING" or group.status == "AWAITING_PAYMENT" %}
-                  <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
-                  <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
-                    {% csrf_token %}
-                    <button class="btn" type="submit">Delete</button>
-                  </form>
-                {% endif %}
-              </td>
+              <th>Customer</th>
+              <th>Vehicle</th>
+              <th>Dates</th>
+              <th>Pickup → Return</th>
+              <th>Total</th>
+              <th>Item Actions</th>
             </tr>
-          {% empty %}
-            <tr><td colspan="6">No items in this group.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {# Render only rows whose (first+last) contains user_q (case-insensitive) #}
+            {% for r in group.reservations.all %}
+              {% with full_name=r.user.first_name|default_if_none:''|add:" "|add:r.user.last_name|default_if_none:'' %}
+              {% with full_lower=full_name|lower %}
+                {% if not user_q or user_q in full_lower %}
+                  <tr>
+                    <td>
+                      <a href="{% url 'accounts:profile-detail' r.user.id %}">
+                        {% if r.user.first_name or r.user.last_name %}
+                          {{ r.user.first_name }} {{ r.user.last_name }}
+                        {% else %}
+                          {{ r.user.username }}
+                        {% endif %}
+                      </a>
+                    </td>
+                    <td>{{ r.vehicle_display|default:r.vehicle }}</td>
+                    <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+                    <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
+                    <td>{{ r.total_price|floatformat:2 }} EUR</td>
+                    <td>
+                      {% if group.status == "PENDING" or group.status == "AWAITING_PAYMENT" %}
+                        <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
+                        <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
+                          {% csrf_token %}
+                          <button class="btn" type="submit">Delete</button>
+                        </form>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endif %}
+              {% endwith %}
+              {% endwith %}
+            {% empty %}
+              <tr><td colspan="6">No items in this group.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
   {% endfor %}
 {% else %}
   <p>No ongoing reservations.</p>
@@ -79,44 +143,63 @@
 
 {% if archived %}
   {% for group in archived %}
-    <div class="card" style="margin-bottom: 2em;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75em;">
-        <div>
-          <h3 style="margin:0;">Group {{ group.id }} — Ref: {{ group.reference }}</h3>
-          <div style="color:#666;">
-            Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
-            · <strong>Items:</strong> {{ group.reservations.count }}
+    {% if not status_q or status_q == group.status %}
+      <div class="card" style="margin-bottom: 2em;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75em;">
+          <div>
+            <h3 style="margin:0;">Group {{ group.id }} — Ref: {{ group.reference }}</h3>
+            <div style="color:#666;">
+              Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
+              · <strong>Items:</strong> {{ group.reservations.count }}
+            </div>
           </div>
         </div>
-      </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>User</th>
-            <th>Vehicle</th>
-            <th>Dates</th>
-            <th>Pickup → Return</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in group.reservations.all %}
+        <table>
+          <thead>
             <tr>
-              <td><a href="{% url 'accounts:profile-detail' r.user.id %}">{{ r.user.username }}</a></td>
-              <td>{{ r.vehicle_display|default:r.vehicle }}</td>
-              <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-              <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
-              <td>{{ r.total_price|floatformat:2 }} EUR</td>
+              <th>Customer</th>
+              <th>Vehicle</th>
+              <th>Dates</th>
+              <th>Pickup → Return</th>
+              <th>Total</th>
             </tr>
-          {% empty %}
-            <tr><td colspan="5">No items in this group.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {% for r in group.reservations.all %}
+              {% with full_name=r.user.first_name|default_if_none:''|add:" "|add:r.user.last_name|default_if_none:'' %}
+              {% with full_lower=full_name|lower %}
+                {% if not user_q or user_q in full_lower %}
+                  <tr>
+                    <td>
+                      <a href="{% url 'accounts:profile-detail' r.user.id %}">
+                        {% if r.user.first_name or r.user.last_name %}
+                          {{ r.user.first_name }} {{ r.user.last_name }}
+                        {% else %}
+                          {{ r.user.username }}
+                        {% endif %}
+                      </a>
+                    </td>
+                    <td>{{ r.vehicle_display|default:r.vehicle }}</td>
+                    <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+                    <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
+                    <td>{{ r.total_price|floatformat:2 }} EUR</td>
+                  </tr>
+                {% endif %}
+              {% endwith %}
+              {% endwith %}
+            {% empty %}
+              <tr><td colspan="5">No items in this group.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
   {% endfor %}
 {% else %}
   <p>No archived reservations.</p>
 {% endif %}
+
+{% endwith %}
+{% endwith %}
 {% endblock %}
