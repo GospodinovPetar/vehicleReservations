@@ -72,9 +72,34 @@ def search(request: HttpRequest) -> HttpResponse:
         "partial_results": [],
     }
 
-    if (start_date <= end_date) or (start_date is None and end_date is None):
-        messages.error(request, "Invalid start and end dates.")
+    if not start_str or not end_str:
+        messages.error(request, "Please provide both a start date and an end date.")
+        return render(request, "home.html", context)
 
+    if start_date is None or end_date is None:
+        messages.error(request, "One or both dates are invalid. Use YYYY-MM-DD.")
+        return render(request, "home.html", context)
+
+    today = date.today()
+
+    start_in_past = start_date < today
+    end_in_past = end_date < today
+    if start_in_past and end_in_past:
+        messages.error(request, "Start date and end date cannot be in the past.")
+        return render(request, "home.html", context)
+    if start_in_past:
+        messages.error(request, "Start date cannot be in the past.")
+        return render(request, "home.html", context)
+    if end_in_past:
+        messages.error(request, "End date cannot be in the past.")
+        return render(request, "home.html", context)
+
+    # Order check
+    if start_date == end_date:
+        messages.error(request, "Start date must be before end date (cannot be the same day).")
+        return render(request, "home.html", context)
+    if start_date > end_date:
+        messages.error(request, "Start date must be before end date.")
         return render(request, "home.html", context)
 
     vehicles_qs = (
