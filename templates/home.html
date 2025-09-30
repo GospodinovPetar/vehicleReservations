@@ -84,6 +84,18 @@
         <div class="row">
           <div>
             <strong>{{ r.vehicle }}</strong><br>
+            {# ——— Number plate line with common fallbacks ——— #}
+            {% if r.vehicle.license_plate %}
+              <span style="color:#6b7280;">Plate: {{ r.vehicle.license_plate }}</span><br>
+            {% elif r.vehicle.number_plate %}
+              <span style="color:#6b7280;">Plate: {{ r.vehicle.number_plate }}</span><br>
+            {% elif r.vehicle.plate_number %}
+              <span style="color:#6b7280;">Plate: {{ r.vehicle.plate_number }}</span><br>
+            {% elif r.vehicle.registration %}
+              <span style="color:#6b7280;">Plate: {{ r.vehicle.registration }}</span><br>
+            {% elif r.vehicle.registration_number %}
+              <span style="color:#6b7280;">Plate: {{ r.vehicle.registration_number }}</span><br>
+            {% endif %}
             {{ r.vehicle.car_type|title }} • {{ r.vehicle.engine_type|title }} •
             {% if r.vehicle.unlimited_seats %}∞ seats{% else %}{{ r.vehicle.seats }} seats{% endif %}
           </div>
@@ -230,6 +242,17 @@
         <div class="row">
           <div>
             <strong>{{ row.vehicle }}</strong><br>
+            {% if row.vehicle.license_plate %}
+              <span style="color:#6b7280;">Plate: {{ row.vehicle.license_plate }}</span><br>
+            {% elif row.vehicle.number_plate %}
+              <span style="color:#6b7280;">Plate: {{ row.vehicle.number_plate }}</span><br>
+            {% elif row.vehicle.plate_number %}
+              <span style="color:#6b7280;">Plate: {{ row.vehicle.plate_number }}</span><br>
+            {% elif row.vehicle.registration %}
+              <span style="color:#6b7280;">Plate: {{ row.vehicle.registration }}</span><br>
+            {% elif row.vehicle.registration_number %}
+              <span style="color:#6b7280;">Plate: {{ row.vehicle.registration_number }}</span><br>
+            {% endif %}
             {{ row.vehicle.car_type|title }} • {{ row.vehicle.engine_type|title }} •
             {% if row.vehicle.unlimited_seats %}∞ seats{% else %}{{ row.vehicle.seats }} seats{% endif %}
           </div>

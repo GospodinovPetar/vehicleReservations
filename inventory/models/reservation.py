@@ -365,7 +365,7 @@ class ReservationGroup(models.Model):
         result = super().save(*args, **kwargs)
 
         status_changed_flag = previous_status_value != self.status
-        if status_changed_flag and self.status == ReservationStatus.COMPLETED:
+        if status_changed_flag and self.status == ReservationStatus.RESERVED:
             self.apply_vehicle_location_flip()
 
         return result

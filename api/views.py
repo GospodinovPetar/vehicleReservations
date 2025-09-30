@@ -535,14 +535,13 @@ class CartViewSet(viewsets.ViewSet):
             created_ids = []
             try:
                 for it in items:
-                    r = VehicleReservation.objects.create(
+                    r = VehicleReservation.merge_or_create_for_user(
                         user=request.user,
                         vehicle=it.vehicle,
-                        pickup_location=it.pickup_location,
-                        return_location=it.return_location,
                         start_date=it.start_date,
                         end_date=it.end_date,
-                        group=group,
+                        pickup_location=it.pickup_location,
+                        return_location=it.return_location,
                     )
                     created_ids.append(r.id)
             except DjangoValidationError as e:

@@ -94,7 +94,6 @@ def search(request: HttpRequest) -> HttpResponse:
         messages.error(request, "End date cannot be in the past.")
         return render(request, "home.html", context)
 
-    # Order check
     if start_date == end_date:
         messages.error(request, "Start date must be before end date (cannot be the same day).")
         return render(request, "home.html", context)

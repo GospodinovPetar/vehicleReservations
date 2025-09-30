@@ -64,7 +64,6 @@ urlpatterns = [
         profile_change_password,
         name="profile-change-password",
     ),
-    # ---------- Admin (views already role-protected) ----------
     path("admin/dashboard/", login_required(admin_dashboard), name="admin-dashboard"),
     path("admin/users/create/", login_required(create_user), name="admin-create-user"),
     path(
@@ -95,7 +94,6 @@ urlpatterns = [
         login_required(demote_user),
         name="admin-demote-user",
     ),
-    # ---------- Manager dashboard ----------
     path(
         "manager/dashboard/",
         login_required(manager_dashboard),
@@ -244,7 +242,6 @@ urlpatterns = [
         ),
         name="reservation_group_complete",
     ),
-    # ---------- Locations (manager) ----------
     path(
         "manager/locations/",
         login_required(

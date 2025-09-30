@@ -194,3 +194,13 @@ def send(
         html_message=html_body,
         fail_silently=True,
     )
+
+def _render(base_path: str, context: dict):
+    txt_path = f"{base_path}.txt"
+    html_path = f"{base_path}.html"
+    text_body = render_to_string(txt_path, context)
+    try:
+        html_body = render_to_string(html_path, context)
+    except TemplateDoesNotExist:
+        html_body = None
+    return text_body, html_body

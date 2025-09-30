@@ -1,14 +1,17 @@
 from typing import Any, List, Dict, Optional
 
+from django.core.mail import send_mail
 from django.template import TemplateDoesNotExist
+from django.template.loader import render_to_string
 
+from config import settings
 from emails.helpers import (
     recipients_for_group,
     render_pair,
     send,
     group_items,
     _display_status,
-    detect_changes,
+    detect_changes, _render,
 )
 
 
@@ -288,3 +291,25 @@ def send_vehicle_removed_email(reservation_snapshot: Any) -> None:
         html_body_value = None
 
     send(subject_value, recipients_list, text_body_value, html_body_value)
+
+
+def send_verification_email(to_email: str, code: str, ttl_minutes: int):
+    subject = "Your verification code"
+    ctx = {
+        "code": code,
+        "ttl_minutes": ttl_minutes,
+        "site_name": getattr(settings, "SITE_NAME", "Our Service"),
+    }
+    text, html = _render("emails/verify_email/verify_email", ctx)
+    send_mail(subject, text, settings.DEFAULT_FROM_EMAIL, [to_email], html_message=html)
+
+
+def send_reset_password_email(to_email: str, code: str, ttl_minutes: int):
+    subject = "Your password reset code"
+    ctx = {
+        "code": code,
+        "ttl_minutes": ttl_minutes,
+        "site_name": getattr(settings, "SITE_NAME", "Our Service"),
+    }
+    text, html = _render("emails/reset_password/reset_password", ctx)
+    send_mail(subject, text, settings.DEFAULT_FROM_EMAIL, [to_email], html_message=html)

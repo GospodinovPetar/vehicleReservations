@@ -283,30 +283,33 @@ def cancel_reservation(request: HttpRequest, group_id: int) -> HttpResponse:
 @transaction.atomic
 def delete_reservation(request: HttpRequest, pk: int) -> HttpResponse:
     """
-    Remove a vehicle from a reservation group (not allowed if it's the only one).
+    Remove a vehicle from a reservation group.
 
-    Rules:
-        - Disallow edits for groups in REJECTED, CANCELED, or RESERVED.
-        - Require that at least one other VehicleReservation remains.
-        - Cancel in-flight PaymentIntents for the group.
+    Admin rules:
+      - If it's the ONLY vehicle: block, show message, no changes.
+      - If there are multiple vehicles: delete and set status to PENDING.
 
-    Args:
-        pk: Primary key of the VehicleReservation to remove.
+    Non-admin rules (unchanged):
+      - Can't delete the only vehicle.
+      - On delete, cancel in-flight payment intents. No status change.
 
-    Returns:
-        HttpResponse: Redirects back to reservations with a status message.
+    Global rules:
+      - Disallow edits for groups in REJECTED, CANCELED, or RESERVED.
     """
-    reservation_obj = get_object_or_404(
-        VehicleReservation.objects.select_related("group"),
-        pk=pk,
-        user=request.user,
+    only_vehicle_msg = (
+        "Can't delete the only vehicle in the reservation; "
+        "better just reject/cancel the reservation itself."
     )
 
+    base_qs = VehicleReservation.objects.select_related("group")
+    if not (request.user.is_staff or request.user.is_superuser):
+        base_qs = base_qs.filter(user=request.user)
+
+    reservation_obj = get_object_or_404(base_qs, pk=pk)
     group_obj = reservation_obj.group
+
     if group_obj is None:
-        messages.error(
-            request, "You cannot remove the only vehicle in this reservation."
-        )
+        messages.error(request, only_vehicle_msg)
         return redirect("inventory:reservations")
 
     group_obj = ReservationGroup.objects.select_for_update().get(pk=group_obj.pk)
@@ -322,11 +325,36 @@ def delete_reservation(request: HttpRequest, pk: int) -> HttpResponse:
         return redirect("inventory:reservations")
 
     total_in_group = VehicleReservation.objects.filter(group=group_obj).count()
-    if total_in_group <= 1:
-        messages.error(
-            request, "You cannot remove the only vehicle in this reservation."
+
+    if request.user.is_staff or request.user.is_superuser:
+        if total_in_group <= 1:
+            messages.error(request, only_vehicle_msg)
+            return redirect("accounts:reservation-list")
+
+        reservation_obj.delete()
+
+        pending_value = getattr(ReservationStatus, "PENDING", "PENDING")
+        if group_obj.status != pending_value:
+            group_obj.status = pending_value
+            group_obj.save(update_fields=["status"])
+
+        intents_qs = PaymentIntent.objects.select_for_update().filter(
+            reservation_group=group_obj,
+            status__in=[
+                PaymentIntentStatus.REQUIRES_CONFIRMATION,
+                PaymentIntentStatus.PROCESSING,
+            ],
         )
-        return redirect("inventory:reservations")
+        for intent in intents_qs:
+            intent.status = PaymentIntentStatus.CANCELED
+            intent.save(update_fields=["status"])
+
+        messages.success(request, "Vehicle removed. Reservation status set to PENDING for re-approval.")
+        return redirect("accounts:reservation-list")
+
+    if total_in_group <= 1:
+        messages.error(request, "You cannot remove the only vehicle in this reservation. Try cancelling the reservation.")
+        return redirect("accounts:reservation-list")
 
     reservation_obj.delete()
 
@@ -342,7 +370,12 @@ def delete_reservation(request: HttpRequest, pk: int) -> HttpResponse:
         intent.save(update_fields=["status"])
 
     messages.success(request, "Vehicle removed from reservation.")
+
+    if request.user.is_staff or request.user.is_superuser:
+        return redirect("accounts:reservation-list")
+
     return redirect("inventory:reservations")
+
 
 
 @login_required
@@ -623,53 +656,6 @@ def edit_reservation(request: HttpRequest, pk: int) -> HttpResponse:
             "vehicles": vehicles_qs,
             "locations": locations_qs,
         },
-    )
-
-
-@login_required
-def add_vehicle(request: HttpRequest, group_id: int) -> HttpResponse:
-    """
-    Add a new vehicle item to an existing reservation group.
-
-    Rules:
-        - Disallow changes when the group is RESERVED.
-        - Saving a new item sets the group to PENDING.
-
-    Args:
-        group_id: ReservationGroup primary key to add into.
-
-    Returns:
-        HttpResponse: Render or redirect with user messaging.
-    """
-    group_obj: ReservationGroup = get_object_or_404(
-        ReservationGroup, pk=group_id, user=request.user
-    )
-
-    if group_obj.status == ReservationStatus.RESERVED:
-        messages.error(request, "You can’t modify a reserved reservation.")
-        return redirect("inventory:reservations")
-
-    if request.method == "POST":
-        form = ReservationEditForm(request.POST)
-        if form.is_valid():
-            with transaction.atomic():
-                reservation_instance = form.save(commit=False)
-                reservation_instance.user = request.user
-                reservation_instance.group = group_obj
-                group_obj.status = ReservationStatus.PENDING
-                group_obj.save(update_fields=["status"])
-                reservation_instance.save()
-            messages.success(
-                request, "Vehicle added. The reservation is now pending review."
-            )
-            return redirect("inventory:reservations")
-        return render(
-            request, "inventory/add_vehicle.html", {"form": form, "group": group_obj}
-        )
-
-    blank_form = ReservationEditForm()
-    return render(
-        request, "inventory/add_vehicle.html", {"form": blank_form, "group": group_obj}
     )
 
 
