@@ -116,13 +116,69 @@
           </div>
 
           <div>
-            <div>
-              Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
-              <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
-            </div>
-            <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
-              ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
-            </div>
+            {% if r.quote.days > 6 %}
+              {% if r.vehicle.price_per_day %}
+                <div style="margin-bottom:2px;">
+                  <span style="text-decoration:line-through; color:#6b7280;">
+                    {% widthratio r.quote.days 1 r.vehicle.price_per_day %} {{ r.quote.currency }}
+                  </span>
+                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
+                </div>
+                <div style="font-size:.9em; color:#6b7280;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                  (instead of {{ r.vehicle.price_per_day }} {{ r.quote.currency }}/day)
+                </div>
+              {% elif r.vehicle.daily_price %}
+                <div style="margin-bottom:2px;">
+                  <span style="text-decoration:line-through; color:#6b7280;">
+                    {% widthratio r.quote.days 1 r.vehicle.daily_price %} {{ r.quote.currency }}
+                  </span>
+                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
+                </div>
+                <div style="font-size:.9em; color:#6b7280;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                  (instead of {{ r.vehicle.daily_price }} {{ r.quote.currency }}/day)
+                </div>
+              {% elif r.vehicle.base_daily_rate %}
+                <div style="margin-bottom:2px;">
+                  <span style="text-decoration:line-through; color:#6b7280;">
+                    {% widthratio r.quote.days 1 r.vehicle.base_daily_rate %} {{ r.quote.currency }}
+                  </span>
+                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
+                </div>
+             <div style="font-size:.9em; color:#6b7280;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                  (instead of {{ r.quote.daily_price }} {{ r.quote.currency }}/day)
+                </div>
+              {% elif r.quote.base_daily_rate %}
+                <div style="margin-bottom:2px;">
+                  <span style="text-decoration:line-through; color:#6b7280;">
+                    {% widthratio r.quote.days 1 r.quote.base_daily_rate %} {{ r.quote.currency }}
+                  </span>
+                  <span> → <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong></span>
+                </div>
+                <div style="font-size:.9em; color:#6b7280;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                  (instead of {{ r.quote.base_daily_rate }} {{ r.quote.currency }}/day)
+                </div>
+              {% else %}
+                <div>
+                  Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
+                  <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
+                </div>
+                <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
+                  ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+                </div>
+              {% endif %}
+            {% else %}
+              <div>
+                Total for {{ r.quote.days }} day{{ r.quote.days|pluralize }}:
+                <strong>{{ r.quote.total }} {{ r.quote.currency }}</strong>
+              </div>
+              <div style="font-size:.9em; color:#6b7280; margin-top:4px;">
+                ≈ {% widthratio r.quote.total r.quote.days 1 %} {{ r.quote.currency }}/day
+              </div>
+            {% endif %}
           </div>
 
           <div>
