@@ -1,227 +1,213 @@
 {% extends "base.html" %}
 {% block content %}
-  <h3>My Reservations</h3>
+<h2>My Reservations</h2>
 
-  <div class="card">
-    {% with any_active=False %}
-      {% for g in groups %}
-        {% if g.status != 'COMPLETED' and g.status != 'REJECTED' and g.status != 'CANCELED' %}
-          <div style="margin: .5rem 0;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
-              <div>
-                <strong>Reference:</strong> {{ g.reference }}
-                <em>({{ g.created_at }})</em>
-                &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
-              </div>
+<form method="get" class="card" style="margin:12px 0; padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
+  <div style="display:grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap:10px;">
+    <div>
+      <label style="display:block; font-size:12px; color:#555;">Pickup location</label>
+      <select name="pickup" style="width:100%;" onchange="this.form.submit()">
+        <option value="" {% if not request.GET.pickup %}selected{% endif %}>All pickup locations</option>
+        {% for loc in locations %}
+          <option value="{{ loc }}" {% if request.GET.pickup == loc %}selected{% endif %}>{{ loc }}</option>
+        {% endfor %}
+      </select>
+    </div>
 
-              <form method="post" action="{% url 'inventory:cancel_group' g.id %}">
-                {% csrf_token %}
-                {% if g.status == 'AWAITING_PAYMENT' %}
-                  <a class="btn" href="{% url 'inventory:create_payment_intent' g.id %}">PAY NOW</a>
-                {% endif %}
-                <button class="btn" type="submit">Cancel</button>
-              </form>
-            </div>
+    <div>
+      <label style="display:block; font-size:12px; color:#555;">Drop-off location</label>
+      <select name="dropoff" style="width:100%;" onchange="this.form.submit()">
+        <option value="" {% if not request.GET.dropoff %}selected{% endif %}>All drop-off locations</option>
+        {% for loc in locations %}
+          <option value="{{ loc }}" {% if request.GET.dropoff == loc %}selected{% endif %}>{{ loc }}</option>
+        {% endfor %}
+      </select>
+    </div>
 
-            <table>
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Vehicle</th>
-                  <th>Dates</th>
-                  <th>Pickup → Return</th>
-                  <th>Total</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% with active_count=g.reservations.all|length %}
-                  {% for r in g.reservations.all %}
-                    <tr>
-                      <td>
-                        {% if r.user.first_name or r.user.last_name %}
-                          {{ r.user.first_name }} {{ r.user.last_name }}
-                        {% else %}
-                          {{ r.user.username }}
-                        {% endif %}
-                      </td>
-                      <td>
-                        {% if r.vehicle_id %}
-                          <a href="{% url 'accounts:vehicle-profile' r.vehicle_id %}">{{ r.vehicle_display }}</a>
-                        {% else %}
-                          {{ r.vehicle_display }}
-                        {% endif %}
-                      </td>
-                      <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                      <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
-                      <td>{{ r.total_price|floatformat:2 }} EUR</td>
-                      <td>
-                        <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
-                        {% if active_count > 1 %}
-                          <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
-                            {% csrf_token %}
-                            <button class="btn" type="submit">Delete</button>
-                          </form>
-                        {% endif %}
-                      </td>
-                    </tr>
-                  {% empty %}
-                    <tr>
-                      <td colspan="6">This group has no active reservations.</td>
-                    </tr>
-                  {% endfor %}
-                {% endwith %}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colspan="4" style="text-align:right;"><strong>Overall total:</strong></td>
-                  <td colspan="2">
-                    {% if g.total_price is not None %}
-                      <strong>{{ g.total_price|floatformat:2 }} EUR</strong>
-                    {% else %}
-                      —
-                    {% endif %}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        {% endif %}
-      {% empty %}
-        <p>No reservations have been made yet.</p>
-      {% endfor %}
-    {% endwith %}
+    <div>
+      <label style="display:block; font-size:12px; color:#555;">Status</label>
+      <select name="status" style="width:100%;" onchange="this.form.submit()">
+        <option value="" {% if not request.GET.status %}selected{% endif %}>All statuses</option>
+        <option value="PENDING" {% if request.GET.status == "PENDING" %}selected{% endif %}>Pending</option>
+        <option value="AWAITING_PAYMENT" {% if request.GET.status == "AWAITING_PAYMENT" %}selected{% endif %}>Awaiting payment</option>
+        <option value="RESERVED" {% if request.GET.status == "RESERVED" %}selected{% endif %}>Reserved</option>
+        <option value="ONGOING" {% if request.GET.status == "ONGOING" %}selected{% endif %}>Ongoing</option>
+        <option value="COMPLETED" {% if request.GET.status == "COMPLETED" %}selected{% endif %}>Completed</option>
+        <option value="REJECTED" {% if request.GET.status == "REJECTED" %}selected{% endif %}>Rejected</option>
+        <option value="CANCELED" {% if request.GET.status == "CANCELED" %}selected{% endif %}>Canceled</option>
+      </select>
+    </div>
+
+    <div style="align-self:end;">
+      <a href="{{ request.path }}" class="btn btn-secondary" style="width:100%;">Clear</a>
+    </div>
   </div>
+</form>
 
-  <div class="card" style="margin-top:1rem;">
-    <h4>Archived</h4>
+<h2 style="margin-top:1em;">Active Reservations</h2>
 
-    {% if archived %}
-      {% for g in archived %}
-        <div style="margin:.5rem 0;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
-            <div>
-              <strong>Reference:</strong> {{ g.reference }}
-              <em>({{ g.created_at }})</em>
-              &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
+{% if ongoing_page_obj.object_list %}
+  {% for group in ongoing_page_obj.object_list %}
+    {% if group.filtered_reservations %}
+      {% with item_count=group.filtered_reservations|length %}
+      <div class="card" style="margin-bottom: 1.25em;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5em;">
+          <div>
+            <h3 style="margin:0;">Reference: {{ group.reference }}</h3>
+            <div style="color:#666; font-size:14px;">
+              Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
             </div>
           </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Vehicle</th>
-                <th>Dates</th>
-                <th>Pickup → Return</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in g.reservations.all %}
-                <tr>
-                  <td>
-                    {% if r.user.first_name or r.user.last_name %}
-                      {{ r.user.first_name }} {{ r.user.last_name }}
-                    {% else %}
-                      {{ r.user.username }}
-                    {% endif %}
-                  </td>
-                  <td>
-                    {% if r.vehicle_id %}
-                      <a href="{% url 'accounts:vehicle-profile' r.vehicle_id %}">{{ r.vehicle_display }}</a>
-                    {% else %}
-                      {{ r.vehicle_display }}
-                    {% endif %}
-                  </td>
-                  <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                  <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
-                  <td>{{ r.total_price|floatformat:2 }} EUR</td>
-                </tr>
-              {% empty %}
-                <tr><td colspan="5">This group has no reservations.</td></tr>
-              {% endfor %}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="3"></td>
-                <td style="text-align:right;"><strong>Overall total:</strong></td>
-                <td>
-                  {% if g.total_price is not None %}
-                    <strong>{{ g.total_price|floatformat:2 }} EUR</strong>
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+          <form method="post" action="{% url 'inventory:cancel_group' group.id %}">
+                {% csrf_token %}
+                {% if group.status == 'AWAITING_PAYMENT' %}
+                  <a class="btn" href="{% url 'inventory:create_payment_intent' group.id %}">PAY NOW</a>
+                {% endif %}
+                {% if group.status != 'ONGOING' and group.status != 'RESERVED' %}
+                <button class="btn" type="submit">Cancel</button>
+                {% endif %}
+              </form>
         </div>
-      {% endfor %}
+
+        <table>
+          <thead>
+            <tr>
+              <th>Vehicle</th>
+              <th>Dates</th>
+              <th>Pickup → Drop-off</th>
+              <th style="text-align:right;">Total</th>
+              {% if item_count > 1 %}
+                <th style="width:1%;">Actions</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in group.filtered_reservations %}
+              <tr>
+                <td>{{ r.vehicle_name_snapshot|default:r.vehicle }}</td>
+                <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+                <td>
+                  {{ r.pickup_location.name|default:r.pickup_location_snapshot }}
+                  →
+                  {{ r.return_location.name|default:r.return_location_snapshot }}
+                </td>
+                <td style="text-align:right;">{{ r.total_price|floatformat:2 }} EUR</td>
+
+                {# ---- Per-vehicle delete: only show if more than one item in the group ---- #}
+                {% if item_count > 1 %}
+                  <td>
+                    <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" onsubmit="return confirm('Remove this vehicle from the reservation?');">
+                      {% csrf_token %}
+                      <button class="btn btn-secondary" type="submit">Delete</button>
+                    </form>
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endwith %}
     {% endif %}
+  {% endfor %}
 
-    {% for g in groups %}
-      {% if g.status == 'COMPLETED' %}
-        <div style="margin:.5rem 0;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+  {% if ongoing_page_obj.paginator.num_pages > 1 %}
+    <nav aria-label="Active reservations pages" class="pagination" style="display:flex; gap:.5rem; align-items:center;">
+      {% with base=ongoing_params %}
+        <a class="btn btn-secondary" href="?{{ base }}&ongoing_page=1" {% if ongoing_page_obj.number == 1 %}aria-disabled="true"{% endif %}>« First</a>
+        {% if ongoing_page_obj.has_previous %}
+          <a class="btn btn-secondary" href="?{{ base }}&ongoing_page={{ ongoing_page_obj.previous_page_number }}">‹ Prev</a>
+        {% else %}
+          <span class="btn btn-secondary" aria-disabled="true">‹ Prev</span>
+        {% endif %}
+        <span class="badge">Page {{ ongoing_page_obj.number }} / {{ ongoing_page_obj.paginator.num_pages }}</span>
+        {% if ongoing_page_obj.has_next %}
+          <a class="btn btn-secondary" href="?{{ base }}&ongoing_page={{ ongoing_page_obj.next_page_number }}">Next ›</a>
+        {% else %}
+          <span class="btn btn-secondary" aria-disabled="true">Next ›</span>
+        {% endif %}
+        <a class="btn btn-secondary" href="?{{ base }}&ongoing_page={{ ongoing_page_obj.paginator.num_pages }}" {% if ongoing_page_obj.number == ongoing_page_obj.paginator.num_pages %}aria-disabled="true"{% endif %}>Last »</a>
+      {% endwith %}
+    </nav>
+  {% endif %}
+{% else %}
+  <p>No active reservations.</p>
+{% endif %}
+
+{# ---------- Archived (folded by default) ---------- #}
+<details id="archived-block" style="margin-top:2em;">
+  <summary style="cursor:pointer; list-style:none;">
+    <h2 style="display:inline;">Archived Reservations</h2>
+    <span style="color:#666; margin-left:8px;">({{ archived_page_obj.paginator.count }})</span>
+    <span style="margin-left:8px; font-size:12px; color:#888;">click to toggle</span>
+  </summary>
+
+  {% if archived_page_obj.object_list %}
+    {% for group in archived_page_obj.object_list %}
+      {% if group.filtered_reservations %}
+        {% with item_count=group.filtered_reservations|length %}
+        <div class="card" style="margin: 1em 0 1.25em;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5em;">
             <div>
-              <strong>Reference:</strong> {{ g.reference }}
-              <em>({{ g.created_at }})</em>
-              &nbsp; <span><strong>Status:</strong> {{ g.get_status_display }}</span>
+              <h3 style="margin:0;">Reference: {{ group.reference }}</h3>
+              <div style="color:#666; font-size:14px;">
+                Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
+              </div>
             </div>
+            <span class="badge">{{ item_count }} item{{ item_count|pluralize }}</span>
           </div>
 
           <table>
             <thead>
               <tr>
-                <th>User</th>
                 <th>Vehicle</th>
                 <th>Dates</th>
-                <th>Pickup → Return</th>
-                <th>Total</th>
+                <th>Pickup → Drop-off</th>
+                <th style="text-align:right;">Total</th>
               </tr>
             </thead>
             <tbody>
-              {% for r in g.reservations.all %}
+              {% for r in group.filtered_reservations %}
                 <tr>
-                  <td>
-                    {% if r.user.first_name or r.user.last_name %}
-                      {{ r.user.first_name }} {{ r.user.last_name }}
-                    {% else %}
-                      {{ r.user.username }}
-                    {% endif %}
-                  </td>
-                  <td>
-                    {% if r.vehicle_id %}
-                      <a href="{% url 'accounts:vehicle-profile' r.vehicle_id %}">{{ r.vehicle_display }}</a>
-                    {% else %}
-                      {{ r.vehicle_display }}
-                    {% endif %}
-                  </td>
+                  <td>{{ r.vehicle_name_snapshot|default:r.vehicle }}</td>
                   <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                  <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
-                  <td>{{ r.total_price|floatformat:2 }} EUR</td>
+                  <td>
+                    {{ r.pickup_location.name|default:r.pickup_location_snapshot }}
+                    →
+                    {{ r.return_location.name|default:r.return_location_snapshot }}
+                  </td>
+                  <td style="text-align:right;">{{ r.total_price|floatformat:2 }} EUR</td>
                 </tr>
-              {% empty %}
-                <tr><td colspan="5">This group has no reservations.</td></tr>
               {% endfor %}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="3"></td>
-                <td style="text-align:right;"><strong>Overall total:</strong></td>
-                <td>
-                  {% if g.total_price is not None %}
-                    <strong>{{ g.total_price|floatformat:2 }} EUR</strong>
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
+        {% endwith %}
       {% endif %}
     {% endfor %}
-  </div>
+
+    {% if archived_page_obj.paginator.num_pages > 1 %}
+      <nav aria-label="Archived reservations pages" class="pagination" style="display:flex; gap:.5rem; align-items:center; margin-bottom:1rem;">
+        {% with base=archived_params %}
+          <a class="btn btn-secondary" href="?{{ base }}&archived_page=1" {% if archived_page_obj.number == 1 %}aria-disabled="true"{% endif %}>« First</a>
+          {% if archived_page_obj.has_previous %}
+            <a class="btn btn-secondary" href="?{{ base }}&archived_page={{ archived_page_obj.previous_page_number }}">‹ Prev</a>
+          {% else %}
+            <span class="btn btn-secondary" aria-disabled="true">‹ Prev</span>
+          {% endif %}
+          <span class="badge">Page {{ archived_page_obj.number }} / {{ archived_page_obj.paginator.num_pages }}</span>
+          {% if archived_page_obj.has_next %}
+            <a class="btn btn-secondary" href="?{{ base }}&archived_page={{ archived_page_obj.next_page_number }}">Next ›</a>
+          {% else %}
+            <span class="btn btn-secondary" aria-disabled="true">Next ›</span>
+          {% endif %}
+          <a class="btn btn-secondary" href="?{{ base }}&archived_page={{ archived_page_obj.paginator.num_pages }}" {% if archived_page_obj.number == archived_page_obj.paginator.num_pages %}aria-disabled="true"{% endif %}>Last »</a>
+        {% endwith %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p>No archived reservations.</p>
+  {% endif %}
+</details>
 {% endblock %}

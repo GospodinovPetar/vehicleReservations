@@ -1,10 +1,17 @@
+from __future__ import annotations
+
+from functools import wraps
+from typing import Callable, Dict
+
 from django.contrib import messages
 from django.contrib.auth.decorators import (
     login_required,
-    user_passes_test,
     permission_required,
+    user_passes_test,
 )
-from django.shortcuts import redirect, render, get_object_or_404
+from django.db.models import Q, QuerySet
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.forms import CustomUserCreationForm, UserEditForm
 from accounts.views.helpers import User
@@ -12,7 +19,25 @@ from inventory.models.reservation import VehicleReservation
 from inventory.models.vehicle import Vehicle
 
 
-def admin_required(view_func):
+
+ROLE_ADMIN = "admin"
+ROLE_MANAGER = "manager"
+ROLE_USER = "user"
+
+
+def _is_admin(user: User) -> bool:
+    """Return True if the user is authenticated and has role='admin'."""
+    return bool(user.is_authenticated and getattr(user, "role", ROLE_USER) == ROLE_ADMIN)
+
+
+def _is_manager_or_admin(user: User) -> bool:
+    """Return True if the user is authenticated and role is 'manager' or 'admin'."""
+    role = getattr(user, "role", ROLE_USER)
+    return bool(user.is_authenticated and role in {ROLE_MANAGER, ROLE_ADMIN})
+
+
+
+def admin_required(view_func: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
     """
     Decorator ensuring the user is authenticated and has role='admin'.
 
@@ -22,14 +47,36 @@ def admin_required(view_func):
         def some_admin_view(...):
             ...
     """
-    return user_passes_test(
-        lambda u: u.is_authenticated and getattr(u, "role", "user") == "admin"
-    )(view_func)
+    @wraps(view_func)
+    def _wrapped(*args, **kwargs):
+        return user_passes_test(_is_admin)(view_func)(*args, **kwargs)
+
+    return _wrapped
+
+
+def manager_required(view_func: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
+    """
+    Decorator ensuring the user is authenticated and has role in {'manager','admin'}.
+
+    Usage:
+        @login_required
+        @manager_required
+        def some_manager_view(...):
+            ...
+    """
+    @wraps(view_func)
+    def _wrapped(*args, **kwargs):
+        return user_passes_test(
+            _is_manager_or_admin, login_url="/accounts/login/"
+        )(view_func)(*args, **kwargs)
+
+    return _wrapped
+
 
 
 @login_required
 @admin_required
-def admin_dashboard(request):
+def admin_dashboard(request: HttpRequest) -> HttpResponse:
     """
     Admin dashboard user listing with simple filtering.
 
@@ -45,39 +92,43 @@ def admin_dashboard(request):
         users (QuerySet[User])
         stats (dict): counts of roles and blocked/users.
     """
-    query = request.GET.get("q")
-    role_filter = request.GET.get("role")
-    status_filter = request.GET.get("status")
+    query: str | None = request.GET.get("q")
+    role_filter: str | None = request.GET.get("role")
+    status_filter: str | None = request.GET.get("status")
 
-    users = User.objects.all().order_by("-date_joined")
+    users: QuerySet[User] = User.objects.all().order_by("-date_joined")
 
     if query:
-        users = users.filter(username__icontains=query) | users.filter(
-            email__icontains=query
-        )
+        query = query.strip()
+        if query:
+            users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
+
     if role_filter:
         users = users.filter(role=role_filter)
+
     if status_filter == "blocked":
         users = users.filter(is_blocked=True)
     elif status_filter == "active":
         users = users.filter(is_blocked=False)
 
-    stats = {
+    stats: Dict[str, int] = {
         "total": User.objects.count(),
-        "admins": User.objects.filter(role="admin").count(),
-        "managers": User.objects.filter(role="manager").count(),
-        "users": User.objects.filter(role="user").count(),
+        "admins": User.objects.filter(role=ROLE_ADMIN).count(),
+        "managers": User.objects.filter(role=ROLE_MANAGER).count(),
+        "users": User.objects.filter(role=ROLE_USER).count(),
         "blocked": User.objects.filter(is_blocked=True).count(),
     }
 
     return render(
-        request, "accounts/admin/admin_dashboard.html", {"users": users, "stats": stats}
+        request,
+        "accounts/admin/admin_dashboard.html",
+        {"users": users, "stats": stats},
     )
 
 
 @login_required
 @admin_required
-def block_user(request, pk):
+def block_user(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Block a user (except other admins).
 
@@ -89,8 +140,7 @@ def block_user(request, pk):
         - Success when blocked.
     """
     user = get_object_or_404(User, pk=pk)
-    # Strict: do not allow any admin-to-admin actions
-    if getattr(user, "role", "user") == "admin":
+    if getattr(user, "role", ROLE_USER) == ROLE_ADMIN:
         messages.error(request, "You cannot block another admin.")
     else:
         user.is_blocked = True
@@ -101,7 +151,7 @@ def block_user(request, pk):
 
 @login_required
 @admin_required
-def unblock_user(request, pk):
+def unblock_user(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Unblock a user (except other admins).
 
@@ -109,7 +159,7 @@ def unblock_user(request, pk):
         pk (int): User primary key.
     """
     user = get_object_or_404(User, pk=pk)
-    if getattr(user, "role", "user") == "admin":
+    if getattr(user, "role", ROLE_USER) == ROLE_ADMIN:
         messages.error(request, "You cannot modify another admin.")
     else:
         user.is_blocked = False
@@ -120,7 +170,7 @@ def unblock_user(request, pk):
 
 @login_required
 @admin_required
-def promote_manager(request, pk):
+def promote_manager(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Promote a user to manager (not allowed for admins).
 
@@ -128,10 +178,10 @@ def promote_manager(request, pk):
         pk (int): User primary key.
     """
     user = get_object_or_404(User, pk=pk)
-    if getattr(user, "role", "user") == "admin":
+    if getattr(user, "role", ROLE_USER) == ROLE_ADMIN:
         messages.error(request, "You cannot modify another admin.")
     else:
-        user.role = "manager"
+        user.role = ROLE_MANAGER
         user.save()
         messages.success(request, f"{user.username} is now a manager.")
     return redirect("accounts:admin-dashboard")
@@ -139,7 +189,7 @@ def promote_manager(request, pk):
 
 @login_required
 @admin_required
-def demote_user(request, pk):
+def demote_user(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Demote a user to regular 'user' role (not allowed for admins).
 
@@ -147,10 +197,10 @@ def demote_user(request, pk):
         pk (int): User primary key.
     """
     user = get_object_or_404(User, pk=pk)
-    if getattr(user, "role", "user") == "admin":
+    if getattr(user, "role", ROLE_USER) == ROLE_ADMIN:
         messages.error(request, "You cannot modify another admin.")
     else:
-        user.role = "user"
+        user.role = ROLE_USER
         user.save()
         messages.success(request, f"{user.username} is now a regular user.")
     return redirect("accounts:admin-dashboard")
@@ -158,7 +208,7 @@ def demote_user(request, pk):
 
 @login_required
 @admin_required
-def create_user(request):
+def create_user(request: HttpRequest) -> HttpResponse:
     """
     Create a new user as an admin.
 
@@ -176,6 +226,7 @@ def create_user(request):
             return redirect("accounts:admin-dashboard")
     else:
         form = CustomUserCreationForm()
+
     return render(
         request,
         "accounts/admin/admin_user_form.html",
@@ -185,7 +236,7 @@ def create_user(request):
 
 @login_required
 @admin_required
-def edit_user(request, pk):
+def edit_user(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Edit a user's basic fields (except password) as admin.
 
@@ -198,20 +249,21 @@ def edit_user(request, pk):
         accounts/admin/admin_user_form.html
     """
     user = get_object_or_404(User, pk=pk)
+
     # Do not allow admin to edit other admins
-    if getattr(user, "role", "user") == "admin":
+    if getattr(user, "role", ROLE_USER) == ROLE_ADMIN:
         messages.error(request, "You cannot edit another admin.")
         return redirect("accounts:admin-dashboard")
 
     if request.method == "POST":
         form = UserEditForm(request.POST, instance=user)
         if form.is_valid():
-            # Save with no password change
             form.save()
             messages.success(request, "User updated successfully.")
             return redirect("accounts:admin-dashboard")
     else:
         form = UserEditForm(instance=user)
+
     return render(
         request,
         "accounts/admin/admin_user_form.html",
@@ -221,7 +273,7 @@ def edit_user(request, pk):
 
 @login_required
 @admin_required
-def delete_user(request, pk):
+def delete_user(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Delete a user (confirmation flow), not allowed for admins.
 
@@ -232,7 +284,8 @@ def delete_user(request, pk):
         pk (int): User primary key.
     """
     user = get_object_or_404(User, pk=pk)
-    if getattr(user, "role", "user") == "admin":
+
+    if getattr(user, "role", ROLE_USER) == ROLE_ADMIN:
         messages.error(request, "You cannot delete another admin.")
         return redirect("accounts:admin-dashboard")
 
@@ -240,31 +293,18 @@ def delete_user(request, pk):
         user.delete()
         messages.success(request, "User deleted successfully.")
         return redirect("accounts:admin-dashboard")
+
     return render(
-        request, "accounts/admin/admin_user_confirm_delete.html", {"user": user}
+        request,
+        "accounts/admin/admin_user_confirm_delete.html",
+        {"user": user},
     )
 
-
-def manager_required(view_func):
-    """
-    Decorator ensuring the user is authenticated and has role in {'manager','admin'}.
-
-    Usage:
-        @login_required
-        @manager_required
-        def some_manager_view(...):
-            ...
-    """
-    return user_passes_test(
-        lambda u: u.is_authenticated
-        and getattr(u, "role", "user") in ["manager", "admin"],
-        login_url="/accounts/login/",
-    )(view_func)
 
 
 @login_required
 @manager_required
-def manager_dashboard(request):
+def manager_dashboard(request: HttpRequest) -> HttpResponse:
     """
     Render the manager dashboard landing page.
 
@@ -276,7 +316,7 @@ def manager_dashboard(request):
 
 @login_required
 @manager_required
-def manager_vehicles(request):
+def manager_vehicles(request: HttpRequest) -> HttpResponse:
     """
     Show all vehicles to managers/admins.
 
@@ -286,16 +326,18 @@ def manager_vehicles(request):
     Context:
         vehicles (QuerySet[Vehicle])
     """
-    vehicles = Vehicle.objects.all()
+    vehicles: QuerySet[Vehicle] = Vehicle.objects.all()
     return render(
-        request, "accounts/manager/manager_vehicles.html", {"vehicles": vehicles}
+        request,
+        "accounts/manager/manager_vehicles.html",
+        {"vehicles": vehicles},
     )
 
 
 @login_required
 @manager_required
 @permission_required("inventory.view_reservationgroup", raise_exception=True)
-def manager_reservations(request):
+def manager_reservations(request: HttpRequest) -> HttpResponse:
     """
     List all reservations for managers/admins.
 
@@ -306,8 +348,9 @@ def manager_reservations(request):
         reservations (QuerySet[VehicleReservation])
     """
     # managers/admins see all reservations
-    reservations = VehicleReservation.objects.all().select_related(
-        "user", "vehicle", "pickup_location", "return_location"
+    reservations: QuerySet[VehicleReservation] = (
+        VehicleReservation.objects.all()
+        .select_related("user", "vehicle", "pickup_location", "return_location")
     )
     return render(
         request,

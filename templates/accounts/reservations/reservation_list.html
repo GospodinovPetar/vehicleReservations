@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block content %}
 <h2>Reservations</h2>
 
@@ -11,20 +10,39 @@
   {% endif %}
 </div>
 
-{# ---------------------- Filters (GET; no JS) ---------------------- #}
 <form method="get" class="card" style="margin:12px 0; padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
-  <div style="display:grid; grid-template-columns: repeat(3, minmax(200px, 1fr)); gap:10px;">
+  <div style="display:grid; grid-template-columns: repeat(5, minmax(160px, 1fr)); gap:10px;">
     <div>
       <label style="display:block; font-size:12px; color:#555;">User name</label>
       <input type="text" name="user" placeholder="e.g. John Doe"
              value="{{ request.GET.user|default:'' }}" style="width:100%;">
+      <small style="color:#888;">Press Enter to search</small>
     </div>
+
+    <div>
+      <label style="display:block; font-size:12px; color:#555;">Pickup location</label>
+      <select name="pickup" style="width:100%;" onchange="this.form.submit()">
+        <option value="" {% if not request.GET.pickup %}selected{% endif %}>All pickup locations</option>
+        {% for loc in locations %}
+          <option value="{{ loc }}" {% if request.GET.pickup == loc %}selected{% endif %}>{{ loc }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label style="display:block; font-size:12px; color:#555;">Drop-off location</label>
+      <select name="dropoff" style="width:100%;" onchange="this.form.submit()">
+        <option value="" {% if not request.GET.dropoff %}selected{% endif %}>All drop-off locations</option>
+        {% for loc in locations %}
+          <option value="{{ loc }}" {% if request.GET.dropoff == loc %}selected{% endif %}>{{ loc }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div>
       <label style="display:block; font-size:12px; color:#555;">Status</label>
-      <select name="status" style="width:100%;">
-        {# empty = all statuses #}
+      <select name="status" style="width:100%;" onchange="this.form.submit()">
         <option value="" {% if not request.GET.status %}selected{% endif %}>All statuses</option>
-        {# Include the codes you use in your app #}
         <option value="PENDING" {% if request.GET.status == "PENDING" %}selected{% endif %}>Pending</option>
         <option value="AWAITING_PAYMENT" {% if request.GET.status == "AWAITING_PAYMENT" %}selected{% endif %}>Awaiting payment</option>
         <option value="RESERVED" {% if request.GET.status == "RESERVED" %}selected{% endif %}>Reserved</option>
@@ -34,33 +52,27 @@
         <option value="CANCELED" {% if request.GET.status == "CANCELED" %}selected{% endif %}>Canceled</option>
       </select>
     </div>
+
     <div style="align-self:end;">
-      <button type="submit" class="btn">Apply filters</button>
       <a href="{{ request.path }}" class="btn btn-secondary">Clear</a>
     </div>
   </div>
 </form>
 
-{# normalize the user query once #}
-{% with user_q=request.GET.user|default_if_none:''|lower %}
-{% with status_q=request.GET.status|default_if_none:'' %}
-
 <h2 style="margin-top:1em;">Ongoing Reservations</h2>
 
-{% if ongoing %}
-  {% for group in ongoing %}
-    {# Status filter at group level #}
-    {% if not status_q or status_q == group.status %}
+{% if ongoing_page_obj.object_list %}
+  {% for group in ongoing_page_obj.object_list %}
+    {% if group.filtered_reservations %}
       <div class="card" style="margin-bottom: 2em;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75em;">
           <div>
             <h3 style="margin:0;">Group {{ group.id }} — Ref: {{ group.reference }}</h3>
             <div style="color:#666;">
               Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
-              · <strong>Items:</strong> {{ group.reservations.count }}
+              · <strong>Items:</strong> {{ group.filtered_reservations|length }}
             </div>
           </div>
-
           <div>
             {% if group.status == "PENDING" %}
               <a class="btn btn-success" href="{% url 'accounts:reservation-group-approve' group.id %}">Approve</a>
@@ -95,111 +107,142 @@
             </tr>
           </thead>
           <tbody>
-            {# Render only rows whose (first+last) contains user_q (case-insensitive) #}
-            {% for r in group.reservations.all %}
-              {% with full_name=r.user.first_name|default_if_none:''|add:" "|add:r.user.last_name|default_if_none:'' %}
-              {% with full_lower=full_name|lower %}
-                {% if not user_q or user_q in full_lower %}
-                  <tr>
-                    <td>
-                      <a href="{% url 'accounts:profile-detail' r.user.id %}">
-                        {% if r.user.first_name or r.user.last_name %}
-                          {{ r.user.first_name }} {{ r.user.last_name }}
-                        {% else %}
-                          {{ r.user.username }}
-                        {% endif %}
-                      </a>
-                    </td>
-                    <td>{{ r.vehicle_display|default:r.vehicle }}</td>
-                    <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                    <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
-                    <td>{{ r.total_price|floatformat:2 }} EUR</td>
-                    <td>
-                      {% if group.status == "PENDING" or group.status == "AWAITING_PAYMENT" %}
-                        <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
-                        <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
-                          {% csrf_token %}
-                          <button class="btn" type="submit">Delete</button>
-                        </form>
-                      {% endif %}
-                    </td>
-                  </tr>
-                {% endif %}
-              {% endwith %}
-              {% endwith %}
-            {% empty %}
-              <tr><td colspan="6">No items in this group.</td></tr>
+            {% for r in group.filtered_reservations %}
+              <tr>
+                <td>
+                  <a href="{% url 'accounts:profile-detail' r.user.id %}">
+                    {% if r.user.first_name or r.user.last_name %}
+                      {{ r.user.first_name }} {{ r.user.last_name }}
+                    {% else %}
+                      {{ r.user.username }}
+                    {% endif %}
+                  </a>
+                </td>
+                <td>{{ r.vehicle_name_snapshot|default:r.vehicle }}</td>
+                <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+                <td>
+                  {{ r.pickup_location.name|default:r.pickup_location_snapshot }}
+                  →
+                  {{ r.return_location.name|default:r.return_location_snapshot }}
+                </td>
+                <td>{{ r.total_price|floatformat:2 }} EUR</td>
+                <td>
+                  {% if group.status == "PENDING" or group.status == "AWAITING_PAYMENT" %}
+                    <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
+                    <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
+                      {% csrf_token %}
+                      <button class="btn" type="submit">Delete</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     {% endif %}
   {% endfor %}
+
+  {# ---- Ongoing pagination ---- #}
+  {% if ongoing_page_obj.paginator.num_pages > 1 %}
+    <nav aria-label="Ongoing pages" class="pagination" style="display:flex; gap:.5rem; align-items:center;">
+      {% with base=ongoing_params %}
+        <a class="btn btn-secondary" href="?{{ base }}&ongoing_page=1" {% if ongoing_page_obj.number == 1 %}aria-disabled="true"{% endif %}>« First</a>
+        {% if ongoing_page_obj.has_previous %}
+          <a class="btn btn-secondary" href="?{{ base }}&ongoing_page={{ ongoing_page_obj.previous_page_number }}">‹ Prev</a>
+        {% else %}
+          <span class="btn btn-secondary" aria-disabled="true">‹ Prev</span>
+        {% endif %}
+        <span class="badge">Page {{ ongoing_page_obj.number }} of {{ ongoing_page_obj.paginator.num_pages }}</span>
+        {% if ongoing_page_obj.has_next %}
+          <a class="btn btn-secondary" href="?{{ base }}&ongoing_page={{ ongoing_page_obj.next_page_number }}">Next ›</a>
+        {% else %}
+          <span class="btn btn-secondary" aria-disabled="true">Next ›</span>
+        {% endif %}
+      {% endwith %}
+    </nav>
+  {% endif %}
 {% else %}
   <p>No ongoing reservations.</p>
 {% endif %}
 
-<h2 style="margin-top:2em;">Archived Reservations</h2>
+{# ---------- Archived: folded by default with details/summary ---------- #}
+<details id="archived-block" style="margin-top:2em;">
+  <summary style="cursor:pointer; list-style:none;">
+    <h2 style="display:inline;">Archived Reservations</h2>
+    <span style="color:#666; margin-left:8px;">({{ archived_page_obj.paginator.count }} groups)</span>
+    <span style="margin-left:8px; font-size:12px; color:#888;">click to toggle</span>
+  </summary>
 
-{% if archived %}
-  {% for group in archived %}
-    {% if not status_q or status_q == group.status %}
-      <div class="card" style="margin-bottom: 2em;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75em;">
+  {% if archived_page_obj.object_list %}
+    {% for group in archived_page_obj.object_list %}
+      {% if group.filtered_reservations %}
+        <div class="card" style="margin: 1em 0 2em;">
           <div>
             <h3 style="margin:0;">Group {{ group.id }} — Ref: {{ group.reference }}</h3>
             <div style="color:#666;">
               Created: {{ group.created_at }} · <strong>Status:</strong> {{ group.get_status_display }}
-              · <strong>Items:</strong> {{ group.reservations.count }}
+              · <strong>Items:</strong> {{ group.filtered_reservations|length }}
             </div>
           </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Vehicle</th>
+                <th>Dates</th>
+                <th>Pickup → Return</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in group.filtered_reservations %}
+                <tr>
+                  <td>
+                    <a href="{% url 'accounts:profile-detail' r.user.id %}">
+                      {% if r.user.first_name or r.user.last_name %}
+                        {{ r.user.first_name }} {{ r.user.last_name }}
+                      {% else %}
+                        {{ r.user.username }}
+                      {% endif %}
+                    </a>
+                  </td>
+                  <td>{{ r.vehicle_name_snapshot|default:r.vehicle }}</td>
+                  <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
+                  <td>
+                    {{ r.pickup_location.name|default:r.pickup_location_snapshot }}
+                    →
+                    {{ r.return_location.name|default:r.return_location_snapshot }}
+                  </td>
+                  <td>{{ r.total_price|floatformat:2 }} EUR</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
+      {% endif %}
+    {% endfor %}
 
-        <table>
-          <thead>
-            <tr>
-              <th>Customer</th>
-              <th>Vehicle</th>
-              <th>Dates</th>
-              <th>Pickup → Return</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in group.reservations.all %}
-              {% with full_name=r.user.first_name|default_if_none:''|add:" "|add:r.user.last_name|default_if_none:'' %}
-              {% with full_lower=full_name|lower %}
-                {% if not user_q or user_q in full_lower %}
-                  <tr>
-                    <td>
-                      <a href="{% url 'accounts:profile-detail' r.user.id %}">
-                        {% if r.user.first_name or r.user.last_name %}
-                          {{ r.user.first_name }} {{ r.user.last_name }}
-                        {% else %}
-                          {{ r.user.username }}
-                        {% endif %}
-                      </a>
-                    </td>
-                    <td>{{ r.vehicle_display|default:r.vehicle }}</td>
-                    <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
-                    <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
-                    <td>{{ r.total_price|floatformat:2 }} EUR</td>
-                  </tr>
-                {% endif %}
-              {% endwith %}
-              {% endwith %}
-            {% empty %}
-              <tr><td colspan="5">No items in this group.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+    {% if archived_page_obj.paginator.num_pages > 1 %}
+      <nav aria-label="Archived pages" class="pagination" style="display:flex; gap:.5rem; align-items:center; margin-bottom:1rem;">
+        {% with base=archived_params %}
+          {% if archived_page_obj.has_previous %}
+            <a class="btn btn-secondary" href="?{{ base }}&archived_page={{ archived_page_obj.previous_page_number }}">‹ Prev</a>
+          {% else %}
+            <span class="btn btn-secondary" aria-disabled="true">‹ Prev</span>
+          {% endif %}
+          <span class="badge">Page {{ archived_page_obj.number }} of {{ archived_page_obj.paginator.num_pages }}</span>
+          {% if archived_page_obj.has_next %}
+            <a class="btn btn-secondary" href="?{{ base }}&archived_page={{ archived_page_obj.next_page_number }}">Next ›</a>
+          {% else %}
+            <span class="btn btn-secondary" aria-disabled="true">Next ›</span>
+          {% endif %}
+        {% endwith %}
+      </nav>
     {% endif %}
-  {% endfor %}
-{% else %}
-  <p>No archived reservations.</p>
-{% endif %}
-
-{% endwith %}
-{% endwith %}
+  {% else %}
+    <p>No archived reservations.</p>
+  {% endif %}
+</details>
 {% endblock %}

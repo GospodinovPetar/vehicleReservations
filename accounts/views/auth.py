@@ -1,47 +1,45 @@
-from django.contrib.auth import login, logout, update_session_auth_hash, get_user_model
+from __future__ import annotations
+
+from django.contrib import messages
+from django.contrib.auth import get_user_model, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
-from django.contrib.auth.hashers import make_password, check_password
-from django.http import HttpResponseForbidden
-from django.shortcuts import redirect, render, get_object_or_404
-from django.views.decorators.http import require_http_methods
-from django.contrib import messages
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_http_methods
 
 from accounts.forms import (
     CustomUserCreationForm,
     EmailCodeForm,
-    UserProfileForm,
     EmailOnlyForm,
     PasswordResetConfirmForm,
+    UserProfileForm,
 )
 from accounts.models import PendingRegistration
 from accounts.views.helpers import (
-    _issue_code,
     PURPOSE_REGISTER,
+    PURPOSE_RESET,
+    User,
+    _issue_code,
+    _send_reset_email,
     _send_verification_email,
     _validate_code,
-    PURPOSE_RESET,
-    _send_reset_email,
-    User,
 )
-
 from inventory.models.reservation import VehicleReservation
 
 SESSION_KEY = "email_codes"
 
 
 @require_http_methods(["GET", "POST"])
-def register(request):
+def register(request: HttpRequest) -> HttpResponse:
     """
-    Start a registration with email verification.
-
-    - POST: Valid form creates a PendingRegistration (24h TTL), issues a code,
-      emails it, stores email in session, and redirects to verify step.
-    - GET: Renders the registration form.
-
-    Renders:
-        accounts/auth/auth.html (title="Register")
+    Registration:
+    - Do NOT create CustomUser yet.
+    - Store data in PendingRegistration (DB) with hashed password.
+    - Issue a session-backed code and email it.
+    - Redirect to verify page.
     """
     if request.method == "POST":
         form = CustomUserCreationForm(request.POST)
@@ -84,16 +82,11 @@ def register(request):
 
 
 @require_http_methods(["GET", "POST"])
-def verify_email(request):
+def verify_email(request: HttpRequest) -> HttpResponse:
     """
-    Complete registration by verifying email with a code.
-
-    - GET: If a pending registration exists for the session email, re-issues a code
-      and informs the user; then renders the code-entry form.
-    - POST: Validates the submitted code; on success creates and logs in the user.
-
-    Renders:
-        accounts/auth/auth.html (title="Verify Email")
+    Verify email with code:
+    - GET: if session contains a pending email, re-issue a new code and email it.
+    - POST: validate against session; if OK, create the real user from PendingRegistration and log in.
     """
     initial = {"email": request.session.get("pending_verify_email", "")}
 
@@ -188,18 +181,11 @@ def verify_email(request):
 
 
 @require_http_methods(["GET", "POST"])
-def login_view(request):
+def login_view(request: HttpRequest) -> HttpResponse:
     """
-    Authenticate and log a user in.
-
-    - POST: Valid credentials log the user in and redirect based on role
-      (admin → admin dashboard, manager → manager dashboard, else home).
-      If login fails but a matching PendingRegistration exists and password matches,
-      the flow redirects to email verification and re-issues a code.
-    - GET: Render the login form.
-
-    Renders:
-        accounts/auth/auth.html (title="Login")
+    Normal login.
+    EXTRA: If auth fails, check for a matching PendingRegistration (username OR email)
+    with matching password; if found, redirect to verify page and re-issue/send the code there.
     """
     if request.method == "POST":
         form = AuthenticationForm(request, data=request.POST)
@@ -245,7 +231,6 @@ def login_view(request):
 
                 if check_password(raw_password, pending.password_hash):
                     request.session["pending_verify_email"] = pending.email
-                    # re-issue code immediately so they don't need to reload
                     code, ttl = _issue_code(
                         request,
                         email=pending.email,
@@ -266,51 +251,27 @@ def login_view(request):
     return render(request, "accounts/auth/auth.html", {"form": form, "title": "Login"})
 
 
-def logout_view(request):
-    """
-    Log out the current user and redirect home.
-
-    Side effects:
-        - Clears the authenticated session.
-        - Flashes a success message.
-    """
+def logout_view(request: HttpRequest) -> HttpResponse:
     logout(request)
     messages.success(request, "You have been logged out.")
     return redirect("/")
 
 
 @login_required
-def profile_detail(request, pk):
-    """
-    View a user's profile detail page.
-
-    Access:
-        - Self
-        - Admin/Manager can view any user by pk.
-
-    Args:
-        pk (int): User primary key.
-
-    Renders:
-        accounts/profile_detail.html
-    """
+def profile_detail(request: HttpRequest, pk: int) -> HttpResponse:
     user = get_object_or_404(User, pk=pk)
     return render(request, "accounts/profile_detail.html", {"user": user})
 
 
 @login_required
-def profile_view(request, pk=None):
+def profile_view(request: HttpRequest, pk: int | None = None) -> HttpResponse:
     """
-    View a profile page and the user's reservations.
-
-    - If pk is omitted or equals the current user's pk, shows own profile.
-    - Admins/managers can view any user's profile; others are forbidden.
-
-    Args:
-        pk (int|None): Optional user primary key.
-
-    Renders:
-        accounts/profile/profile_detail.html
+    Show user profile.
+    - /profile/ → always show the logged-in user
+    - /profile/<pk>/ →
+        * if pk == request.user.pk → show own profile
+        * if admin/manager → show target user's profile
+        * else → forbidden
     """
     if pk is None:
         profile_user = request.user
@@ -334,13 +295,8 @@ def profile_view(request, pk=None):
 
 
 @login_required
-def profile_edit(request):
-    """
-    Allow the logged-in user to edit their own profile.
-
-    - GET: Render profile edit form with current data.
-    - POST: Validate and save; redirect to profile detail on success.
-    """
+def profile_edit(request: HttpRequest) -> HttpResponse:
+    """Allow a logged-in user to edit their own profile."""
     user = request.user
     if request.method == "POST":
         form = UserProfileForm(request.POST, instance=user)
@@ -355,18 +311,13 @@ def profile_edit(request):
 
 
 @login_required
-def profile_change_password(request):
-    """
-    Let the logged-in user change their password.
-
-    - GET: Render password change form.
-    - POST: Validate and update password, keeping the session authenticated.
-    """
+def profile_change_password(request: HttpRequest) -> HttpResponse:
+    """Allow logged-in user to change their password."""
     if request.method == "POST":
         form = PasswordChangeForm(user=request.user, data=request.POST)
         if form.is_valid():
             user = form.save()
-            update_session_auth_hash(request, user)  # Keep user logged in
+            update_session_auth_hash(request, user)
             messages.success(request, "Your password has been updated successfully.")
             return redirect("accounts:profile")
         else:
@@ -379,18 +330,11 @@ def profile_change_password(request):
     )
 
 
-# ----------- Password reset (session code, no DB) -----------
 @require_http_methods(["GET", "POST"])
-def forgot_password_start(request):
+def forgot_password_start(request: HttpRequest) -> HttpResponse:
     """
-    Start a password reset by email (no account enumeration).
-
-    - POST: If a user exists for the email, issue a session-backed code and email it.
-      Always respond with a neutral info message and redirect to confirm step.
-    - GET: Render email collection form.
-
-    Renders:
-        accounts/auth/auth.html (title="Forgot Password")
+    Ask for email; if a profile exists, issue a session-backed code and email it,
+    then push to confirm screen. (Neutral response to avoid enumeration.)
     """
     if request.method == "POST":
         form = EmailOnlyForm(request.POST)
@@ -411,16 +355,10 @@ def forgot_password_start(request):
 
 
 @require_http_methods(["GET", "POST"])
-def forgot_password_confirm(request):
+def forgot_password_confirm(request: HttpRequest) -> HttpResponse:
     """
-    Confirm password reset with email + code + new password.
-
-    - POST: Validate code against session bundle; on success update the password.
-      If invalid/expired/too many attempts, automatically re-issue a new code.
-    - GET: Render the confirmation form.
-
-    Renders:
-        accounts/auth/auth.html (title="Reset Password")
+    Email + code + new password; validate against session bundle and update password.
+    If invalid/expired/too many attempts, auto-issue a fresh one and show the form again.
     """
     if request.method == "POST":
         form = PasswordResetConfirmForm(request.POST)
@@ -433,7 +371,6 @@ def forgot_password_confirm(request):
                 request, email=email, purpose=PURPOSE_RESET, submitted_code=code
             )
             if not ok:
-                # auto re-issue
                 fresh, ttl = _issue_code(
                     request, email=email, purpose=PURPOSE_RESET, ttl_minutes=10
                 )

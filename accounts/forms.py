@@ -1,13 +1,13 @@
-from django import forms
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import get_user_model
+from __future__ import annotations
 
-from inventory.models.reservation import (
-    ReservationStatus,
-    Location,
-    ReservationGroup,
-)
-from inventory.models.vehicle import Vehicle, VehicleType, EngineType
+from typing import Any
+
+from django import forms
+from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import UserCreationForm
+
+from inventory.models.reservation import Location, ReservationGroup, ReservationStatus
+from inventory.models.vehicle import EngineType, Vehicle, VehicleType
 
 CustomUser = get_user_model()
 
@@ -31,9 +31,9 @@ class CustomUserCreationForm(UserCreationForm):
             "password2",
         )
 
-    def save(self, commit=True):
+    def save(self, commit: bool = True) -> CustomUser:
         user = super().save(commit=False)
-        user.role = "user"  # default role for self-registrations
+        user.role = "user"
         user.first_name = self.cleaned_data["first_name"]
         user.last_name = self.cleaned_data["last_name"]
         user.phone = self.cleaned_data["phone"]
@@ -116,10 +116,9 @@ class VehicleForm(forms.ModelForm):
             "damages": forms.Textarea(attrs={"rows": 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         request = kwargs.pop("request", None)
         instance: Vehicle | None = kwargs.get("instance")
-
         super().__init__(*args, **kwargs)
 
         self.fields["available_pickup_locations"].queryset = (
@@ -133,23 +132,20 @@ class VehicleForm(forms.ModelForm):
             first_pickup = instance.available_pickup_locations.first()
             if first_pickup:
                 self.fields["available_pickup_locations"].initial = first_pickup.pk
-
             self.fields["available_return_locations"].initial = list(
                 instance.available_return_locations.values_list("pk", flat=True)
             )
-
         elif not self.is_bound:
             default_id = None
             if request is not None:
                 default_id = request.GET.get("pickup") or request.session.get(
                     "last_pickup_id"
                 )
-
             fld = self.fields["available_pickup_locations"]
             if default_id and fld.queryset.filter(pk=default_id).exists():
                 self.initial.setdefault("available_pickup_locations", int(default_id))
 
-    def save(self, commit=True):
+    def save(self, commit: bool = True) -> Vehicle:
         """
         Save the instance without Django's default M2M handling,
         then set M2M fields manually:
@@ -157,21 +153,20 @@ class VehicleForm(forms.ModelForm):
           - available_return_locations: normal multiple
         """
         vehicle = super().save(commit=False)
-
         if commit:
             vehicle.save()
 
         pickup = self.cleaned_data.get("available_pickup_locations")
         returns = self.cleaned_data.get("available_return_locations")
 
-        def _save_m2m():
+        def _save_m2m() -> None:
             vehicle.available_pickup_locations.set([pickup] if pickup else [])
             vehicle.available_return_locations.set(returns if returns is not None else [])
 
         if commit:
             _save_m2m()
         else:
-            self._save_m2m = _save_m2m
+            self._save_m2m = _save_m2m  # type: ignore[attr-defined]
 
         return vehicle
 
@@ -181,7 +176,7 @@ class ReservationStatusForm(forms.ModelForm):
         model = ReservationGroup
         fields = ["status"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["status"].choices = ReservationStatus.choices
 
@@ -205,40 +200,45 @@ class PasswordResetConfirmForm(forms.Form):
         widget=forms.PasswordInput(), min_length=8, label="Confirm new password"
     )
 
-    def clean(self):
+    def clean(self) -> dict:
         cleaned = super().clean()
         if cleaned.get("new_password") != cleaned.get("new_password_confirm"):
             raise forms.ValidationError("Passwords do not match.")
         return cleaned
 
+
 class VehicleFilterForm(forms.Form):
     """
     GET-based filter form for the vehicle list.
     """
+
     name = forms.CharField(
-        required=False, label="Name",
-        widget=forms.TextInput(attrs={"placeholder": "e.g. Corolla"})
+        required=False,
+        label="Name",
+        widget=forms.TextInput(attrs={"placeholder": "e.g. Corolla"}),
     )
     plate = forms.CharField(
-        required=False, label="Plate number",
-        widget=forms.TextInput(attrs={"placeholder": "e.g. ABC-123"})
+        required=False,
+        label="Plate number",
+        widget=forms.TextInput(attrs={"placeholder": "e.g. ABC-123"}),
     )
     car_type = forms.ChoiceField(
-        required=False, label="Type of vehicle",
+        required=False,
+        label="Type of vehicle",
         choices=[("", "Any type")] + list(VehicleType.choices),
-        widget=forms.Select()
+        widget=forms.Select(),
     )
     pickup_location = forms.ModelChoiceField(
         queryset=Location.objects.all().order_by("name"),
         required=False,
         empty_label="Any pickup location",
         label="Pickup location",
-        widget=forms.Select()
+        widget=forms.Select(),
     )
     return_location = forms.ModelChoiceField(
         queryset=Location.objects.all().order_by("name"),
         required=False,
         empty_label="Any drop-off location",
         label="Drop-off location",
-        widget=forms.Select()
+        widget=forms.Select(),
     )

@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from django.contrib import messages
-from django.db import models
 from django.contrib.auth.decorators import login_required, permission_required
-from django.shortcuts import redirect, render, get_object_or_404
+from django.db import models
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.views.admins_managers import manager_required
 from inventory.models.reservation import Location, ReservationStatus
@@ -10,7 +13,7 @@ from inventory.models.reservation import Location, ReservationStatus
 @login_required
 @manager_required
 @permission_required("inventory.view_location", raise_exception=True)
-def location_list(request):
+def location_list(request: HttpRequest) -> HttpResponse:
     """
     List all locations.
 
@@ -22,14 +25,16 @@ def location_list(request):
     """
     locations = Location.objects.all()
     return render(
-        request, "accounts/locations/location_list.html", {"locations": locations}
+        request,
+        "accounts/locations/location_list.html",
+        {"locations": locations},
     )
 
 
 @login_required
 @manager_required
 @permission_required("inventory.add_location", raise_exception=True)
-def location_create(request):
+def location_create(request: HttpRequest) -> HttpResponse:
     """
     Create a new location by name.
 
@@ -40,21 +45,23 @@ def location_create(request):
         accounts/locations/location_form.html
     """
     if request.method == "POST":
-        name = request.POST.get("name")
+        name = (request.POST.get("name") or "").strip()
         if name:
             Location.objects.create(name=name)
             messages.success(request, "Location created.")
             return redirect("accounts:location-list")
         messages.error(request, "Please provide a name.")
     return render(
-        request, "accounts/locations/location_form.html", {"title": "Create location"}
+        request,
+        "accounts/locations/location_form.html",
+        {"title": "Create location"},
     )
 
 
 @login_required
 @manager_required
 @permission_required("inventory.change_location", raise_exception=True)
-def location_edit(request, pk):
+def location_edit(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Edit the name of an existing location.
 
@@ -66,7 +73,7 @@ def location_edit(request, pk):
     """
     loc = get_object_or_404(Location, pk=pk)
     if request.method == "POST":
-        name = request.POST.get("name")
+        name = (request.POST.get("name") or "").strip()
         if name:
             loc.name = name
             loc.save()
@@ -83,7 +90,7 @@ def location_edit(request, pk):
 @login_required
 @manager_required
 @permission_required("inventory.delete_location", raise_exception=True)
-def location_delete(request, pk):
+def location_delete(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Delete a location if it is not referenced by any blocking reservations.
 

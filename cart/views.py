@@ -1,28 +1,24 @@
 from __future__ import annotations
 
-import secrets
-from collections import defaultdict
-from datetime import date
-
-from django.db import transaction
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, Any, List, Optional
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Dict, List, Optional
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_http_methods
 
-from inventory.helpers.parse_iso_date import parse_iso_date
 from cart.models.cart import Cart, CartItem
-from inventory.helpers.pricing import quote_total, RateTable
+from inventory.helpers.parse_iso_date import parse_iso_date
+from inventory.helpers.pricing import RateTable, quote_total
 from inventory.models.reservation import (
     Location,
-    ReservationStatus,
     ReservationGroup,
+    ReservationStatus,
     VehicleReservation,
 )
 from inventory.models.vehicle import Vehicle
@@ -107,7 +103,7 @@ def add_to_cart(request: HttpRequest) -> HttpResponse:
         return redirect(referer_url)
 
 
-def _quantize_money(value: Decimal) -> Decimal:
+def _quantize_money(value: Optional[Decimal]) -> Decimal:
     """
     Quantize a Decimal monetary value to two decimal places with ROUND_HALF_UP.
     """
@@ -116,7 +112,7 @@ def _quantize_money(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def _cents(value: Decimal) -> int:
+def _cents(value: Optional[Decimal]) -> int:
     """
     Convert a Decimal money amount to integer cents using two-decimal quantization.
     """
@@ -145,7 +141,7 @@ def checkout(request: HttpRequest) -> HttpResponse:
         HttpResponse: Redirect to the cart on error, or to the reservations page on success.
     """
     with transaction.atomic():
-        cart_obj: Optional[Cart] = (
+        cart_obj: Cart | None = (
             Cart.objects.select_for_update()
             .select_related("user")
             .filter(user=request.user, is_checked_out=False)
@@ -261,7 +257,7 @@ def checkout(request: HttpRequest) -> HttpResponse:
 
 @login_required
 @require_http_methods(["POST"])
-def remove_from_cart(request, item_id):
+def remove_from_cart(request: HttpRequest, item_id: int) -> HttpResponse:
     """
     Remove a specific item from the user’s active cart.
     """
@@ -272,66 +268,65 @@ def remove_from_cart(request, item_id):
     return redirect("inventory:view_cart")
 
 
-@login_required
-@require_http_methods(["POST"])
-@csrf_protect
-def update_item_locations(request: HttpRequest, item_id: int) -> HttpResponse:
-    """
-    Update pickup/return locations for a CartItem.
-
-    Validations:
-      - Both location IDs must be provided and exist.
-      - Selected locations must be allowed for the item's vehicle
-        (available_pickup_locations / available_return_locations).
-    """
-    cart = Cart.get_or_create_active(request.user)
-    item = get_object_or_404(
-        CartItem.objects.select_related("vehicle", "cart"),
-        pk=item_id,
-        cart=cart,
-    )
-
-    pickup_id = (request.POST.get("pickup_location") or "").strip()
-    return_id = (request.POST.get("return_location") or "").strip()
-
-    if not pickup_id or not return_id:
-        messages.error(request, "Please select both pickup and return locations.")
-        return redirect("inventory:view_cart")
-
-    try:
-        pickup = Location.objects.get(pk=pickup_id)
-        dropoff = Location.objects.get(pk=return_id)
-    except Location.DoesNotExist:
-        messages.error(request, "Invalid location selection.")
-        return redirect("inventory:view_cart")
-
-    vehicle = item.vehicle
-    allowed_pickups = set(
-        vehicle.available_pickup_locations.values_list("id", flat=True)
-    )
-    allowed_returns = set(
-        vehicle.available_return_locations.values_list("id", flat=True)
-    )
-    if pickup.id not in allowed_pickups:
-        messages.error(
-            request,
-            "This vehicle cannot be picked up at the selected location.",
-        )
-        return redirect("inventory:view_cart")
-    if dropoff.id not in allowed_returns:
-        messages.error(
-            request,
-            "This vehicle cannot be returned at the selected location.",
-        )
-        return redirect("inventory:view_cart")
-
-    # Persist the changes
-    item.pickup_location = pickup
-    item.return_location = dropoff
-    item.save(update_fields=["pickup_location", "return_location"])
-
-    messages.success(request, "Pickup and return locations updated.")
-    return redirect("inventory:view_cart")
+# @login_required
+# @require_http_methods(["POST"])
+# @csrf_protect
+# def update_item_locations(request: HttpRequest, item_id: int) -> HttpResponse:
+#     """
+#     Update pickup/return locations for a CartItem.
+#
+#     Validations:
+#       - Both location IDs must be provided and exist.
+#       - Selected locations must be allowed for the item's vehicle
+#         (available_pickup_locations / available_return_locations).
+#     """
+#     cart = Cart.get_or_create_active(request.user)
+#     item = get_object_or_404(
+#         CartItem.objects.select_related("vehicle", "cart"),
+#         pk=item_id,
+#         cart=cart,
+#     )
+#
+#     pickup_id = (request.POST.get("pickup_location") or "").strip()
+#     return_id = (request.POST.get("return_location") or "").strip()
+#
+#     if not pickup_id or not return_id:
+#         messages.error(request, "Please select both pickup and return locations.")
+#         return redirect("inventory:view_cart")
+#
+#     try:
+#         pickup = Location.objects.get(pk=pickup_id)
+#         dropoff = Location.objects.get(pk=return_id)
+#     except Location.DoesNotExist:
+#         messages.error(request, "Invalid location selection.")
+#         return redirect("inventory:view_cart")
+#
+#     vehicle = item.vehicle
+#     allowed_pickups = set(
+#         vehicle.available_pickup_locations.values_list("id", flat=True)
+#     )
+#     allowed_returns = set(
+#         vehicle.available_return_locations.values_list("id", flat=True)
+#     )
+#     if pickup.id not in allowed_pickups:
+#         messages.error(
+#             request,
+#             "This vehicle cannot be picked up at the selected location.",
+#         )
+#         return redirect("inventory:view_cart")
+#     if dropoff.id not in allowed_returns:
+#         messages.error(
+#             request,
+#             "This vehicle cannot be returned at the selected location.",
+#         )
+#         return redirect("inventory:view_cart")
+#
+#     item.pickup_location = pickup
+#     item.return_location = dropoff
+#     item.save(update_fields=["pickup_location", "return_location"])
+#
+#     messages.success(request, "Pickup and return locations updated.")
+#     return redirect("inventory:view_cart")
 
 
 @login_required

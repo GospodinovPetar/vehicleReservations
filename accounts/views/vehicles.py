@@ -1,12 +1,14 @@
-from django.contrib import messages
-from django.contrib.auth.decorators import (
-    login_required,
-    permission_required,
-)
-from django.db import models
-from django.shortcuts import redirect, render, get_object_or_404
+from __future__ import annotations
 
-from accounts.forms import VehicleForm, VehicleFilterForm
+from typing import Dict
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, permission_required
+from django.db import models
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+
+from accounts.forms import VehicleFilterForm, VehicleForm
 from accounts.views.admins_managers import manager_required
 from inventory.models.reservation import Location, ReservationStatus
 from inventory.models.vehicle import Vehicle
@@ -15,7 +17,7 @@ from inventory.models.vehicle import Vehicle
 @login_required
 @manager_required
 @permission_required("inventory.view_vehicle", raise_exception=True)
-def vehicle_list(request):
+def vehicle_list(request: HttpRequest) -> HttpResponse:
     """
     List all vehicles for managers/admins with server-side filters.
 
@@ -37,9 +39,9 @@ def vehicle_list(request):
     if form.is_valid():
         cd = form.cleaned_data
         if cd.get("name"):
-            vehicles = vehicles.filter(name__icontains=cd["name"].strip())
+            vehicles = vehicles.filter(name__icontains=(cd["name"] or "").strip())
         if cd.get("plate"):
-            vehicles = vehicles.filter(plate_number__icontains=cd["plate"].strip())
+            vehicles = vehicles.filter(plate_number__icontains=(cd["plate"] or "").strip())
         if cd.get("car_type"):
             vehicles = vehicles.filter(car_type=cd["car_type"])
         if cd.get("pickup_location"):
@@ -66,7 +68,7 @@ def vehicle_list(request):
 @login_required
 @manager_required
 @permission_required("inventory.add_vehicle", raise_exception=True)
-def vehicle_create(request):
+def vehicle_create(request: HttpRequest) -> HttpResponse:
     """
     Create a new vehicle.
 
@@ -75,7 +77,7 @@ def vehicle_create(request):
       in the session, and redirects back to the list.
     """
     pickup_param = request.GET.get("pickup")
-    initial = {}
+    initial: Dict[str, int] = {}
     if pickup_param:
         try:
             loc = Location.objects.filter(pk=int(pickup_param)).only("id").first()
@@ -101,7 +103,7 @@ def vehicle_create(request):
 @login_required
 @manager_required
 @permission_required("inventory.change_vehicle", raise_exception=True)
-def vehicle_edit(request, pk):
+def vehicle_edit(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Edit an existing vehicle.
 
@@ -127,7 +129,7 @@ def vehicle_edit(request, pk):
 @login_required
 @manager_required
 @permission_required("inventory.delete_vehicle", raise_exception=True)
-def vehicle_delete(request, pk):
+def vehicle_delete(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Delete a vehicle if it is not part of any blocking reservation.
 
@@ -156,7 +158,8 @@ def vehicle_delete(request, pk):
     messages.success(request, "Vehicle deleted successfully.")
     return redirect("accounts:vehicle-list")
 
-def vehicle_profile(request, pk):
+
+def vehicle_profile(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Public vehicle profile page.
     """

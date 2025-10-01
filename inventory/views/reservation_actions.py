@@ -1,31 +1,36 @@
 from __future__ import annotations
 
-from django.utils import timezone
-from typing import Dict, Any, List
+from collections import defaultdict
+from typing import Any, Dict, List
 
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.mail import send_mail
+from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from config import settings
-from inventory.helpers.parse_iso_date import parse_iso_date
 from inventory.helpers.redirect_back_to_search import redirect_back_to_search
 from inventory.models.reservation import (
     Location,
-    VehicleReservation,
-    ReservationStatus,
     ReservationGroup,
+    ReservationStatus,
+    VehicleReservation,
 )
 from inventory.models.vehicle import Vehicle
-from inventory.views.status_switch import transition_group, TransitionError
+from inventory.views.status_switch import TransitionError, transition_group
 from mockpay.models import PaymentIntent, PaymentIntentStatus
+
+
+def _is_staff_user(u: Any) -> bool:
+    return bool(getattr(u, "is_staff", False))
 
 
 @login_required
@@ -57,8 +62,8 @@ def reserve(request: HttpRequest) -> HttpResponse:
 
     vehicle_obj = get_object_or_404(Vehicle, pk=vehicle_param)
 
-    start_date = parse_iso_date(start_param)
-    end_date = parse_iso_date(end_param)
+    start_date = timezone.datetime.fromisoformat(start_param) if start_param else None
+    end_date = timezone.datetime.fromisoformat(end_param) if end_param else None
     if start_date is None or end_date is None or end_date <= start_date:
         messages.error(request, "Start date must be before end date.")
         return redirect_back_to_search(start_param, end_param)
@@ -187,40 +192,130 @@ class ReservationEditForm(forms.ModelForm):
 @login_required
 def my_reservations(request: HttpRequest) -> HttpResponse:
     """
-    List the current user's reservation groups, split into active and archived.
-
-    Active excludes REJECTED and CANCELED; both lists prefetch the group's
-    reservations with common relations for efficient rendering.
-
-    Returns:
-        HttpResponse: Rendered reservations page.
+    Logged-in user's reservation list (active + archived), with filtering + pagination.
+    Renders: accounts/reservations/reservation_list_user.html
     """
-    archived_statuses = [ReservationStatus.REJECTED, ReservationStatus.CANCELED]
 
-    items_queryset = VehicleReservation.objects.select_related(
-        "vehicle", "pickup_location", "return_location"
-    ).order_by("-start_date")
-    items_prefetch = Prefetch("reservations", queryset=items_queryset)
+    # -------- Filters from querystring --------
+    pickup_q  = (request.GET.get("pickup") or "").strip()
+    dropoff_q = (request.GET.get("dropoff") or "").strip()
+    status_q  = (request.GET.get("status") or "").strip()  # optional: filter groups by status
 
-    base_groups = ReservationGroup.objects.filter(user=request.user)
-
-    groups = (
-        base_groups.exclude(status__in=archived_statuses)
-        .prefetch_related(items_prefetch)
-        .order_by("-created_at")
+    # -------- Base: this user's reservations only --------
+    res_qs = (
+        VehicleReservation.objects
+        .filter(user=request.user)
+        .select_related("vehicle", "pickup_location", "return_location", "group")
     )
 
-    archived = (
-        base_groups.filter(status__in=archived_statuses)
-        .prefetch_related(items_prefetch)
-        .order_by("-created_at")
+    # Location filters (compare to Location.name OR snapshot string)
+    if pickup_q:
+        res_qs = res_qs.filter(
+            Q(pickup_location__name__iexact=pickup_q) |
+            Q(pickup_location_snapshot__iexact=pickup_q)
+        )
+    if dropoff_q:
+        res_qs = res_qs.filter(
+            Q(return_location__name__iexact=dropoff_q) |
+            Q(return_location_snapshot__iexact=dropoff_q)
+        )
+
+    # If there are no reservations after filters, short-circuit (still render dropdowns/pagers nicely)
+    if not res_qs.exists():
+        locations = list(
+            Location.objects.order_by("name").values_list("name", flat=True).distinct()
+        )
+        # empty paginators for template compatibility
+        empty_paginator = Paginator([], 10)
+        empty_page = empty_paginator.page(1)
+        return render(
+            request,
+            "accounts/reservations/reservation_list_user.html",
+            {
+                "ongoing_page_obj": empty_page,
+                "archived_page_obj": empty_page,
+                "ongoing_params": request.GET.urlencode(),
+                "archived_params": request.GET.urlencode(),
+                "locations": locations,
+            },
+        )
+
+    # -------- Split groups by status (Active vs Archived) --------
+    ACTIVE_STATUSES   = ["PENDING", "AWAITING_PAYMENT", "RESERVED", "ONGOING"]
+    ARCHIVED_STATUSES = ["COMPLETED", "REJECTED", "CANCELED"]
+
+    # Start from the reservations we actually have and collect their group IDs
+    all_group_ids = list(res_qs.values_list("group_id", flat=True).distinct())
+
+    # Fetch those groups, optionally narrowed by selected status
+    active_groups_qs = ReservationGroup.objects.filter(id__in=all_group_ids, status__in=ACTIVE_STATUSES)
+    archived_groups_qs = ReservationGroup.objects.filter(id__in=all_group_ids, status__in=ARCHIVED_STATUSES)
+    if status_q:
+        active_groups_qs = active_groups_qs.filter(status=status_q)
+        archived_groups_qs = archived_groups_qs.filter(status=status_q)
+
+    active_groups  = list(active_groups_qs.order_by("-created_at"))
+    archived_groups = list(archived_groups_qs.order_by("-created_at"))
+
+    res_by_group: dict[int, list[VehicleReservation]] = defaultdict(list)
+    for r in res_qs:
+        res_by_group[r.group_id].append(r)
+
+    active_groups = [g for g in active_groups if res_by_group.get(g.id)]
+    archived_groups = [g for g in archived_groups if res_by_group.get(g.id)]
+
+    for g in active_groups:
+        g.filtered_reservations = res_by_group[g.id]
+    for g in archived_groups:
+        g.filtered_reservations = res_by_group[g.id]
+
+    ongoing_page_num  = request.GET.get("ongoing_page", 1)
+    archived_page_num = request.GET.get("archived_page", 1)
+
+    ONGOING_PER_PAGE  = 10
+    ARCHIVED_PER_PAGE = 10
+
+    ongoing_paginator  = Paginator(active_groups, ONGOING_PER_PAGE)
+    archived_paginator = Paginator(archived_groups, ARCHIVED_PER_PAGE)
+
+    try:
+        ongoing_page_obj = ongoing_paginator.page(ongoing_page_num)
+    except (PageNotAnInteger, EmptyPage):
+        ongoing_page_obj = ongoing_paginator.page(1)
+
+    try:
+        archived_page_obj = archived_paginator.page(archived_page_num)
+    except (PageNotAnInteger, EmptyPage):
+        archived_page_obj = archived_paginator.page(1)
+
+    qs_all = request.GET.copy()
+
+    ongoing_params_qs = qs_all.copy()
+    ongoing_params_qs.pop("ongoing_page", None)
+    ongoing_params = ongoing_params_qs.urlencode()
+
+    archived_params_qs = qs_all.copy()
+    archived_params_qs.pop("archived_page", None)
+    archived_params = archived_params_qs.urlencode()
+
+    locations = list(
+        Location.objects.order_by("name").values_list("name", flat=True).distinct()
     )
 
-    context = {"groups": groups, "archived": archived}
-    return render(request, "inventory/reservations.html", context)
+    return render(
+        request,
+        "inventory/reservations.html",
+        {
+            "ongoing_page_obj": ongoing_page_obj,
+            "archived_page_obj": archived_page_obj,
+            "ongoing_params": ongoing_params,
+            "archived_params": archived_params,
+            "locations": locations,
+        },
+    )
 
 
-@user_passes_test(lambda u: bool(getattr(u, "is_staff", False)))  # TODO REMOVE LAMBDA
+@user_passes_test(_is_staff_user)
 @require_http_methods(["POST"])
 def approve_group(request: HttpRequest, group_id: int) -> HttpResponse:
     """
@@ -349,11 +444,16 @@ def delete_reservation(request: HttpRequest, pk: int) -> HttpResponse:
             intent.status = PaymentIntentStatus.CANCELED
             intent.save(update_fields=["status"])
 
-        messages.success(request, "Vehicle removed. Reservation status set to PENDING for re-approval.")
+        messages.success(
+            request, "Vehicle removed. Reservation status set to PENDING for re-approval."
+        )
         return redirect("accounts:reservation-list")
 
     if total_in_group <= 1:
-        messages.error(request, "You cannot remove the only vehicle in this reservation. Try cancelling the reservation.")
+        messages.error(
+            request,
+            "You cannot remove the only vehicle in this reservation. Try cancelling the reservation.",
+        )
         return redirect("accounts:reservation-list")
 
     reservation_obj.delete()
@@ -375,7 +475,6 @@ def delete_reservation(request: HttpRequest, pk: int) -> HttpResponse:
         return redirect("accounts:reservation-list")
 
     return redirect("inventory:reservations")
-
 
 
 @login_required
@@ -659,9 +758,7 @@ def edit_reservation(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
 
-@user_passes_test(
-    lambda u: bool(getattr(u, "is_staff", False))
-)  # -------------TODO REMOVE LAMBDA
+@user_passes_test(_is_staff_user)
 @require_http_methods(["POST"])
 def reject_reservation(request: HttpRequest, group_id: int) -> HttpResponse:
     """

@@ -1,73 +1,119 @@
+from __future__ import annotations
+
 from django.contrib import messages
-from django.http import HttpResponseForbidden
-from django.contrib.auth.decorators import (
-    login_required,
-    permission_required,
-)
-from django.shortcuts import redirect, render, get_object_or_404
+from django.contrib.auth.decorators import login_required, permission_required
+from django.db.models import Prefetch, Q
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.forms import ReservationStatusForm
 from accounts.views.admins_managers import manager_required
 from inventory.models.reservation import (
     ReservationGroup,
     ReservationStatus,
-    VehicleReservation,
+    VehicleReservation, Location,
 )
 
 
-@login_required
-@manager_required
-@permission_required("inventory.view_reservationgroup", raise_exception=True)
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db.models import Q, Prefetch
+from django.shortcuts import render
+
 def reservation_list(request):
-    """
-    List reservation groups for managers/admins, split by status.
+    user_q    = request.GET.get("user", "").strip()
+    pickup_q  = request.GET.get("pickup", "").strip()
+    dropoff_q = request.GET.get("dropoff", "").strip()
+    status_q  = request.GET.get("status", "").strip()
 
-    Ongoing statuses: PENDING, AWAITING_PAYMENT, RESERVED.
-    Archived statuses: COMPLETED, REJECTED, CANCELED.
-
-    Renders:
-        accounts/reservations/reservation_list.html
-
-    Context:
-        ongoing (QuerySet[ReservationGroup])
-        archived (QuerySet[ReservationGroup])
-    """
-    ongoing = (
-        ReservationGroup.objects.filter(
-            status__in=[
-                ReservationStatus.PENDING,
-                ReservationStatus.AWAITING_PAYMENT,
-                ReservationStatus.RESERVED,
-                ReservationStatus.ONGOING
-            ]
+    reservations_qs = (
+        VehicleReservation.objects
+        .select_related("user", "pickup_location", "return_location", "vehicle")
+    )
+    if user_q:
+        reservations_qs = reservations_qs.filter(
+            Q(user__first_name__icontains=user_q) | Q(user__last_name__icontains=user_q)
         )
-        .prefetch_related("reservations__vehicle", "reservations__user")
+    if pickup_q:
+        reservations_qs = reservations_qs.filter(
+            Q(pickup_location__name__iexact=pickup_q) |
+            Q(pickup_location_snapshot__iexact=pickup_q)
+        )
+    if dropoff_q:
+        reservations_qs = reservations_qs.filter(
+            Q(return_location__name__iexact=dropoff_q) |
+            Q(return_location_snapshot__iexact=dropoff_q)
+        )
+
+    prefetch_filtered = Prefetch("reservations", queryset=reservations_qs, to_attr="filtered_reservations")
+
+    ongoing_statuses  = ["PENDING", "AWAITING_PAYMENT", "RESERVED", "ONGOING"]
+    archived_statuses = ["COMPLETED", "REJECTED", "CANCELED"]
+
+    ongoing_qs  = ReservationGroup.objects.filter(status__in=ongoing_statuses)
+    archived_qs = ReservationGroup.objects.filter(status__in=archived_statuses)
+
+    if status_q:
+        ongoing_qs  = ongoing_qs.filter(status=status_q)
+        archived_qs = archived_qs.filter(status=status_q)
+
+    ongoing_qs = (
+        ongoing_qs.filter(reservations__in=reservations_qs)
+        .prefetch_related(prefetch_filtered)
+        .distinct()
+        .order_by("-created_at")
+    )
+    archived_qs = (
+        archived_qs.filter(reservations__in=reservations_qs)
+        .prefetch_related(prefetch_filtered)
+        .distinct()
         .order_by("-created_at")
     )
 
-    archived = (
-        ReservationGroup.objects.filter(
-            status__in=[
-                ReservationStatus.COMPLETED,
-                ReservationStatus.REJECTED,
-                ReservationStatus.CANCELED,
-            ]
-        )
-        .prefetch_related("reservations__vehicle", "reservations__user")
-        .order_by("-created_at")
+    ongoing_page_num  = request.GET.get("ongoing_page", 1)
+    archived_page_num = request.GET.get("archived_page", 1)
+
+    ongoing_paginator  = Paginator(ongoing_qs, 3)
+    archived_paginator = Paginator(archived_qs, 4)
+
+    try:
+        ongoing_page_obj = ongoing_paginator.page(ongoing_page_num)
+    except (PageNotAnInteger, EmptyPage):
+        ongoing_page_obj = ongoing_paginator.page(1)
+
+    try:
+        archived_page_obj = archived_paginator.page(archived_page_num)
+    except (PageNotAnInteger, EmptyPage):
+        archived_page_obj = archived_paginator.page(1)
+
+    qs = request.GET.copy()
+
+    ongoing_params = qs.copy()
+    ongoing_params.pop("ongoing_page", None)
+    ongoing_params = ongoing_params.urlencode()
+
+    archived_params = qs.copy()
+    archived_params.pop("archived_page", None)
+    archived_params = archived_params.urlencode()
+
+    locations = list(
+        Location.objects.order_by("name").values_list("name", flat=True).distinct()
     )
 
-    return render(
-        request,
-        "accounts/reservations/reservation_list.html",
-        {"ongoing": ongoing, "archived": archived},
-    )
+    return render(request, "accounts/reservations/reservation_list.html", {
+        "ongoing_page_obj": ongoing_page_obj,
+        "archived_page_obj": archived_page_obj,
+        "ongoing_total": ongoing_paginator.count,
+        "archived_total": archived_paginator.count,
+        "locations": locations,
+        "ongoing_params": ongoing_params,
+        "archived_params": archived_params,
+    })
 
 
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
-def reservation_group_approve(request, pk):
+def reservation_group_approve(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Move a pending reservation group to AWAITING_PAYMENT.
 
@@ -91,7 +137,7 @@ def reservation_group_approve(request, pk):
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
-def reservation_group_reject(request, pk):
+def reservation_group_reject(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Reject a reservation group.
 
@@ -122,7 +168,7 @@ def reservation_group_reject(request, pk):
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
-def reservation_update(request, pk):
+def reservation_update(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Update a group’s status via form (only for PENDING groups).
 
@@ -155,67 +201,69 @@ def reservation_update(request, pk):
     )
 
 
+# @login_required
+# @manager_required
+# @permission_required("inventory.change_reservationgroup", raise_exception=True)
+# def reservation_approve(request: HttpRequest, pk: int) -> HttpResponse:
+#     """
+#     Approve a reservation by moving its group to AWAITING_PAYMENT.
+#
+#     Args:
+#         pk (int): VehicleReservation primary key.
+#
+#     Returns:
+#         403 if the group is missing or not PENDING.
+#     """
+#     reservation = get_object_or_404(VehicleReservation, pk=pk)
+#     group = reservation.group
+#     if not group or group.status != ReservationStatus.PENDING:
+#         return HttpResponseForbidden("Only pending reservation groups can be approved.")
+#
+#     group.status = ReservationStatus.AWAITING_PAYMENT
+#     group.save(update_fields=["status"])
+#
+#     messages.success(request, f"Reservation #{reservation.id} is now awaiting payment.")
+#     return redirect("accounts:reservation-list")
+
+
+# @login_required
+# @manager_required
+# @permission_required("inventory.change_reservationgroup", raise_exception=True)
+# def reservation_reject(request: HttpRequest, pk: int) -> HttpResponse:
+#     """
+#     Reject a reservation by moving its group to REJECTED.
+#
+#     Allowed from statuses: PENDING, AWAITING_PAYMENT.
+#
+#     Args:
+#         pk (int): VehicleReservation primary key.
+#
+#     Returns:
+#         403 if the group is missing or not in an allowed status.
+#     """
+#     reservation = get_object_or_404(VehicleReservation, pk=pk)
+#     group = reservation.group
+#     if not group or group.status not in (
+#         ReservationStatus.PENDING,
+#         ReservationStatus.AWAITING_PAYMENT,
+#     ):
+#         return HttpResponseForbidden(
+#             "Only pending/awaiting-payment reservation groups can be rejected."
+#         )
+#
+#     group.status = ReservationStatus.REJECTED
+#     group.save(update_fields=["status"])
+#
+#     messages.warning(
+#         request, f"Reservation #{reservation.id} rejected; group moved to Rejected."
+#     )
+#     return redirect("accounts:reservation-list")
+
+
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
-def reservation_approve(request, pk):
-    """
-    Approve a reservation by moving its group to AWAITING_PAYMENT.
-
-    Args:
-        pk (int): VehicleReservation primary key.
-
-    Returns:
-        403 if the group is missing or not PENDING.
-    """
-    reservation = get_object_or_404(VehicleReservation, pk=pk)
-    grp = reservation.group
-    if not grp or grp.status != ReservationStatus.PENDING:
-        return HttpResponseForbidden("Only pending reservation groups can be approved.")
-
-    grp.status = ReservationStatus.AWAITING_PAYMENT
-    grp.save(update_fields=["status"])
-
-    messages.success(request, f"Reservation #{reservation.id} is now awaiting payment.")
-    return redirect("accounts:reservation-list")
-
-
-@login_required
-@manager_required
-@permission_required("inventory.change_reservationgroup", raise_exception=True)
-def reservation_reject(request, pk):
-    """
-    Reject a reservation by moving its group to REJECTED.
-
-    Allowed from statuses: PENDING, AWAITING_PAYMENT.
-
-    Args:
-        pk (int): VehicleReservation primary key.
-
-    Returns:
-        403 if the group is missing or not in an allowed status.
-    """
-    r = get_object_or_404(VehicleReservation, pk=pk)
-    grp = r.group
-    if not grp or grp.status not in (
-        ReservationStatus.PENDING,
-        ReservationStatus.AWAITING_PAYMENT,
-    ):
-        return HttpResponseForbidden(
-            "Only pending/awaiting-payment reservation groups can be rejected."
-        )
-
-    grp.status = ReservationStatus.REJECTED
-    grp.save(update_fields=["status"])
-
-    messages.warning(request, f"Reservation #{r.id} rejected; group moved to Rejected.")
-    return redirect("accounts:reservation-list")
-
-
-@login_required
-@manager_required
-@permission_required("inventory.change_reservationgroup", raise_exception=True)
-def reservation_cancel(request, pk):
+def reservation_cancel(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Cancel a reservation by moving its group to CANCELED.
 
@@ -227,24 +275,26 @@ def reservation_cancel(request, pk):
     Returns:
         403 if the group is missing or not RESERVED.
     """
-    r = get_object_or_404(VehicleReservation, pk=pk)
-    grp = r.group
-    if not grp or grp.status != ReservationStatus.RESERVED:
+    reservation = get_object_or_404(VehicleReservation, pk=pk)
+    group = reservation.group
+    if not group or group.status == ReservationStatus.COMPLETED or group.status == ReservationStatus.ONGOING:
         return HttpResponseForbidden(
-            "Only reserved reservation groups can be canceled."
+            "Only future reservations can be canceled."
         )
 
-    grp.status = ReservationStatus.CANCELED
-    grp.save(update_fields=["status"])
+    group.status = ReservationStatus.CANCELED
+    group.save(update_fields=["status"])
 
-    messages.warning(request, f"Reservation #{r.id} canceled; group moved to Canceled.")
+    messages.warning(
+        request, f"Reservation #{reservation.id} canceled; group moved to Archived."
+    )
     return redirect("accounts:reservation-list")
 
 
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
-def reservation_complete(request, pk):
+def reservation_complete(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Mark a reservation group as COMPLETED (group provided by pk).
 
@@ -264,10 +314,11 @@ def reservation_complete(request, pk):
     messages.success(request, f"Reservation group {group.id} marked as Completed.")
     return redirect("accounts:reservation-list")
 
+
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
-def reservation_group_ongoing(request, pk):
+def reservation_group_ongoing(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Mark a reservation group as COMPLETED (explicit group endpoint).
 
@@ -287,10 +338,11 @@ def reservation_group_ongoing(request, pk):
     messages.success(request, f"Reservation group {group.id} marked as Ongoing.")
     return redirect("accounts:reservation-list")
 
+
 @login_required
 @manager_required
 @permission_required("inventory.change_reservationgroup", raise_exception=True)
-def reservation_group_complete(request, pk):
+def reservation_group_complete(request: HttpRequest, pk: int) -> HttpResponse:
     """
     Mark a reservation group as COMPLETED (explicit group endpoint).
 
@@ -311,24 +363,4 @@ def reservation_group_complete(request, pk):
     return redirect("accounts:reservation-list")
 
 
-@login_required
-def user_reservations(request):
-    """
-    List the logged-in user's individual vehicle reservations.
 
-    Renders:
-        accounts/reservations/reservation_list_user.html
-
-    Context:
-        reservations (QuerySet[VehicleReservation]): Reservations for request.user.
-    """
-    reservations = (
-        VehicleReservation.objects.filter(user=request.user)
-        .select_related("vehicle", "pickup_location", "return_location")
-        .all()
-    )
-    return render(
-        request,
-        "accounts/reservations/reservation_list_user.html",
-        {"reservations": reservations},
-    )
