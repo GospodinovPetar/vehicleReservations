@@ -46,7 +46,10 @@ from .serializers import (
     LocationSerializer,
     ReservationSerializer,
     RegisterSerializer,
-    LoginSerializer,
+    LoginSerializer, PaymentRequestSerializer, PaymentResponseSerializer,
+)
+from drf_spectacular.utils import (
+    extend_schema, OpenApiResponse, OpenApiExample
 )
 
 User = get_user_model()
@@ -588,7 +591,6 @@ class PaymentSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     def validate(self, attrs):
-        # Basic mock payment validation; do NOT store real card data
         month = attrs.get("exp_month")
         year = attrs.get("exp_year")
         if month is None or month < 1 or month > 12:
@@ -623,6 +625,40 @@ class PaymentSerializer(serializers.Serializer):
         summary="Pay for an approved reservation (user owns it)",
     ),
 )
+@extend_schema_view(
+    # ... other actions unchanged ...
+    pay=extend_schema(
+        tags=["User's Actions"],
+        summary="Pay for an approved reservation (user owns it)",
+        request=PaymentRequestSerializer,   # ← this makes the fields appear in /api/docs
+        responses={
+            200: PaymentResponseSerializer,
+            400: OpenApiResponse(description="Validation error or bad state"),
+            403: OpenApiResponse(description="Not your reservation"),
+        },
+        examples=[
+            OpenApiExample(
+                "Valid payment",
+                value={
+                    "card_number": "4242424242424242",
+                    "exp_month": 12,
+                    "exp_year": 2030,
+                    "cvc": "123"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Success response",
+                value={
+                    "message": "Payment successful. Reservation is now reserved.",
+                    "group_id": 45,
+                    "charged": "199.00"
+                },
+                response_only=True,
+            ),
+        ],
+    ),
+)
 class ReservationViewSet(
     viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin
 ):
@@ -654,7 +690,7 @@ class ReservationViewSet(
                 },
                 status=400,
             )
-        group.status = ReservationStatus.APPROVED
+        group.status = ReservationStatus.AWAITING_PAYMENT
         group.save(update_fields=["status"])
 
         try:
@@ -671,7 +707,7 @@ class ReservationViewSet(
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         _, group = self._get_group_from_reservation(pk)
-        if group.status not in (ReservationStatus.PENDING, ReservationStatus.APPROVED):
+        if group.status not in (ReservationStatus.PENDING, ReservationStatus.AWAITING_PAYMENT):
             return Response(
                 {"errors": {"state": [f"Cannot reject from state {group.status}."]}},
                 status=400,
@@ -725,16 +761,15 @@ class ReservationViewSet(
         if reservation.user_id != request.user.id and not request.user.is_staff:
             raise PermissionDenied("You can only pay your own reservations.")
 
-        if group.status != ReservationStatus.APPROVED:
+        if group.status != ReservationStatus.AWAITING_PAYMENT:
             return Response(
                 {"errors": {"state": ["Reservation must be approved before payment."]}},
                 status=400,
             )
 
-        ser = PaymentSerializer(data=request.data)
+        ser = PaymentRequestSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
-        # Compute expected total server-side
         expected_total = group.total_price
 
         group.status = ReservationStatus.RESERVED
@@ -750,17 +785,16 @@ class ReservationViewSet(
         except Exception:
             pass
 
-        return Response(
-            {
-                "message": "Payment successful. Reservation is now reserved.",
-                "group_id": group.id,
-                "charged": str(expected_total),
-            }
-        )
+        out = PaymentResponseSerializer({
+            "message": "Payment successful. Reservation is now reserved.",
+            "group_id": group.id,
+            "charged": str(expected_total),
+        }).data
+        return Response(out)
 
 
 @extend_schema_view(
-    list=extend_schema(tags=["User's Actions"], summary="List my reservations"),
+    list=extend_schema(tags=["User's Actions"], summary="List my reservations (all)"),
     retrieve=extend_schema(tags=["User's Actions"], summary="Get my reservation"),
 )
 class MyReservationViewSet(viewsets.ReadOnlyModelViewSet):
@@ -768,13 +802,72 @@ class MyReservationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # always user-scoped, newest first
         return (
             VehicleReservation.objects.select_related(
                 "vehicle", "group", "pickup_location", "return_location"
             )
             .filter(user=self.request.user)
-            .order_by("-start_date")
+            .order_by("-start_date", "-id")
         )
+
+    @extend_schema(
+        tags=["User's Actions"],
+        summary="List ongoing reservations",
+        description="Upcoming or active reservations that are not rejected/completed.",
+        parameters=[
+            OpenApiParameter(
+                name="include_past_if_reserved",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description="If true, keeps RESERVED that ended in the past in ongoing (defaults to false).",
+                required=False,
+            )
+        ],
+    )
+    @action(detail=False, methods=["get"])
+    def ongoing(self, request):
+        today = timezone.now().date()
+        ongoing_statuses = {
+            ReservationStatus.PENDING,
+            ReservationStatus.AWAITING_PAYMENT,
+            ReservationStatus.RESERVED,
+        }
+
+        qs = self.get_queryset().filter(group__status__in=ongoing_statuses)
+
+        include_past_reserved = str(request.query_params.get("include_past_if_reserved", "false")).lower() in {"1", "true", "yes"}
+        if include_past_reserved:
+            qs = qs  # keep all those statuses regardless of dates
+        else:
+            qs = qs.filter(end_date__gte=today)
+
+        page = self.paginate_queryset(qs)
+        ser = self.get_serializer(page or qs, many=True)
+        return self.get_paginated_response(ser.data) if page is not None else Response(ser.data)
+
+    @extend_schema(
+        tags=["User's Actions"],
+        summary="List archived reservations",
+        description="Past reservations or those in terminal states (rejected/completed).",
+    )
+    @action(detail=False, methods=["get"])
+    def archived(self, request):
+        today = timezone.now().date()
+        terminal_statuses = {
+            ReservationStatus.REJECTED,
+            ReservationStatus.COMPLETED,
+        }
+        # Archived if:
+        #   - terminal status (regardless of dates)
+        #   - OR end_date < today (even if RESERVED)
+        qs = self.get_queryset().filter(
+            Q(group__status__in=terminal_statuses) | Q(end_date__lt=today)
+        )
+
+        page = self.paginate_queryset(qs)
+        ser = self.get_serializer(page or qs, many=True)
+        return self.get_paginated_response(ser.data) if page is not None else Response(ser.data)
 
 
 class AdminUserSerializer(serializers.ModelSerializer):

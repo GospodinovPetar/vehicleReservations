@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
@@ -121,6 +123,23 @@ class AvailabilityPartialSliceSerializer(serializers.Serializer):
     end = serializers.DateField()
     quote = AvailabilityPartialSliceQuoteSerializer()
 
+class PaymentRequestSerializer(serializers.Serializer):
+    card_number = serializers.CharField(write_only=True)
+    exp_month = serializers.IntegerField(write_only=True, min_value=1, max_value=12)
+    exp_year = serializers.IntegerField(write_only=True)
+    cvc = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        now = datetime.now()
+        year = attrs["exp_year"]
+        if year < now.year or year > now.year + 20:
+            raise serializers.ValidationError({"exp_year": ["Invalid exp_year."]})
+        return attrs
+
+class PaymentResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    group_id = serializers.IntegerField()
+    charged = serializers.CharField()
 
 class AvailabilityPartialVehicleSerializer(serializers.Serializer):
     id = serializers.IntegerField()
