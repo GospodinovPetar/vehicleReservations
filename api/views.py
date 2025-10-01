@@ -212,7 +212,7 @@ class VerifyEmailAPI(APIView):
         request.session.pop("pending_verify_email", None)
 
         try:
-            login(request, user)  # keep parity with page flow; remove if you prefer token-only APIs
+            login(request, user)
         except Exception:
             pass
 

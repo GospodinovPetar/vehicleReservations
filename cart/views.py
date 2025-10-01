@@ -268,67 +268,6 @@ def remove_from_cart(request: HttpRequest, item_id: int) -> HttpResponse:
     return redirect("inventory:view_cart")
 
 
-# @login_required
-# @require_http_methods(["POST"])
-# @csrf_protect
-# def update_item_locations(request: HttpRequest, item_id: int) -> HttpResponse:
-#     """
-#     Update pickup/return locations for a CartItem.
-#
-#     Validations:
-#       - Both location IDs must be provided and exist.
-#       - Selected locations must be allowed for the item's vehicle
-#         (available_pickup_locations / available_return_locations).
-#     """
-#     cart = Cart.get_or_create_active(request.user)
-#     item = get_object_or_404(
-#         CartItem.objects.select_related("vehicle", "cart"),
-#         pk=item_id,
-#         cart=cart,
-#     )
-#
-#     pickup_id = (request.POST.get("pickup_location") or "").strip()
-#     return_id = (request.POST.get("return_location") or "").strip()
-#
-#     if not pickup_id or not return_id:
-#         messages.error(request, "Please select both pickup and return locations.")
-#         return redirect("inventory:view_cart")
-#
-#     try:
-#         pickup = Location.objects.get(pk=pickup_id)
-#         dropoff = Location.objects.get(pk=return_id)
-#     except Location.DoesNotExist:
-#         messages.error(request, "Invalid location selection.")
-#         return redirect("inventory:view_cart")
-#
-#     vehicle = item.vehicle
-#     allowed_pickups = set(
-#         vehicle.available_pickup_locations.values_list("id", flat=True)
-#     )
-#     allowed_returns = set(
-#         vehicle.available_return_locations.values_list("id", flat=True)
-#     )
-#     if pickup.id not in allowed_pickups:
-#         messages.error(
-#             request,
-#             "This vehicle cannot be picked up at the selected location.",
-#         )
-#         return redirect("inventory:view_cart")
-#     if dropoff.id not in allowed_returns:
-#         messages.error(
-#             request,
-#             "This vehicle cannot be returned at the selected location.",
-#         )
-#         return redirect("inventory:view_cart")
-#
-#     item.pickup_location = pickup
-#     item.return_location = dropoff
-#     item.save(update_fields=["pickup_location", "return_location"])
-#
-#     messages.success(request, "Pickup and return locations updated.")
-#     return redirect("inventory:view_cart")
-
-
 @login_required
 def view_cart(request: HttpRequest) -> HttpResponse:
     """

@@ -6,7 +6,10 @@ from django.utils import timezone
 
 
 class CustomUserManager(BaseUserManager):
+    """Manager for CustomUser providing user and superuser creation."""
+
     def create_user(self, username, email=None, password=None, **extra_fields):
+        """Create and return a regular user."""
         if not username:
             raise ValueError("The Username must be set")
         email = self.normalize_email(email)
@@ -17,6 +20,7 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, username, email=None, password=None, **extra_fields):
+        """Create and return a superuser with admin role."""
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("role", "admin")
@@ -30,6 +34,8 @@ class CustomUserManager(BaseUserManager):
 
 
 class CustomUser(AbstractUser):
+    """Custom user model with role, phone, and blocking support."""
+
     ROLE_CHOICES = [
         ("user", "User"),
         ("manager", "Manager"),
@@ -45,39 +51,43 @@ class CustomUser(AbstractUser):
     objects = CustomUserManager()
 
     def __str__(self):
+        """Return a readable representation with role."""
         return f"{self.username} ({self.get_role_display()})"
 
     @property
     def is_admin(self):
+        """True if user is an active admin."""
         return self.role == "admin" and not self.is_blocked
 
     @property
     def is_manager(self):
+        """True if user is manager or admin and not blocked."""
         return self.role in ["manager", "admin"] and not self.is_blocked
 
     @property
     def can_manage_vehicles(self):
+        """Permission flag for managing vehicles."""
         return self.is_manager
 
     @property
     def can_manage_users(self):
+        """Permission flag for managing users."""
         return self.is_admin
 
     def clean(self):
+        """Validate fields (e.g., phone format)."""
         super().clean()
         if self.phone and not re.match(r"^\+?[\d\s\-()]{10,15}$", self.phone):
             raise ValidationError({"phone": "Invalid phone number format"})
 
     def save(self, *args, **kwargs):
+        """Validate then persist the user."""
         self.full_clean()
         super().save(*args, **kwargs)
 
 
 class PendingRegistration(models.Model):
-    """
-    Temporarily stores registration data so we don't create a CustomUser
-    until the email is verified.
-    """
+    """Stash registration data until email is verified."""
 
     username = models.CharField(max_length=150, db_index=True)
     email = models.EmailField(db_index=True, unique=True)
@@ -90,12 +100,14 @@ class PendingRegistration(models.Model):
     expires_at = models.DateTimeField()
 
     class Meta:
+        """Model metadata: add indexes for lookups."""
         indexes = [
             models.Index(fields=["email"]),
             models.Index(fields=["username"]),
         ]
 
     def is_expired(self) -> bool:
+        """Return True if the registration has expired."""
         return timezone.now() > self.expires_at
 
     @classmethod
@@ -110,6 +122,7 @@ class PendingRegistration(models.Model):
         password_hash,
         ttl_hours: int = 24,
     ):
+        """Create or replace a pending registration with a TTL."""
         cls.objects.filter(email=email).delete()
         cls.objects.filter(username=username).delete()
         return cls.objects.create(
