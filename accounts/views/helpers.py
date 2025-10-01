@@ -9,7 +9,7 @@ from django.core.cache import cache
 from django.http import HttpRequest
 from django.utils import timezone
 
-from emails.send_emails import send_reset_password_email
+from emails.send_emails import send_verification_email, send_reset_password_email
 
 User = get_user_model()
 
@@ -100,27 +100,37 @@ def _validate_code(
 
 
 def _send_verification_email(to_email: str, code: str, ttl_minutes: int) -> None:
-    """Send the registration verification code exactly once per (email, code) within TTL.
-
-    Uses Django's cache as an idempotency lock so multiple call sites won't duplicate sends.
     """
-    from accounts.emails import send_verification_email
-
-    key = f"idemp:verify:{to_email.strip().lower()}:{code}"
+    Send the registration verification code at most once per (email, code) within TTL.
+    Uses Django cache as the primary idempotency lock; falls back to a per-request
+    guard only if the cache call itself fails. Never retries a possibly-sent email
+    inside this function.
+    """
+    email_norm = to_email.strip().lower()
+    key = f"idemp:verify:{email_norm}:{code}"
     timeout = max(60, int(ttl_minutes) * 60)
+
+    should_send = False
+
     try:
-        if cache.add(key, 1, timeout=timeout):
-            send_verification_email(to_email, code, ttl_minutes)
-        else:
-            return
+        should_send = cache.add(key, 1, timeout=timeout)
     except Exception:
-        _sent = _get_bundle(getattr(_send_verification_email, "_request", object()))
-        if isinstance(_sent, dict) and not _sent.get(key):
-            _sent[key] = True
-            try:
-                send_verification_email(to_email, code, ttl_minutes)
-            finally:
-                pass
+        bundle = _get_bundle(getattr(_send_verification_email, "_request", object()))
+        if isinstance(bundle, dict) and not bundle.get(key):
+            bundle[key] = True
+            should_send = True
+        else:
+            should_send = False
+
+    if not should_send:
+        return
+
+    try:
+        send_verification_email(to_email, code, ttl_minutes)
+    except Exception:
+        # log the error, metrics, etc. but don't resend here
+        # logger.exception("Verification email send failed for %s (code=%s)", email_norm, code)
+        raise
 
 
 def _send_reset_email(to_email: str, code: str, ttl_minutes: int) -> None:

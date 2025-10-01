@@ -84,100 +84,93 @@ def register(request: HttpRequest) -> HttpResponse:
 @require_http_methods(["GET", "POST"])
 def verify_email(request: HttpRequest) -> HttpResponse:
     """
-    Verify email with code:
-    - GET: if session contains a pending email, re-issue a new code and email it.
-    - POST: validate against session; if OK, create the real user from PendingRegistration and log in.
+    Verify email with code.
+
+    - GET: Render the verify form if there's a non-expired pending registration.
+           DO NOT issue or send a new code here.
+    - POST: Validate the submitted code against what's already stored for the session/email.
+            If valid, create the user from PendingRegistration and sign them in.
+            If invalid, show an error (no automatic resend here).
     """
-    initial = {"email": request.session.get("pending_verify_email", "")}
+    pending_email = request.session.get("pending_verify_email", "")
+    initial = {"email": pending_email}
 
     if request.method == "GET":
-        email = initial.get("email") or ""
-        if email:
+        if pending_email:
             pending = (
-                PendingRegistration.objects.filter(email=email)
+                PendingRegistration.objects.filter(email=pending_email)
                 .order_by("-created_at")
                 .first()
             )
-            if pending:
-                if pending.is_expired():
+            if not pending or pending.is_expired():
+                if pending and pending.is_expired():
                     pending.delete()
-                    request.session.pop("pending_verify_email", None)
-                    messages.error(
-                        request,
-                        "Your pending registration expired. Please register again.",
-                    )
-                    return redirect("accounts:register")
-                code, ttl = _issue_code(
-                    request, email=email, purpose=PURPOSE_REGISTER, ttl_minutes=10
+                request.session.pop("pending_verify_email", None)
+                messages.error(
+                    request,
+                    "Your pending registration expired. Please register again.",
                 )
-                _send_verification_email(email, code, ttl)
-                messages.info(request, "We emailed you a new verification code.")
+                return redirect("accounts:register")
+
         form = EmailCodeForm(initial=initial)
         return render(
             request, "accounts/auth/auth.html", {"form": form, "title": "Verify Email"}
         )
 
     form = EmailCodeForm(request.POST)
-    if form.is_valid():
-        email = form.cleaned_data["email"].strip()
-        code = form.cleaned_data["code"].strip().upper()
-
-        ok, err = _validate_code(
-            request, email=email, purpose=PURPOSE_REGISTER, submitted_code=code
+    if not form.is_valid():
+        return render(
+            request, "accounts/auth/auth.html", {"form": form, "title": "Verify Email"}
         )
-        if not ok:
-            fresh_code, ttl = _issue_code(
-                request, email=email, purpose=PURPOSE_REGISTER, ttl_minutes=10
-            )
-            _send_verification_email(email, fresh_code, ttl)
-            messages.error(request, f"{err} A new code has been sent.")
-            return render(
-                request,
-                "accounts/auth/auth.html",
-                {
-                    "form": EmailCodeForm(initial={"email": email}),
-                    "title": "Verify Email",
-                },
-            )
 
-        pending = (
-            PendingRegistration.objects.filter(email=email)
-            .order_by("-created_at")
-            .first()
-        )
-        if not pending or pending.is_expired():
-            if pending and pending.is_expired():
-                pending.delete()
-            messages.error(
-                request,
-                "No pending registration found or it has expired. Please register again.",
-            )
-            return redirect("accounts:register")
+    email = form.cleaned_data["email"].strip()
+    code = form.cleaned_data["code"].strip().upper()
 
-        user = User(
-            username=pending.username,
-            email=pending.email,
-            first_name=pending.first_name,
-            last_name=pending.last_name,
-            role=pending.role or "user",
-            phone=pending.phone,
-            is_active=True,
-        )
-        user.password = pending.password_hash
-        user.save()
-
-        pending.delete()
-        request.session.pop("pending_verify_email", None)
-        messages.success(
-            request,
-            "Email verified. Your account has been created and you are now logged in.",
-        )
-        login(request, user)
-        return redirect("/")
-
-    return render(
-        request, "accounts/auth/auth.html", {"form": form, "title": "Verify Email"}
+    ok, err = _validate_code(
+        request, email=email, purpose=PURPOSE_REGISTER, submitted_code=code
     )
+    if not ok:
+        messages.error(request, err or "Invalid or expired verification code.")
+        return render(
+            request,
+            "accounts/auth/auth.html",
+            {"form": EmailCodeForm(initial={"email": email}), "title": "Verify Email"},
+        )
+
+    pending = (
+        PendingRegistration.objects.filter(email=email)
+        .order_by("-created_at")
+        .first()
+    )
+    if not pending or pending.is_expired():
+        if pending and pending.is_expired():
+            pending.delete()
+        messages.error(
+            request,
+            "No pending registration found or it has expired. Please register again.",
+        )
+        return redirect("accounts:register")
+
+    user = User(
+        username=pending.username,
+        email=pending.email,
+        first_name=pending.first_name,
+        last_name=pending.last_name,
+        role=pending.role or "user",
+        phone=pending.phone,
+        is_active=True,
+    )
+    user.password = pending.password_hash
+    user.save()
+
+    pending.delete()
+    request.session.pop("pending_verify_email", None)
+    messages.success(
+        request,
+        "Email verified. Your account has been created and you are now logged in.",
+    )
+    login(request, user)
+    return redirect("/")
 
 
 @require_http_methods(["GET", "POST"])

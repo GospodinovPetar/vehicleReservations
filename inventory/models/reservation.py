@@ -353,7 +353,6 @@ class ReservationGroup(models.Model):
 
         result = super().save(*args, **kwargs)
 
-        # Location flip removed: no side effects on vehicles when status changes.
         return result
 
     def __str__(self) -> str:
