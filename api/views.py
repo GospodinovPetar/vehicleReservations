@@ -1,23 +1,24 @@
 from __future__ import annotations
 
-from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
-from config.ws_events import broadcast_reservation_event
 
-from django.contrib.auth import get_user_model, authenticate, login, logout
+from django.conf import settings
+from django.contrib.auth import authenticate, logout
+from django.contrib.auth import get_user_model, login
+from django.contrib.auth.hashers import make_password
 from django.core.exceptions import (
     ValidationError as DjangoValidationError,
     PermissionDenied,
 )
 from django.db import transaction
-from django.conf import settings
 from django.db.models import Q
-from rest_framework import status, viewsets, mixins, serializers
-from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from rest_framework.response import Response
-from rest_framework.generics import get_object_or_404
-
+from django.db.utils import IntegrityError
+from django.utils import timezone
+from django.utils.timezone import now
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import (
+    extend_schema, OpenApiResponse, OpenApiExample
+)
 from drf_spectacular.utils import (
     extend_schema,
     extend_schema_view,
@@ -25,7 +26,21 @@ from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiTypes,
 )
+from rest_framework import status
+from rest_framework import status, viewsets, mixins, serializers
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.response import Response
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from accounts.models import PendingRegistration
+from accounts.views.auth import PURPOSE_REGISTER, _issue_code, _validate_code, _send_verification_email
+from cart.models.cart import Cart, CartItem
+from config.ws_events import broadcast_reservation_event
+from inventory.helpers.parse_iso_date import parse_iso_date
+from inventory.helpers.pricing import RateTable, quote_total
 from inventory.models.reservation import (
     ReservationStatus,
     VehicleReservation,
@@ -33,14 +48,7 @@ from inventory.models.reservation import (
     ReservationGroup,
 )
 from inventory.models.vehicle import Vehicle
-
-from cart.models.cart import Cart, CartItem
-
-from inventory.helpers.parse_iso_date import parse_iso_date
-from inventory.helpers.pricing import RateTable, quote_total
-
 from .permissions import IsManagerOrAdmin
-
 from .serializers import (
     VehicleSerializer,
     LocationSerializer,
@@ -48,9 +56,7 @@ from .serializers import (
     RegisterSerializer,
     LoginSerializer, PaymentRequestSerializer, PaymentResponseSerializer,
 )
-from drf_spectacular.utils import (
-    extend_schema, OpenApiResponse, OpenApiExample
-)
+from .serializers import VerifySerializer, MessageSerializer
 
 User = get_user_model()
 
@@ -82,17 +88,138 @@ def _group_ws_payload(
     return payload
 
 
-@extend_schema(tags=["User's Actions"])
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def register_view(request):
-    ser = RegisterSerializer(data=request.data)
-    ser.is_valid(raise_exception=True)
-    ser.save()
-    return Response({"message": "User registered successfully."}, status=201)
+class RegisterAPI(APIView):
+    """
+    POST /api/register
+    Mirrors your HTML register() view:
+      - Do NOT create User.
+      - Store in PendingRegistration with hashed password, ttl_hours=24.
+      - Issue a session-backed code and email it (exactly once).
+    """
+
+    @extend_schema(
+        tags=["Auth"],
+        request=RegisterSerializer,
+        responses={
+            201: OpenApiResponse(response=None, description="Pending registration created; code emailed."),
+            400: OpenApiResponse(response=None, description="Validation or integrity error."),
+        },
+        summary="Register (pending)",
+        description="Creates a PendingRegistration (no real User yet), issues ONE code, emails it.",
+    )
+    @transaction.atomic
+    def post(self, request):
+        ser = RegisterSerializer(data=request.data)
+        if not ser.is_valid():
+            return Response({"errors": ser.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        username   = ser.validated_data["username"].strip()
+        email      = ser.validated_data["email"].strip().lower()
+        raw_password = ser.validated_data["password"]
+        first_name = (ser.validated_data.get("first_name") or "").strip()
+        last_name  = (ser.validated_data.get("last_name")  or "").strip()
+        phone      = (ser.validated_data.get("phone")      or "").strip()
+
+        # Use your proven helper. It encapsulates the DB write the same way as the page flow.
+        try:
+            PendingRegistration.start(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                phone=phone,
+                password_hash=make_password(raw_password),
+                ttl_hours=24,
+            )
+        except IntegrityError:
+            # If you have unique(phone)/unique(email) at DB level and the value is taken elsewhere
+            return Response(
+                {"errors": {"non_field_errors": ["Operation could not be completed due to a data integrity constraint."]}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Issue ONE code & send ONE email (same as page flow)
+        code, ttl = _issue_code(request, email=email, purpose=PURPOSE_REGISTER, ttl_minutes=10)
+        _send_verification_email(email, code, ttl)
+
+        # Keep same session behavior for parity with your HTML flow
+        request.session["pending_verify_email"] = email
+
+        return Response(
+            {
+                "message": "We sent a verification code to your email. Complete verification to create your account.",
+                "email": email,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
-@extend_schema(tags=["User's Actions"])
+class VerifyEmailAPI(APIView):
+    """
+    POST /api/verify-email
+    Mirrors your HTML verify_email() view:
+      - Validate code (no auto-resend).
+      - Create real User from PendingRegistration.
+      - Login (optional) and return JSON.
+    """
+
+    @extend_schema(
+        tags=["Auth"],
+        request=VerifySerializer,
+        responses={
+            200: OpenApiResponse(response=None, description="Email verified; account created."),
+            400: OpenApiResponse(response=None, description="Invalid code or expired/missing pending record."),
+        },
+        summary="Verify email",
+        description="Finalizes registration by verifying the emailed code and creating the actual user.",
+    )
+    @transaction.atomic
+    def post(self, request):
+        ser = VerifySerializer(data=request.data)
+        if not ser.is_valid():
+            return Response({"errors": ser.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = ser.validated_data["email"].strip().lower()
+        code  = ser.validated_data["code"].strip().upper()
+
+        ok, err = _validate_code(request, email=email, purpose=PURPOSE_REGISTER, submitted_code=code)
+        if not ok:
+            return Response({"errors": {"code": [err or "Invalid or expired verification code."]}}, status=status.HTTP_400_BAD_REQUEST)
+
+        pending = PendingRegistration.objects.filter(email=email).order_by("-created_at").first()
+        if not pending or (hasattr(pending, "is_expired") and pending.is_expired()):
+            if pending and pending.is_expired():
+                pending.delete()
+            request.session.pop("pending_verify_email", None)
+            return Response(
+                {"errors": {"email": ["No pending registration found or it has expired. Please register again."]}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User(
+            username=pending.username,
+            email=pending.email,
+            first_name=pending.first_name,
+            last_name=pending.last_name,
+            role=getattr(pending, "role", None) or "user",
+            phone=getattr(pending, "phone", ""),
+            is_active=True,
+        )
+        user.password = pending.password_hash
+        user.save()
+
+        pending.delete()
+        request.session.pop("pending_verify_email", None)
+
+        try:
+            login(request, user)  # keep parity with page flow; remove if you prefer token-only APIs
+        except Exception:
+            pass
+
+        return Response({"message": "Email verified. Account created.", "user_id": user.id}, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["Auth"])
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def login_view(request):
@@ -111,7 +238,7 @@ def login_view(request):
     return Response({"message": "Logged in."})
 
 
-@extend_schema(tags=["User's Actions"])
+@extend_schema(tags=["Auth"])
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):

@@ -10,10 +10,9 @@ from .views import (
     CartViewSet,
     AccountViewSet,
     AdminUserViewSet,
-    register_view,
     login_view,
     logout_view,
-    availability_view,
+    availability_view, VerifyEmailAPI, RegisterAPI,
 )
 
 router = DefaultRouter()
@@ -26,7 +25,8 @@ router.register(r"account", AccountViewSet, basename="account")
 router.register(r"admin/users", AdminUserViewSet, basename="admin-users")
 
 urlpatterns = [
-    path("register", register_view, name="api-register"),
+    path("register", RegisterAPI.as_view(), name="api-register"),
+    path("verify-email", VerifyEmailAPI.as_view(), name="api-verify-email"),
     path("login", login_view, name="api-login"),
     path("logout", logout_view, name="api-logout"),
     path("availability", availability_view, name="api-availability"),

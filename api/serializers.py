@@ -5,6 +5,7 @@ from datetime import datetime
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from accounts.models import PendingRegistration
 from inventory.models.vehicle import Vehicle
 from inventory.models.reservation import VehicleReservation, Location
 
@@ -92,14 +93,20 @@ class ReservationSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField()
-    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
-    first_name = serializers.CharField(required=False, allow_blank=True)
-    last_name = serializers.CharField(required=False, allow_blank=True)
-    phone = serializers.CharField(required=False, allow_blank=True)
+    first_name = serializers.CharField(required=False, allow_blank=True, default="")
+    last_name = serializers.CharField(required=False, allow_blank=True, default="")
+    phone = serializers.CharField(required=False, allow_blank=True, default="")
 
-    def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+class VerifySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField()
+
+class MessageSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    email = serializers.EmailField(required=False)
+    user_id = serializers.IntegerField(required=False)
 
 
 class LoginSerializer(serializers.Serializer):
