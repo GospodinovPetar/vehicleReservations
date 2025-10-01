@@ -85,7 +85,7 @@
           <tbody>
             {% for r in group.filtered_reservations %}
               <tr>
-                <td>{{ r.vehicle_name_snapshot|default:r.vehicle }}</td>
+                <td><a href="{% url 'accounts:vehicle-profile' r.vehicle.id %}">{{ r.vehicle_name_snapshot|default:r.vehicle }}</a></td>
                 <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                 <td>
                   {{ r.pickup_location.name|default:r.pickup_location_snapshot }}
@@ -135,7 +135,6 @@
   <p>No active reservations.</p>
 {% endif %}
 
-{# ---------- Archived (folded by default) ---------- #}
 <details id="archived-block" style="margin-top:2em;">
   <summary style="cursor:pointer; list-style:none;">
     <h2 style="display:inline;">Archived Reservations</h2>
@@ -170,7 +169,7 @@
             <tbody>
               {% for r in group.filtered_reservations %}
                 <tr>
-                  <td>{{ r.vehicle_name_snapshot|default:r.vehicle }}</td>
+                  <td><a href="{% url 'accounts:vehicle-profile' r.vehicle.id %}">{{ r.vehicle_name_snapshot|default:r.vehicle }}</a></td>
                   <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                   <td>
                     {{ r.pickup_location.name|default:r.pickup_location_snapshot }}

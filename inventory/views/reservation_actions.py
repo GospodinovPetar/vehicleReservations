@@ -225,22 +225,7 @@ def my_reservations(request: HttpRequest) -> HttpResponse:
         locations = list(
             Location.objects.order_by("name").values_list("name", flat=True).distinct()
         )
-        # empty paginators for template compatibility
-        empty_paginator = Paginator([], 10)
-        empty_page = empty_paginator.page(1)
-        return render(
-            request,
-            "accounts/reservations/reservation_list_user.html",
-            {
-                "ongoing_page_obj": empty_page,
-                "archived_page_obj": empty_page,
-                "ongoing_params": request.GET.urlencode(),
-                "archived_params": request.GET.urlencode(),
-                "locations": locations,
-            },
-        )
 
-    # -------- Split groups by status (Active vs Archived) --------
     ACTIVE_STATUSES   = ["PENDING", "AWAITING_PAYMENT", "RESERVED", "ONGOING"]
     ARCHIVED_STATUSES = ["COMPLETED", "REJECTED", "CANCELED"]
 

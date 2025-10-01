@@ -260,7 +260,7 @@ def logout_view(request: HttpRequest) -> HttpResponse:
 @login_required
 def profile_detail(request: HttpRequest, pk: int) -> HttpResponse:
     user = get_object_or_404(User, pk=pk)
-    return render(request, "accounts/profile_detail.html", {"user": user})
+    return render(request, "accounts/profile/profile_detail.html", {"user": user})
 
 
 @login_required

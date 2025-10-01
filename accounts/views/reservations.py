@@ -19,11 +19,14 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Prefetch
 from django.shortcuts import render
 
+from inventory.models.vehicle import Vehicle
+
+
 def reservation_list(request):
-    user_q    = request.GET.get("user", "").strip()
-    pickup_q  = request.GET.get("pickup", "").strip()
+    user_q = request.GET.get("user", "").strip()
+    pickup_q = request.GET.get("pickup", "").strip()
     dropoff_q = request.GET.get("dropoff", "").strip()
-    status_q  = request.GET.get("status", "").strip()
+    status_q = request.GET.get("status", "").strip()
 
     reservations_qs = (
         VehicleReservation.objects
@@ -99,6 +102,8 @@ def reservation_list(request):
         Location.objects.order_by("name").values_list("name", flat=True).distinct()
     )
 
+    vehicles = Vehicle.objects.order_by("name").all()
+
     return render(request, "accounts/reservations/reservation_list.html", {
         "ongoing_page_obj": ongoing_page_obj,
         "archived_page_obj": archived_page_obj,
@@ -107,6 +112,7 @@ def reservation_list(request):
         "locations": locations,
         "ongoing_params": ongoing_params,
         "archived_params": archived_params,
+        "vehicles": vehicles,
     })
 
 

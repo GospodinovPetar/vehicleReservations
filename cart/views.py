@@ -87,7 +87,7 @@ def add_to_cart(request: HttpRequest) -> HttpResponse:
         vehicle_str = str(vehicle_obj)
         period_str = f"{item.start_date} \u2192 {item.end_date}"
         messages.success(request, f"Added {vehicle_str} to cart for {period_str}.")
-        return redirect("cart:view_cart")
+        return redirect("/")
 
     except ValidationError as exc:
         if hasattr(exc, "message_dict") and exc.message_dict:

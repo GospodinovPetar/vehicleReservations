@@ -77,7 +77,6 @@
             {% if group.status == "PENDING" %}
               <a class="btn btn-success" href="{% url 'accounts:reservation-group-approve' group.id %}">Approve</a>
               <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject</a>
-              <a class="btn" href="{% url 'accounts:reservation-update' group.id %}">Edit</a>
             {% elif group.status == "AWAITING_PAYMENT" %}
               <span class="badge">Awaiting Payment</span>
               <a class="btn btn-danger" href="{% url 'accounts:reservation-group-reject' group.id %}">Reject</a>
@@ -118,7 +117,7 @@
                     {% endif %}
                   </a>
                 </td>
-                <td>{{ r.vehicle_name_snapshot|default:r.vehicle }}</td>
+                <td><a href="{% url 'accounts:vehicle-profile' r.vehicle.id %}">{{ r.vehicle_name_snapshot|default:r.vehicle }}</a></td>
                 <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                 <td>
                   {{ r.pickup_location.name|default:r.pickup_location_snapshot }}
@@ -128,7 +127,6 @@
                 <td>{{ r.total_price|floatformat:2 }} EUR</td>
                 <td>
                   {% if group.status == "PENDING" or group.status == "AWAITING_PAYMENT" %}
-                    <a class="btn" href="{% url 'inventory:edit_reservation' r.id %}">Edit</a>
                     <form method="post" action="{% url 'inventory:delete_reservation' r.id %}" style="display:inline;">
                       {% csrf_token %}
                       <button class="btn" type="submit">Delete</button>
@@ -208,7 +206,7 @@
                       {% endif %}
                     </a>
                   </td>
-                  <td>{{ r.vehicle_name_snapshot|default:r.vehicle }}</td>
+                                  <td><a href="{% url 'accounts:vehicle-profile' r.vehicle.id %}">{{ r.vehicle_name_snapshot|default:r.vehicle }}</a></td>
                   <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                   <td>
                     {{ r.pickup_location.name|default:r.pickup_location_snapshot }}

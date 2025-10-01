@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timezone
+from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 from config.ws_events import broadcast_reservation_event
 
