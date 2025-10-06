@@ -117,13 +117,13 @@
         <div class="row">
           <div>
             <strong>
-              {% with vid=r.vehicle_id %}
-              {% if vid %}
-                <a href="{% url 'accounts:vehicle-profile' vid %}">{{ r.vehicle_display|default:r.vehicle }}</a>
-              {% else %}
-                <span class="text-muted">{{ r.vehicle_display|default:r.vehicle }}</span>
-              {% endif %}
-            {% endwith %}
+              {% with vid=r.vehicle.pk %}
+                {% if vid %}
+                  <a href="{% url 'accounts:vehicle-profile' vid %}">{{ r.vehicle }}</a>
+                {% else %}
+                  {{ r.vehicle }}
+                {% endif %}
+              {% endwith %}
             </strong><br>
             {{ r.vehicle.car_type|title }} • {{ r.vehicle.engine_type|title }} • {{ r.vehicle.get_gearbox_display }}
             • {% if r.vehicle.unlimited_seats %}∞ seats{% else %}{{ r.vehicle.seats }} seats{% endif %}
@@ -256,13 +256,13 @@
         <div class="row">
           <div>
             <strong>
-              {% with vid=row.vehicle_id %}
-              {% if vid %}
-                <a href="{% url 'accounts:vehicle-profile' vid %}">{{ row.vehicle }}</a>
-              {% else %}
-                <span class="text-muted">{{ row.vehicle }}</span>
-              {% endif %}
-            {% endwith %}
+              {% with vid=row.vehicle.pk %}
+                {% if vid %}
+                  <a href="{% url 'accounts:vehicle-profile' vid %}">{{ row.vehicle }}</a>
+                {% else %}
+                  {{ row.vehicle }}
+                {% endif %}
+              {% endwith %}
             </strong><br>
             {{ row.vehicle.car_type|title }} • {{ row.vehicle.engine_type|title }} • {{ row.vehicle.get_gearbox_display }}
             {% if row.vehicle.year_of_manufacturing %} • {{ row.vehicle.year_of_manufacturing }}{% endif %}

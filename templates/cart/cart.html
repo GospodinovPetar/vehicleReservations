@@ -25,13 +25,40 @@
           {% for row in rows %}
             <tr>
               <td>
-                {% with v=row.item.vehicle %}
-                  {% if v %}
-                    {% if v.display_name %}{{ v.display_name }}
-                    {% elif v.name %}{{ v.name }}
-                    {% elif v.make or v.model %}{{ v.make }}{% if v.make and v.model %} {% endif %}{{ v.model }}
-                    {% else %}{{ v }}{% endif %}
-                  {% else %}—{% endif %}
+                {% with vid=row.item.vehicle_id v=row.item.vehicle %}
+                  {% if vid %}
+                    <a href="{% url 'accounts:vehicle-profile' vid %}">
+                      {% if v and v.display_name %}
+                        {{ v.display_name }}
+                      {% elif v and v.name %}
+                        {{ v.name }}
+                      {% elif v and v.make %}
+                        {{ v.make }}{% if v.model %} {{ v.model }}{% endif %}
+                      {% elif v and v.model %}
+                        {{ v.model }}
+                      {% elif row.item.vehicle_name_snapshot %}
+                        {{ row.item.vehicle_name_snapshot }}
+                      {% else %}
+                        {{ v|default:"(deleted vehicle)" }}
+                      {% endif %}
+                    </a>
+                  {% else %}
+                    <span class="text-muted">
+                      {% if v and v.display_name %}
+                        {{ v.display_name }}
+                      {% elif v and v.name %}
+                        {{ v.name }}
+                      {% elif v and v.make %}
+                        {{ v.make }}{% if v.model %} {{ v.model }}{% endif %}
+                      {% elif v and v.model %}
+                        {{ v.model }}
+                      {% elif row.item.vehicle_name_snapshot %}
+                        {{ row.item.vehicle_name_snapshot }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </span>
+                  {% endif %}
                 {% endwith %}
               </td>
 
