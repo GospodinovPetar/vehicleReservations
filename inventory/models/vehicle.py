@@ -47,6 +47,9 @@ SEAT_BOUNDS = {
     VehicleType.SUV: (2, 5),
 }
 
+class Gearbox(models.TextChoices):
+    AUTOMATIC = "automatic", "Automatic"
+    MANUAL = "manual", "Manual"
 
 class EngineType(models.TextChoices):
     PETROL = "petrol", "Petrol"
@@ -82,6 +85,12 @@ class Vehicle(models.Model):
     fuel_consumption_l_100km = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     damages = models.TextField(blank=True)
     unlimited_seats = models.BooleanField(default=False)
+
+    gearbox = models.CharField(
+        max_length=9,
+        choices=Gearbox.choices,
+        default=Gearbox.AUTOMATIC,
+    )
 
     available_pickup_locations = models.ManyToManyField(
         "inventory.Location", related_name="pickup_vehicles", blank=True

@@ -6,14 +6,16 @@
       <th>User</th>
       <th>Vehicle</th>
       <th>Dates</th>
+      <th>Pickup -> Drop off</th>
       <th>Status</th>
       <th>Actions</th>
     </tr>
     {% for r in reservations %}
       <tr>
         <td>{{ r.user.username }}</td>
-        <td>{{ r.vehicle.name }}</td>
+        <td>{{ r.vehicle_display }}</td>
         <td>{{ r.start_date }} → {{ r.end_date }}</td>
+        <td>{{ r.pickup_location_display }} → {{ r.return_location_display }}</td>
         <td>{{ r.status }}</td>
         <td>
           <a href="{% url 'manager:reservation-update' r.id %}">Update Status</a>

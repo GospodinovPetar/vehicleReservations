@@ -105,6 +105,7 @@ class VehicleForm(forms.ModelForm):
             "plate_number",
             "year_of_manufacturing",
             "top_speed_kmh",
+            "gearbox",
             "mileage_km",
             "fuel_consumption_l_100km",
             "damages",

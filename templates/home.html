@@ -40,6 +40,18 @@
             <input type="text" name="name" placeholder="e.g. Corolla" value="{{ request.GET.name|default:'' }}">
           </label>
         </div>
+
+        <div>
+          <label>
+            Gearbox
+            <select name="gearbox">
+              <option value="" {% if not selected_gearbox %}selected{% endif %}>Any</option>
+              <option value="automatic" {% if selected_gearbox == 'automatic' %}selected{% endif %}>Automatic</option>
+              <option value="manual" {% if selected_gearbox == 'manual' %}selected{% endif %}>Manual</option>
+            </select>
+          </label>
+        </div>
+
         <div>
           <label>
             Pickup location
@@ -51,6 +63,9 @@
             </select>
           </label>
         </div>
+      </div>
+
+      <div class="row" style="display:grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:12px; margin-top:8px;">
         <div>
           <label>
             Return location
@@ -110,8 +125,8 @@
                 {% endif %}
               {% endwith %}
             </strong><br>
-            {{ r.vehicle.car_type|title }} • {{ r.vehicle.engine_type|title }} •
-            {% if r.vehicle.unlimited_seats %}∞ seats{% else %}{{ r.vehicle.seats }} seats{% endif %}
+            {{ r.vehicle.car_type|title }} • {{ r.vehicle.engine_type|title }} • {{ r.vehicle.get_gearbox_display }}
+            • {% if r.vehicle.unlimited_seats %}∞ seats{% else %}{{ r.vehicle.seats }} seats{% endif %}
             {% if r.vehicle.year_of_manufacturing %} • {{ r.vehicle.year_of_manufacturing }}{% endif %}
           </div>
 
@@ -183,7 +198,7 @@
 
           <div>
             {% if request.user.is_authenticated %}
-              <form method="post" action="{% url 'inventory:reserve' %}">
+              <form method="post" action="{% url 'inventory:add_to_cart' %}">
                 {% csrf_token %}
                 <input type="hidden" name="vehicle" value="{{ r.vehicle.id }}">
                 <input type="hidden" name="start" value="{{ start }}">
@@ -220,7 +235,7 @@
               </form>
             {% else %}
               <a class="btn"
-                 href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ start }}&end={{ end }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}">
+                 href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ start }}&end={{ end }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}{% if selected_gearbox %}&gearbox={{ selected_gearbox }}{% endif %}">
                 Login to add to cart
               </a>
             {% endif %}
@@ -249,7 +264,7 @@
                 {% endif %}
               {% endwith %}
             </strong><br>
-            {{ row.vehicle.car_type|title }} • {{ row.vehicle.engine_type|title }}
+            {{ row.vehicle.car_type|title }} • {{ row.vehicle.engine_type|title }} • {{ row.vehicle.get_gearbox_display }}
             {% if row.vehicle.year_of_manufacturing %} • {{ row.vehicle.year_of_manufacturing }}{% endif %}
           </div>
 
@@ -266,7 +281,7 @@
           <div>
             {% for s in row.slices %}
               {% if request.user.is_authenticated %}
-                <form method="post" action="{% url 'inventory:reserve' %}" style="margin:.25rem 0;">
+                <form method="post" action="{% url 'inventory:add_to_cart' %}" style="margin:.25rem 0;">
                   {% csrf_token %}
                   <input type="hidden" name="vehicle" value="{{ row.vehicle.id }}">
                   <input type="hidden" name="start" value="{{ s.start|date:'Y-m-d' }}">
@@ -303,7 +318,7 @@
                 </form>
               {% else %}
                 <a class="btn" style="margin:.25rem 0;"
-                   href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ s.start|date:'Y-m-d' }}&end={{ s.end|date:'Y-m-d' }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}">
+                   href="{% url 'accounts:login' %}?next={% url 'inventory:search' %}?start={{ s.start|date:'Y-m-d' }}&end={{ s.end|date:'Y-m-d' }}{% if pickup_location %}&pickup_location={{ pickup_location }}{% endif %}{% if return_location %}&return_location={{ return_location }}{% endif %}{% if selected_gearbox %}&gearbox={{ selected_gearbox }}{% endif %}">
                   Login to reserve {{ s.start }} → {{ s.end }}
                 </a>
               {% endif %}

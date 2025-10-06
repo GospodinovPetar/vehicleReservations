@@ -60,6 +60,17 @@
           {% if form.engine_type.errors %}<div class="field-error">{{ form.engine_type.errors|striptags }}</div>{% endif %}
         </div>
 
+        {# NEW: Gearbox #}
+        <div class="form-field">
+          <label for="{{ form.gearbox.id_for_label }}">
+            {{ form.gearbox.label }}
+            {% if form.gearbox.field.required %}<span class="req">*</span>{% endif %}
+          </label>
+          {{ form.gearbox }}
+          {% if form.gearbox.errors %}<div class="field-error">{{ form.gearbox.errors|striptags }}</div>{% endif %}
+          {% if form.gearbox.help_text %}<small class="help">{{ form.gearbox.help_text }}</small>{% endif %}
+        </div>
+
         <div class="form-field">
           <label for="{{ form.seats.id_for_label }}">
             {{ form.seats.label }}
