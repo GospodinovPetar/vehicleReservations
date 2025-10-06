@@ -182,9 +182,6 @@ class AdminOnlyAdmin(admin.ModelAdmin):
     def has_view_permission(self, request: HttpRequest, obj=None) -> bool:
         return bool(request.user.is_authenticated and getattr(request.user, "role", "") == "admin")
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
-        return bool(request.user.is_authenticated and getattr(request.user, "role", "") == "admin")
-
     def has_change_permission(self, request: HttpRequest, obj=None) -> bool:
         return bool(request.user.is_authenticated and getattr(request.user, "role", "") == "admin")
 

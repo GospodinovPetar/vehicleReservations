@@ -425,12 +425,6 @@ class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
 
-    def get_permissions(self):
-        manager_actions = {"create", "update", "partial_update", "destroy"}
-        if self.action in manager_actions:
-            return [IsManagerOrAdmin()]
-        return [AllowAny()]
-
 
 class CartItemCreateSerializer(serializers.Serializer):
     vehicle_id = serializers.IntegerField()

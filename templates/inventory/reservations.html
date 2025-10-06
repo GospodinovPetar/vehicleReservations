@@ -169,7 +169,14 @@
             <tbody>
               {% for r in group.filtered_reservations %}
                 <tr>
-                  <td><a href="{% url 'accounts:vehicle-profile' r.vehicle.id %}">{{ r.vehicle_name_snapshot|default:r.vehicle }}</a></td>
+                  <td>{% with vid=r.vehicle_id %}
+                    {% if vid %}
+                      <a href="{% url 'accounts:vehicle-profile' vid %}">{{ r.vehicle_display|default:r.vehicle_name_snapshot|default:r.vehicle }}</a>
+                    {% else %}
+                      <span class="text-muted">{{ r.vehicle_display|default:r.vehicle_name_snapshot|default:r.vehicle }}</span>
+                    {% endif %}
+                  {% endwith %}
+                  </td>
                   <td>{{ r.start_date|date:"Y-m-d" }} → {{ r.end_date|date:"Y-m-d" }}</td>
                   <td>
                     {{ r.pickup_location.name|default:r.pickup_location_snapshot }}
